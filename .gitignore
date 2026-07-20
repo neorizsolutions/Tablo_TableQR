@@ -1,0 +1,38 @@
+# Node
+node_modules/
+dist/
+build/
+npm-debug.log
+yarn-error.log
+.output/
+.vercel/
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# .NET
+bin/
+obj/
+TestResults/
+*.userprefs
+*.suo
+*.user
+*.dbmdl
+*.jfm
+*.pfx
+*.publishsettings
+
+# Rider / Visual Studio / VS Code
+.idea/
+.vscode/
+.vs/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Project Specific
+*.log
+npm_install_log.txt
