@@ -6,7 +6,6 @@ import { SiteHeader } from "@/components/site-header";
 import { useAuth } from "@/hooks/use-auth";
 import { formatINR, relativeTime } from "@/lib/mock-data";
 import { Order, OrderStatus } from "@/types";
-import { useRestaurant } from "@/hooks/use-restaurant";
 import { useOrders, useUpdateOrderStatus } from "@/hooks/use-orders";
 
 export const Route = createFileRoute("/dashboard")({
@@ -96,10 +95,7 @@ function NoAccessGate({ roles, onSignOut }: { roles: string[]; onSignOut: () => 
 function DashboardInner() {
   const { signOut, user } = useAuth();
   
-  // For a multi-tenant SaaS, staff would belong to a restaurant. 
-  // For now, we mock the staff's restaurant context using the demo restaurant slug.
-  const { data: restaurant } = useRestaurant("saffron-sage");
-  const { data: orders = [], isLoading: loadingOrders } = useOrders(restaurant?.id || null);
+  const { data: orders = [], isLoading: loadingOrders } = useOrders(user?.restaurantId || null);
   const { mutateAsync: updateStatus } = useUpdateOrderStatus();
 
   const [filter, setFilter] = useState<OrderStatus | "all">("all");

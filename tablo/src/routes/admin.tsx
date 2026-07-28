@@ -6,7 +6,6 @@ import { SiteHeader } from "@/components/site-header";
 import { useAuth } from "@/hooks/use-auth";
 import { formatINR } from "@/lib/mock-data";
 import { Category, MenuItem } from "@/types";
-import { useRestaurant } from "@/hooks/use-restaurant";
 import { useAdminMenu, useUpdateMenuItem, useCreateMenuItem, useDeleteMenuItem, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/hooks/use-menu";
 import { useTables, useCreateTable, useUpdateTable, useRegenerateQR } from "@/hooks/use-tables";
 import { QRCodeSVG } from "qrcode.react";
@@ -90,8 +89,8 @@ function NoAccessGate({ roles, onSignOut }: { roles: string[]; onSignOut: () => 
 }
 
 function AdminInner() {
-  const { data: restaurant } = useRestaurant("saffron-sage");
-  const { data: menuData, isLoading: loadingMenu } = useAdminMenu(restaurant?.id || null);
+  const { user } = useAuth();
+  const { data: menuData, isLoading: loadingMenu } = useAdminMenu(user?.restaurantId || null);
   
   const categoriesList = menuData?.categories || [];
   const items = menuData?.flatMenu || [];
@@ -111,7 +110,7 @@ function AdminInner() {
   const [manageCategories, setManageCategories] = useState(false);
   const [manageTables, setManageTables] = useState(false);
 
-  const { data: tables = [] } = useTables(restaurant?.id || null);
+  const { data: tables = [] } = useTables(user?.restaurantId || null);
   const activeTables = tables.filter((t: any) => t.isActive);
   const activeTablesCount = activeTables.length;
   const previewLink = activeTables.length > 0 ? `/t/${activeTables[0].qrToken}` : "#";
@@ -140,7 +139,7 @@ function AdminInner() {
       }
     } else if (creating) {
       try {
-        await createItem({ restaurantId: restaurant!.id, categoryId, item: updated });
+        await createItem({ restaurantId: user!.restaurantId, categoryId, item: updated });
         setCreating(false);
         toast.success("Item created");
       } catch (err: any) {
@@ -161,7 +160,7 @@ function AdminInner() {
 
   const handleCreateCategory = async (name: string) => {
     try {
-      await createCat({ restaurantId: restaurant!.id, name });
+      await createCat({ restaurantId: user!.restaurantId, name });
       toast.success("Category created");
     } catch (err: any) {
       toast.error(err.message || "Failed to create category");
@@ -336,7 +335,7 @@ function AdminInner() {
       {editing && <ItemModal item={editing} categories={categoriesList} onClose={() => setEditing(null)} onSaved={saveItem} />}
       {creating && <ItemModal categories={categoriesList} onClose={() => setCreating(false)} onSaved={saveItem} />}
       {manageCategories && <CategoriesModal categories={categoriesList} onClose={() => setManageCategories(false)} onCreate={handleCreateCategory} onUpdate={handleUpdateCategory} onDelete={handleDeleteCategory} />}
-      {manageTables && <TablesModal restaurantId={restaurant!.id} tables={tables} onClose={() => setManageTables(false)} />}
+      {manageTables && <TablesModal restaurantId={user!.restaurantId} tables={tables} onClose={() => setManageTables(false)} />}
     </div>
   );
 }

@@ -11,5 +11,6 @@ namespace Tablo.Api.Interfaces
         Task<IEnumerable<Order>> GetOrdersAsync(Guid restaurantId, string? status = null);
         Task<Order?> GetOrderByIdAsync(Guid restaurantId, Guid orderId);
         Task UpdateOrderAsync(Order order);
+        Task<int> GetNextOrderNumberAsync(Guid restaurantId);
     }
 }

@@ -346,3 +346,54 @@ export async function updateEmployeeStatus(id: string, isActive: boolean): Promi
   });
 }
 
+// Reporting API
+
+export interface ReportOrderItemDto {
+  itemNameSnapshot: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface ReportOrderDto {
+  orderId: string;
+  orderNumber: number;
+  displayOrderNumber: string;
+  tableId: string;
+  tableName: string;
+  createdAt: string;
+  updatedAt: string;
+  status: string;
+  totalAmount: number;
+  items: ReportOrderItemDto[];
+}
+
+export interface PagedResponseDto<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+export async function getReports(params: {
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  tableId?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<PagedResponseDto<ReportOrderDto>> {
+  const searchParams = new URLSearchParams();
+  if (params.startDate) searchParams.append("startDate", params.startDate);
+  if (params.endDate) searchParams.append("endDate", params.endDate);
+  if (params.status && params.status !== "all") searchParams.append("status", params.status);
+  if (params.tableId && params.tableId !== "all") searchParams.append("tableId", params.tableId);
+  if (params.search) searchParams.append("search", params.search);
+  if (params.page) searchParams.append("page", params.page.toString());
+  if (params.pageSize) searchParams.append("pageSize", params.pageSize.toString());
+
+  return apiClient<PagedResponseDto<ReportOrderDto>>(`/reports/orders?${searchParams.toString()}`);
+}
+

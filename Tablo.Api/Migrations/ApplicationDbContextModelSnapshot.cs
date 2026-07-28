@@ -152,10 +152,7 @@ namespace Tablo.Api.Migrations
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<int>("OrderNumber")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("OrderNumber"));
 
                     b.Property<Guid>("RestaurantId")
                         .HasColumnType("uuid");
@@ -184,6 +181,11 @@ namespace Tablo.Api.Migrations
 
                     b.HasIndex("TableId");
 
+                    b.HasIndex("RestaurantId", "CreatedAt");
+
+                    b.HasIndex("RestaurantId", "OrderNumber")
+                        .IsUnique();
+
                     b.HasIndex("RestaurantId", "Status");
 
                     b.ToTable("Orders", (string)null);
@@ -194,6 +196,11 @@ namespace Tablo.Api.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ItemNameSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
 
                     b.Property<Guid>("MenuItemId")
                         .HasColumnType("uuid");
@@ -261,6 +268,21 @@ namespace Tablo.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Restaurants", (string)null);
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.RestaurantOrderSequence", b =>
+                {
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("NextOrderNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.HasKey("RestaurantId");
+
+                    b.ToTable("RestaurantOrderSequences", (string)null);
                 });
 
             modelBuilder.Entity("Tablo.Api.Entities.RestaurantTable", b =>
@@ -403,6 +425,17 @@ namespace Tablo.Api.Migrations
                     b.Navigation("MenuItem");
 
                     b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.RestaurantOrderSequence", b =>
+                {
+                    b.HasOne("Tablo.Api.Entities.Restaurant", "Restaurant")
+                        .WithOne()
+                        .HasForeignKey("Tablo.Api.Entities.RestaurantOrderSequence", "RestaurantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Restaurant");
                 });
 
             modelBuilder.Entity("Tablo.Api.Entities.RestaurantTable", b =>

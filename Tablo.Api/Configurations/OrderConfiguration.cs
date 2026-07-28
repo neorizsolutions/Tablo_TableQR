@@ -11,7 +11,7 @@ namespace Tablo.Api.Configurations
             builder.ToTable("Orders");
             builder.HasKey(o => o.Id);
 
-            builder.Property(o => o.OrderNumber).ValueGeneratedOnAdd().UseIdentityColumn();
+            builder.Property(o => o.OrderNumber).IsRequired();
             builder.Property(o => o.Status).IsRequired().HasMaxLength(50).HasDefaultValue("Placed");
             builder.Property(o => o.TotalAmount).HasColumnType("decimal(18,2)").IsRequired();
             builder.Property(o => o.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -19,6 +19,8 @@ namespace Tablo.Api.Configurations
 
             builder.HasIndex(o => o.RestaurantId);
             builder.HasIndex(o => new { o.RestaurantId, o.Status });
+            builder.HasIndex(o => new { o.RestaurantId, o.CreatedAt });
+            builder.HasIndex(o => new { o.RestaurantId, o.OrderNumber }).IsUnique();
 
             builder.HasOne(o => o.Restaurant)
                 .WithMany(r => r.Orders)

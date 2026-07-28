@@ -60,6 +60,7 @@ builder.Services.AddScoped<Tablo.Api.Interfaces.IQRService, Tablo.Api.Services.Q
 builder.Services.AddScoped<Tablo.Api.Interfaces.IOrderRepository, Tablo.Api.Repositories.OrderRepository>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IOrderService, Tablo.Api.Services.OrderService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IAuthService, Tablo.Api.Services.AuthService>();
+builder.Services.AddScoped<Tablo.Api.Interfaces.IReportService, Tablo.Api.Services.ReportService>();
 
 var app = builder.Build();
 

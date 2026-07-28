@@ -75,5 +75,28 @@ namespace Tablo.Api.Repositories
             _context.Orders.Update(order);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<int> GetNextOrderNumberAsync(Guid restaurantId)
+        {
+            // Postgres atomic upsert and return the inserted NextOrderNumber - 1 (because we incremented it)
+            // Or easier: return NextOrderNumber, and the returning statement will get the NEW incremented value. Wait.
+            // Let's just do: insert if not exists with 2, on conflict update set NextOrderNumber = NextOrderNumber + 1 RETURNING NextOrderNumber
+            var sql = @"
+                INSERT INTO ""RestaurantOrderSequences"" (""RestaurantId"", ""NextOrderNumber"")
+                VALUES (@p0, 2)
+                ON CONFLICT (""RestaurantId"") 
+                DO UPDATE SET ""NextOrderNumber"" = ""RestaurantOrderSequences"".""NextOrderNumber"" + 1
+                RETURNING ""NextOrderNumber"";
+            ";
+
+            // Ef Core doesn't easily return a scalar from raw SQL if it's not an entity. 
+            // Better to query via Dapper or DbConnection. 
+            // EF Core 8: _context.Database.SqlQueryRaw<int>
+            var resultList = await _context.Database.SqlQueryRaw<int>(sql, restaurantId).ToListAsync();
+            var result = resultList.Single();
+            return result - 1; // Since we incremented to the *next* one, the current one is result - 1.
+            // Actually, if we insert 2, the current one is 1. If it returns 2, current is 1.
+            // If it returns 3, current is 2. So yes, return result - 1.
+        }
     }
 }

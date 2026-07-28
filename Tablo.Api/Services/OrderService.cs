@@ -67,6 +67,7 @@ namespace Tablo.Api.Services
                 var orderItem = new OrderItem
                 {
                     MenuItemId = menuItem.Id,
+                    ItemNameSnapshot = menuItem.Name, // Snapshot historical name
                     Quantity = itemRequest.Quantity,
                     UnitPrice = menuItem.Price
                 };
@@ -81,6 +82,9 @@ namespace Tablo.Api.Services
             }
 
             order.TotalAmount = totalAmount;
+
+            // Atomically fetch the next order number for this restaurant
+            order.OrderNumber = await _orderRepository.GetNextOrderNumberAsync(table.RestaurantId);
 
             var createdOrder = await _orderRepository.CreateOrderAsync(order);
 

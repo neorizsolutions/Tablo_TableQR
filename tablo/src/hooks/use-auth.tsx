@@ -79,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("tablo_token");
     setUser(null);
     setRoles([]);
+    window.location.href = "/auth";
   };
 
   const isStaff = roles.includes("Admin") || roles.includes("Kitchen") || roles.includes("Waiter");

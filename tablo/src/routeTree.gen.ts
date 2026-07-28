@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StaffRouteImport } from './routes/staff'
+import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -19,6 +20,11 @@ import { Route as TQrTokenRouteImport } from './routes/t.$qrToken'
 const StaffRoute = StaffRouteImport.update({
   id: '/staff',
   path: '/staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/t/$qrToken': typeof TQrTokenRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/t/$qrToken': typeof TQrTokenRoute
 }
@@ -69,20 +77,36 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/t/$qrToken': typeof TQrTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/auth' | '/dashboard' | '/staff' | '/t/$qrToken'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/dashboard'
+    | '/reports'
+    | '/staff'
+    | '/t/$qrToken'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/auth' | '/dashboard' | '/staff' | '/t/$qrToken'
+  to:
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/dashboard'
+    | '/reports'
+    | '/staff'
+    | '/t/$qrToken'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/auth'
     | '/dashboard'
+    | '/reports'
     | '/staff'
     | '/t/$qrToken'
   fileRoutesById: FileRoutesById
@@ -92,6 +116,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
+  ReportsRoute: typeof ReportsRoute
   StaffRoute: typeof StaffRoute
   TQrTokenRoute: typeof TQrTokenRoute
 }
@@ -103,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/staff'
       fullPath: '/staff'
       preLoaderRoute: typeof StaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -148,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
+  ReportsRoute: ReportsRoute,
   StaffRoute: StaffRoute,
   TQrTokenRoute: TQrTokenRoute,
 }

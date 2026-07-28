@@ -15,6 +15,7 @@ export function SiteHeader() {
     if (roles.includes("Admin") || roles.includes("Owner")) {
       links.push({ to: "/", label: "Overview" });
       links.push({ to: "/dashboard", label: "Kitchen / Waiter" });
+      links.push({ to: "/reports", label: "Reports" });
       links.push({ to: "/admin", label: "Admin" });
       links.push({ to: "/staff", label: "Staff" });
     } else if (roles.includes("Kitchen")) {

@@ -12,7 +12,8 @@ namespace Tablo.Api.Configurations
             builder.HasKey(oi => oi.Id);
 
             builder.Property(oi => oi.Quantity).IsRequired();
-            builder.Property(oi => oi.UnitPrice).HasColumnType("decimal(18,2)").IsRequired();
+            builder.Property(oi => oi.UnitPrice).HasColumnType("decimal(18,2)").IsRequired().HasDefaultValue(0m);
+            builder.Property(oi => oi.ItemNameSnapshot).HasMaxLength(255).IsRequired().HasDefaultValue("");
             builder.Property(oi => oi.SpecialInstructions).HasMaxLength(500);
 
             builder.HasOne(oi => oi.Order)

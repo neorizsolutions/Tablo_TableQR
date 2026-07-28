@@ -11,6 +11,7 @@ namespace Tablo.Api.Entities
         public Order Order { get; set; } = null!;
         
         public Guid MenuItemId { get; set; }
+        public string ItemNameSnapshot { get; set; } = string.Empty;
         public MenuItem MenuItem { get; set; } = null!;
         
         public int Quantity { get; set; }
