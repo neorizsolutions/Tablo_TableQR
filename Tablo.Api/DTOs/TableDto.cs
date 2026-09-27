@@ -6,7 +6,7 @@ namespace Tablo.Api.DTOs
     {
         public Guid Id { get; set; }
         public Guid RestaurantId { get; set; }
-        public string NameOrNumber { get; set; } = string.Empty;
+        public int TableNumber { get; set; }
         public string QRToken { get; set; } = string.Empty;
         public bool IsActive { get; set; }
     }

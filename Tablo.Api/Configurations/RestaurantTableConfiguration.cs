@@ -11,7 +11,8 @@ namespace Tablo.Api.Configurations
             builder.ToTable("RestaurantTables");
             builder.HasKey(t => t.Id);
 
-            builder.Property(t => t.NameOrNumber).IsRequired().HasMaxLength(100);
+            builder.Property(t => t.TableNumber).IsRequired();
+            builder.HasIndex(t => new { t.RestaurantId, t.TableNumber }).IsUnique();
             builder.Property(t => t.QRToken).IsRequired().HasMaxLength(255);
 
             builder.HasIndex(t => t.QRToken).IsUnique();

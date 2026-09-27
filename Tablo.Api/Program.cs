@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -17,17 +20,24 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        builder.AllowAnyOrigin()
+        var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? new[] { "http://localhost:8080" };
+        policy.WithOrigins(allowedOrigins)
                .AllowAnyMethod()
-               .AllowAnyHeader();
+               .AllowAnyHeader()
+               .AllowCredentials(); // SignalR needs credentials
     });
 });
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.ASCII.GetBytes(jwtSettings["Key"] ?? "SuperSecretKeyThatIsAtLeast32BytesLong!");
+var jwtKeyString = jwtSettings["Key"];
+if (string.IsNullOrEmpty(jwtKeyString))
+{
+    throw new InvalidOperationException("JWT Key is missing from configuration.");
+}
+var key = Encoding.ASCII.GetBytes(jwtKeyString);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -46,6 +56,20 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(key)
     };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
@@ -60,7 +84,18 @@ builder.Services.AddScoped<Tablo.Api.Interfaces.IQRService, Tablo.Api.Services.Q
 builder.Services.AddScoped<Tablo.Api.Interfaces.IOrderRepository, Tablo.Api.Repositories.OrderRepository>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IOrderService, Tablo.Api.Services.OrderService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IAuthService, Tablo.Api.Services.AuthService>();
+builder.Services.AddScoped<Tablo.Api.Interfaces.IEmailService, Tablo.Api.Services.EmailService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IReportService, Tablo.Api.Services.ReportService>();
+builder.Services.AddScoped<Tablo.Api.Interfaces.IServiceRequestService, Tablo.Api.Services.ServiceRequestService>();
+builder.Services.AddScoped<Tablo.Api.Interfaces.ISettingsService, Tablo.Api.Services.SettingsService>();
+
+builder.Services.AddRateLimiter(options => {
+    options.AddFixedWindowLimiter("PublicApi", opt => {
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.PermitLimit = 30;
+        opt.QueueLimit = 0;
+    });
+});
 
 var app = builder.Build();
 
@@ -72,7 +107,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+app.UseStaticFiles();
+app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -97,30 +134,35 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     try
     {
+        var configuration = services.GetRequiredService<IConfiguration>();
+        bool seedDummyData = configuration.GetValue<bool>("SeedDummyData", true);
+        
         var context = services.GetRequiredService<Tablo.Api.Data.ApplicationDbContext>();
         context.Database.Migrate(); // Ensures db is created and migrated
-        Tablo.Api.Data.DbSeeder.Seed(context);
+        Tablo.Api.Data.DbSeeder.Seed(context, seedDummyData);
 
         // Quick fix to ensure Table 11-20 exist for testing
-        var restaurant = context.Restaurants.FirstOrDefault();
-        if (restaurant != null)
+        if (seedDummyData)
         {
-            var existingTables = context.RestaurantTables.Where(t => t.RestaurantId == restaurant.Id).Select(t => t.NameOrNumber).ToList();
-            for (int i = 11; i <= 20; i++)
+            var restaurant = context.Restaurants.FirstOrDefault();
+            if (restaurant != null)
             {
-                string tableName = $"Table {i}";
-                if (!existingTables.Contains(tableName))
+                var existingTables = context.RestaurantTables.Where(t => t.RestaurantId == restaurant.Id).Select(t => t.TableNumber).ToList();
+                for (int i = 11; i <= 20; i++)
                 {
-                    context.RestaurantTables.Add(new Tablo.Api.Entities.RestaurantTable
+                    if (!existingTables.Contains(i))
                     {
-                        Id = Guid.NewGuid(),
-                        RestaurantId = restaurant.Id,
-                        NameOrNumber = tableName,
-                        QRToken = Guid.NewGuid().ToString("N")
-                    });
+                        context.RestaurantTables.Add(new Tablo.Api.Entities.RestaurantTable
+                        {
+                            Id = Guid.NewGuid(),
+                            RestaurantId = restaurant.Id,
+                            TableNumber = i,
+                            QRToken = Guid.NewGuid().ToString("N")
+                        });
+                    }
                 }
+                context.SaveChanges();
             }
-            context.SaveChanges();
         }
     }
     catch (Exception ex)

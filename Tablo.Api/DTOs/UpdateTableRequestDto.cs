@@ -5,8 +5,8 @@ namespace Tablo.Api.DTOs
     public class UpdateTableRequestDto
     {
         [Required]
-        [MaxLength(100)]
-        public string NameOrNumber { get; set; } = string.Empty;
+        [Range(1, int.MaxValue)]
+        public int TableNumber { get; set; }
 
         public bool IsActive { get; set; }
     }

@@ -13,7 +13,7 @@ export function useTables(restaurantId: string | null) {
 export function useCreateTable() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ restaurantId, nameOrNumber }: { restaurantId: string; nameOrNumber: string }) => createTable(restaurantId, nameOrNumber),
+    mutationFn: ({ restaurantId, tableNumber }: { restaurantId: string; tableNumber: number }) => createTable(restaurantId, tableNumber),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tables', variables.restaurantId] });
       toast.success("Table added successfully");
@@ -27,7 +27,7 @@ export function useCreateTable() {
 export function useUpdateTable() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ restaurantId, tableId, data }: { restaurantId: string; tableId: string; data: { nameOrNumber: string; isActive: boolean } }) => updateTable(restaurantId, tableId, data),
+    mutationFn: ({ restaurantId, tableId, data }: { restaurantId: string; tableId: string; data: { tableNumber: number; isActive: boolean } }) => updateTable(restaurantId, tableId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tables', variables.restaurantId] });
       toast.success("Table updated");

@@ -10,8 +10,8 @@ namespace Tablo.Api.Entities
         public Restaurant Restaurant { get; set; } = null!;
         
         [Required]
-        [MaxLength(100)]
-        public string NameOrNumber { get; set; } = string.Empty;
+        [Range(1, int.MaxValue)]
+        public int TableNumber { get; set; }
         
         [Required]
         [MaxLength(255)]
@@ -21,5 +21,6 @@ namespace Tablo.Api.Entities
 
         // Navigation Properties
         public ICollection<Order> Orders { get; set; } = new List<Order>();
+        public ICollection<ServiceRequest> ServiceRequests { get; set; } = new List<ServiceRequest>();
     }
 }

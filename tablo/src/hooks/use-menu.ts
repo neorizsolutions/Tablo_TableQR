@@ -1,18 +1,52 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getMenu, updateMenuItem } from "@/services/api";
 import { MenuItem } from "@/types";
+import { useEffect } from "react";
+import { HubConnectionBuilder } from "@microsoft/signalr";
+import { API_BASE_URL } from "@/services/apiClient";
 
 export function useMenu(restaurantId: string | null) {
+  const queryClient = useQueryClient();
   const queryKey = ["menu", restaurantId];
 
   const query = useQuery({
     queryKey,
     queryFn: () => getMenu(restaurantId!),
     enabled: !!restaurantId,
-    // Polling could be added here for a pseudo-realtime feel,
-    // e.g. refetchInterval: 5000 
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
+
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    const hubUrl = API_BASE_URL.replace(/\/api\/?$/, "/hubs/order");
+    const connection = new HubConnectionBuilder()
+      .withUrl(hubUrl)
+      .withAutomaticReconnect()
+      .build();
+
+    connection.on("MenuUpdated", () => {
+      queryClient.invalidateQueries({ queryKey });
+    });
+
+    let isMounted = true;
+    connection.start().then(() => {
+      if (isMounted) {
+        connection.invoke("JoinMenuUpdatesGroup", restaurantId).catch(err => console.error("SignalR JoinGroup error:", err));
+      }
+    }).catch(err => console.error("SignalR Connection Error: ", err));
+
+    return () => {
+      isMounted = false;
+      if (connection.state === "Connected") {
+        connection.invoke("LeaveMenuUpdatesGroup", restaurantId)
+          .then(() => connection.stop())
+          .catch(() => connection.stop());
+      } else {
+        connection.stop();
+      }
+    };
+  }, [restaurantId, queryClient, queryKey.join(",")]);
 
   return query;
 }

@@ -12,7 +12,7 @@ export interface MenuItem {
   special: boolean;
 }
 
-export type OrderStatus = "placed" | "accepted" | "preparing" | "ready" | "served" | "cancelled";
+export type OrderStatus = "placed" | "accepted" | "preparing" | "ready" | "served" | "cancelled" | "rejected";
 
 export interface OrderItem {
   id: string;
@@ -28,9 +28,13 @@ export interface Order {
   table_number: number;
   table_id: string;
   status: OrderStatus;
+  subtotal: number;
+  tax: number;
+  discount: number;
   total: number;
   placed_at: string;
   items: OrderItem[];
+  exception_reason?: string | null;
 }
 
 export interface Restaurant {
@@ -38,4 +42,18 @@ export interface Restaurant {
   slug: string;
   name: string;
   tagline: string | null;
+}
+
+export type ServiceRequestType = "CallWaiter" | "RequestBill";
+export type ServiceRequestStatus = "Pending" | "Acknowledged" | "Completed" | "Cancelled";
+
+export interface ServiceRequest {
+  id: string;
+  restaurantId: string;
+  tableId: string;
+  tableName: string;
+  type: ServiceRequestType;
+  status: ServiceRequestStatus;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -8,7 +8,9 @@ import { formatINR } from "@/lib/mock-data";
 import { Category, MenuItem } from "@/types";
 import { useAdminMenu, useUpdateMenuItem, useCreateMenuItem, useDeleteMenuItem, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/hooks/use-menu";
 import { useTables, useCreateTable, useUpdateTable, useRegenerateQR } from "@/hooks/use-tables";
-import { QRCodeSVG } from "qrcode.react";
+import { useSettings } from "@/hooks/use-settings";
+import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
+import { Settings } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -109,6 +111,7 @@ function AdminInner() {
   const [creating, setCreating] = useState(false);
   const [manageCategories, setManageCategories] = useState(false);
   const [manageTables, setManageTables] = useState(false);
+  const [manageSettings, setManageSettings] = useState(false);
 
   const { data: tables = [] } = useTables(user?.restaurantId || null);
   const activeTables = tables.filter((t: any) => t.isActive);
@@ -128,7 +131,7 @@ function AdminInner() {
     }
   };
 
-  const saveItem = async (updated: Partial<MenuItem>, categoryId: string) => {
+  const saveItem = async (updated: Partial<MenuItem> & { imageFile?: File }, categoryId: string) => {
     if (editing) {
       try {
         await updateItem({ itemId: editing.id, categoryId, updates: updated });
@@ -139,7 +142,7 @@ function AdminInner() {
       }
     } else if (creating) {
       try {
-        await createItem({ restaurantId: user!.restaurantId, categoryId, item: updated });
+        await createItem({ restaurantId: user!.restaurantId!, categoryId, item: updated });
         setCreating(false);
         toast.success("Item created");
       } catch (err: any) {
@@ -160,7 +163,7 @@ function AdminInner() {
 
   const handleCreateCategory = async (name: string) => {
     try {
-      await createCat({ restaurantId: user!.restaurantId, name });
+      await createCat({ restaurantId: user!.restaurantId!, name });
       toast.success("Category created");
     } catch (err: any) {
       toast.error(err.message || "Failed to create category");
@@ -197,6 +200,9 @@ function AdminInner() {
             <p className="mt-1 text-sm text-muted-foreground">Changes here update the customer menu instantly.</p>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => setManageSettings(true)} className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-semibold hover:bg-secondary transition">
+              <Settings className="h-4 w-4" /> Settings
+            </button>
             <button onClick={() => setManageCategories(true)} className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-semibold hover:bg-secondary transition">
               <FolderPlus className="h-4 w-4" /> Categories
             </button>
@@ -255,9 +261,11 @@ function AdminInner() {
                       </td>
                       <td className="hidden text-muted-foreground md:table-cell md:p-4">{i.category}</td>
                       <td className="hidden font-semibold md:table-cell md:p-4">{formatINR(i.price)}</td>
-                      <td className="mt-3 flex items-center gap-2 md:mt-0 md:table-cell md:p-4">
-                        <Switch checked={i.available} onChange={() => toggle(i.id, i.available)} />
-                        <span className={`text-xs font-semibold ${i.available ? "text-primary" : "text-destructive"}`}>{i.available ? "Available" : "Sold out"}</span>
+                      <td className="mt-3 md:mt-0 md:table-cell md:p-4">
+                        <div className="flex items-center gap-2">
+                          <Switch checked={i.available} onChange={() => toggle(i.id, i.available)} />
+                          <span className={`text-xs font-semibold ${i.available ? "text-primary" : "text-destructive"}`}>{i.available ? "Available" : "Sold out"}</span>
+                        </div>
                       </td>
                       <td className="mt-3 flex justify-end gap-2 md:mt-0 md:table-cell md:p-4 md:text-right">
                         <button onClick={() => setEditing(i)} className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary">
@@ -288,8 +296,8 @@ function AdminInner() {
               <div className="mt-4 grid grid-cols-4 gap-2">
                 {tables.slice(0, 8).map((t) => (
                   <div key={t.id} className={`aspect-square rounded-xl ${t.isActive ? 'bg-[conic-gradient(from_0deg,_oklch(0.92_0.012_150)_0_25%,_oklch(0.66_0.14_152)_0_50%,_oklch(0.92_0.012_150)_0_75%,_oklch(0.22_0.03_160)_0_100%)]' : 'bg-border'} p-1`}>
-                    <div className="grid h-full w-full place-items-center rounded-md bg-card text-[10px] font-bold overflow-hidden text-ellipsis whitespace-nowrap p-1" title={t.nameOrNumber}>
-                      {t.nameOrNumber}
+                    <div className="grid h-full w-full place-items-center rounded-md bg-card text-[10px] font-bold overflow-hidden text-ellipsis whitespace-nowrap p-1" title={`Table ${t.tableNumber}`}>
+                      Table {t.tableNumber}
                     </div>
                   </div>
                 ))}
@@ -335,37 +343,47 @@ function AdminInner() {
       {editing && <ItemModal item={editing} categories={categoriesList} onClose={() => setEditing(null)} onSaved={saveItem} />}
       {creating && <ItemModal categories={categoriesList} onClose={() => setCreating(false)} onSaved={saveItem} />}
       {manageCategories && <CategoriesModal categories={categoriesList} onClose={() => setManageCategories(false)} onCreate={handleCreateCategory} onUpdate={handleUpdateCategory} onDelete={handleDeleteCategory} />}
-      {manageTables && <TablesModal restaurantId={user!.restaurantId} tables={tables} onClose={() => setManageTables(false)} />}
+      {manageTables && <TablesModal restaurantId={user!.restaurantId!} tables={tables} onClose={() => setManageTables(false)} />}
+      {manageSettings && <SettingsModal restaurantId={user!.restaurantId!} onClose={() => setManageSettings(false)} />}
     </div>
   );
 }
 
 function TablesModal({ restaurantId, tables, onClose }: { restaurantId: string; tables: any[]; onClose: () => void }) {
-  const [newName, setNewName] = useState("");
+  const [newNumber, setNewNumber] = useState("");
   const { mutateAsync: create } = useCreateTable();
   const { mutateAsync: update } = useUpdateTable();
   const { mutateAsync: regen } = useRegenerateQR();
   const [busy, setBusy] = useState(false);
 
   const handleCreate = async () => {
-    if (!newName.trim()) return;
+    if (!newNumber.trim()) return;
     setBusy(true);
-    await create({ restaurantId, nameOrNumber: newName });
-    setNewName("");
-    setBusy(false);
+    try {
+      await create({ restaurantId, tableNumber: parseInt(newNumber, 10) });
+      setNewNumber("");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleToggleActive = async (t: any) => {
     setBusy(true);
-    await update({ restaurantId, tableId: t.id, data: { nameOrNumber: t.nameOrNumber, isActive: !t.isActive } });
-    setBusy(false);
+    try {
+      await update({ restaurantId, tableId: t.id, data: { tableNumber: t.tableNumber, isActive: !t.isActive } });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleRegenerate = async (t: any) => {
     if (!confirm("Regenerate QR? The old QR code will immediately stop working.")) return;
     setBusy(true);
-    await regen({ restaurantId, tableId: t.id });
-    setBusy(false);
+    try {
+      await regen({ restaurantId, tableId: t.id });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const getQRUrl = (token: string) => {
@@ -388,8 +406,8 @@ function TablesModal({ restaurantId, tables, onClose }: { restaurantId: string; 
         </div>
         
         <div className="mt-4 flex gap-2 shrink-0">
-          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="New table name or number (e.g. Table 5, Patio 2)" className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-          <button onClick={handleCreate} disabled={busy || !newName} className="rounded-xl bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">Add Table</button>
+          <input type="number" min="1" value={newNumber} onChange={e => setNewNumber(e.target.value)} placeholder="New table number (e.g. 5)" className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          <button onClick={handleCreate} disabled={busy || !newNumber} className="rounded-xl bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">Add Table</button>
         </div>
 
         <div className="mt-6 flex-1 overflow-y-auto min-h-[200px]">
@@ -398,11 +416,11 @@ function TablesModal({ restaurantId, tables, onClose }: { restaurantId: string; 
             {tables.map((t: any) => (
               <div key={t.id} className="flex flex-wrap items-center gap-4 p-4 rounded-2xl border border-border bg-background shadow-sm">
                 <div className="hidden sm:block shrink-0 bg-white p-1 rounded-lg">
-                  <QRCodeSVG id={`qr-${t.id}`} value={getQRUrl(t.qrToken)} size={60} />
+                  <QRCodeCanvas id={`qr-${t.id}`} value={getQRUrl(t.qrToken)} size={60} />
                 </div>
                 <div className="flex-1 min-w-[200px]">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">{t.nameOrNumber}</span>
+                    <span className="font-semibold">Table {t.tableNumber}</span>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.isActive ? "bg-primary-soft text-primary" : "bg-destructive/10 text-destructive"}`}>
                       {t.isActive ? "Active" : "Inactive"}
                     </span>
@@ -433,63 +451,79 @@ function TablesModal({ restaurantId, tables, onClose }: { restaurantId: string; 
 }
 
 function QRDownloader({ table }: { table: any }) {
-  const [dataUrl, setDataUrl] = useState<string>("");
+  const [downloading, setDownloading] = useState(false);
+  const safeName = (`table-${table.tableNumber}` || 'unknown').replace(/[^a-z0-9]/gi, '-').toLowerCase();
 
-  useEffect(() => {
-    // We use a timeout to let the SVG render first
-    setTimeout(() => {
-      const svg = document.getElementById(`qr-${table.id}`);
-      if (!svg) return;
-      const svgData = new XMLSerializer().serializeToString(svg);
-      const svgWithXmlns = svgData.includes('xmlns=') ? svgData : svgData.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (downloading) return;
+    setDownloading(true);
+
+    try {
+      // We pass the current origin so the backend generates the correct QR destination URL
+      const currentOrigin = encodeURIComponent(window.location.origin);
+      // We need to fetch the blob securely
+      const { apiDownloadBlob } = await import("@/services/apiClient");
+      const blob = await apiDownloadBlob(`/restaurants/${table.restaurantId}/tables/${table.id}/qr?origin=${currentOrigin}`);
       
-      const canvas = document.createElement("canvas");
-      // Create high resolution PNG (500x500)
-      canvas.width = 500;
-      canvas.height = 500;
-      const ctx = canvas.getContext("2d");
-      const img = new Image();
-      img.onload = () => {
-        if (ctx) {
-          ctx.fillStyle = "white";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          // Disable smoothing for sharp QR codes
-          ctx.imageSmoothingEnabled = false;
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        }
-        setDataUrl(canvas.toDataURL("image/png"));
-      };
-      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgWithXmlns)));
-    }, 100);
-  }, [table.id, table.qrToken]);
-
-  const safeName = (table.nameOrNumber || 'unknown').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.setAttribute("download", `tablo-table-${safeName}-qr.png`);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup DOM
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+      }
+      // Revoke the object URL after a delay to ensure it's not cancelled by Chrome
+      setTimeout(() => {
+        window.URL.revokeObjectURL(objectUrl);
+      }, 500);
+    } catch (error) {
+      console.error("Failed to download QR code", error);
+      alert("Failed to download QR code.");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
-    <a 
-      href={dataUrl || "#"} 
-      download={`tablo-table-${safeName}-qr.png`}
-      className={`p-2 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-lg transition ${!dataUrl ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+    <button 
+      type="button"
+      onClick={handleDownload} 
+      disabled={downloading}
+      className={`p-2 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-lg transition ${downloading ? 'opacity-50 cursor-not-allowed' : ''}`}
       title="Download QR PNG"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-    </a>
+      {downloading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+      )}
+    </button>
   );
 }
 
 function Switch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
-    <button onClick={onChange} className={`relative h-6 w-11 rounded-full transition ${checked ? "bg-gradient-primary" : "bg-border"}`}>
-      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-card shadow transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`} />
+    <button 
+      type="button" 
+      onClick={onChange} 
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${checked ? 'bg-primary' : 'bg-secondary'}`}
+    >
+      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
     </button>
   );
 }
 
-function ItemModal({ item, categories, onClose, onSaved }: { item?: any; categories: any[]; onClose: () => void; onSaved: (i: Partial<MenuItem>, categoryId: string) => Promise<void> }) {
+function ItemModal({ item, categories, onClose, onSaved }: { item?: any; categories: any[]; onClose: () => void; onSaved: (i: Partial<MenuItem> & { imageFile?: File }, categoryId: string) => Promise<void> }) {
   const [name, setName] = useState(item?.name ?? "");
   const [price, setPrice] = useState(item ? String(item.price) : "");
   const [description, setDescription] = useState(item?.description ?? "");
   const [image, setImage] = useState(item?.image ?? "");
+  const [imageFile, setImageFile] = useState<File | undefined>();
   const [categoryId, setCategoryId] = useState(item?.categoryId ?? categories[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
 
@@ -505,7 +539,7 @@ function ItemModal({ item, categories, onClose, onSaved }: { item?: any; categor
       setBusy(false);
       return;
     }
-    await onSaved({ name, price: priceNum, description, image, available: item?.available ?? true }, categoryId);
+    await onSaved({ name, price: priceNum, description, image, imageFile, available: item?.available ?? true }, categoryId);
     setBusy(false);
   };
 
@@ -538,7 +572,7 @@ function ItemModal({ item, categories, onClose, onSaved }: { item?: any; categor
             <Field label="Description" value={description} onChange={setDescription} />
           </div>
           <div className="sm:col-span-2">
-            <Field label="Image URL (optional)" value={image} onChange={setImage} />
+            <label className="block text-xs font-semibold text-muted-foreground mb-1">Image (optional)</label><input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0])} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />{image && !imageFile && <p className="text-xs text-muted-foreground mt-1 text-ellipsis overflow-hidden">Current: {image}</p>}
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-2">
@@ -638,3 +672,57 @@ function Field({ label, value, onChange, readOnly }: { label: string; value: str
     </label>
   );
 }
+
+function SettingsModal({ restaurantId, onClose }: { restaurantId: string; onClose: () => void }) {
+  const { settings, isLoading, updateAcceptingOrders, isUpdating } = useSettings(restaurantId);
+
+  const toggleAcceptingOrders = async () => {
+    if (!settings) return;
+    try {
+      await updateAcceptingOrders(!settings.isAcceptingOrders);
+      toast.success(settings.isAcceptingOrders ? "Orders paused" : "Accepting orders again");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update settings");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md animate-float-up rounded-3xl bg-card p-6 shadow-glow max-h-[80vh] flex flex-col">
+        <div className="flex items-start justify-between shrink-0 mb-6">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Manage</p>
+            <h2 className="font-display text-xl font-bold">Restaurant Settings</h2>
+          </div>
+          <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+        </div>
+        
+        {isLoading ? (
+          <div className="flex justify-center p-6"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : settings ? (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between rounded-2xl border border-border bg-background p-4 shadow-sm">
+              <div>
+                <h3 className="font-semibold">Accepting Orders</h3>
+                <p className="text-xs text-muted-foreground max-w-[220px] mt-1">
+                  When paused, customers can view the menu but cannot place new orders.
+                </p>
+              </div>
+              <button 
+                onClick={toggleAcceptingOrders} 
+                disabled={isUpdating}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${settings.isAcceptingOrders ? 'bg-primary' : 'bg-secondary'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${settings.isAcceptingOrders ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Failed to load settings.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+

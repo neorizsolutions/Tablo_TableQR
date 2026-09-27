@@ -10,6 +10,7 @@ namespace Tablo.Api.Data
         }
 
         public DbSet<Restaurant> Restaurants { get; set; } = null!;
+        public DbSet<RestaurantSettings> RestaurantSettings { get; set; } = null!;
         public DbSet<RestaurantTable> RestaurantTables { get; set; } = null!;
         public DbSet<Category> Categories { get; set; } = null!;
         public DbSet<MenuItem> MenuItems { get; set; } = null!;
@@ -18,6 +19,7 @@ namespace Tablo.Api.Data
         public DbSet<OrderItem> OrderItems { get; set; } = null!;
         public DbSet<Employee> Employees { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
+        public DbSet<ServiceRequest> ServiceRequests { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

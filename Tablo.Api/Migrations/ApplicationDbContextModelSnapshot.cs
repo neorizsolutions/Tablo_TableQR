@@ -77,6 +77,18 @@ namespace Tablo.Api.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<int>("ResetOtpAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ResetOtpExpiration")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ResetOtpHash")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResetTokenHash")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("RestaurantId")
                         .HasColumnType("uuid");
 
@@ -151,6 +163,13 @@ namespace Tablo.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<decimal>("Discount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ExceptionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<int>("OrderNumber")
                         .HasColumnType("integer");
 
@@ -164,8 +183,14 @@ namespace Tablo.Api.Migrations
                         .HasColumnType("character varying(50)")
                         .HasDefaultValue("Placed");
 
+                    b.Property<decimal>("Subtotal")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<Guid>("TableId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("Tax")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
@@ -199,8 +224,10 @@ namespace Tablo.Api.Migrations
 
                     b.Property<string>("ItemNameSnapshot")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("character varying(255)")
+                        .HasDefaultValue("");
 
                     b.Property<Guid>("MenuItemId")
                         .HasColumnType("uuid");
@@ -216,7 +243,9 @@ namespace Tablo.Api.Migrations
                         .HasColumnType("character varying(500)");
 
                     b.Property<decimal>("UnitPrice")
-                        .HasColumnType("decimal(18,2)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
 
                     b.HasKey("Id");
 
@@ -285,6 +314,21 @@ namespace Tablo.Api.Migrations
                     b.ToTable("RestaurantOrderSequences", (string)null);
                 });
 
+            modelBuilder.Entity("Tablo.Api.Entities.RestaurantSettings", b =>
+                {
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsAcceptingOrders")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.HasKey("RestaurantId");
+
+                    b.ToTable("RestaurantSettings", (string)null);
+                });
+
             modelBuilder.Entity("Tablo.Api.Entities.RestaurantTable", b =>
                 {
                     b.Property<Guid>("Id")
@@ -294,11 +338,6 @@ namespace Tablo.Api.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("NameOrNumber")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
                     b.Property<string>("QRToken")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -307,12 +346,16 @@ namespace Tablo.Api.Migrations
                     b.Property<Guid>("RestaurantId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("TableNumber")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("QRToken")
                         .IsUnique();
 
-                    b.HasIndex("RestaurantId");
+                    b.HasIndex("RestaurantId", "TableNumber")
+                        .IsUnique();
 
                     b.ToTable("RestaurantTables", (string)null);
                 });
@@ -338,6 +381,43 @@ namespace Tablo.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Roles", (string)null);
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.ServiceRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("TableId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId");
+
+                    b.HasIndex("TableId");
+
+                    b.ToTable("ServiceRequests");
                 });
 
             modelBuilder.Entity("Tablo.Api.Entities.Category", b =>
@@ -438,6 +518,17 @@ namespace Tablo.Api.Migrations
                     b.Navigation("Restaurant");
                 });
 
+            modelBuilder.Entity("Tablo.Api.Entities.RestaurantSettings", b =>
+                {
+                    b.HasOne("Tablo.Api.Entities.Restaurant", "Restaurant")
+                        .WithOne("Settings")
+                        .HasForeignKey("Tablo.Api.Entities.RestaurantSettings", "RestaurantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Restaurant");
+                });
+
             modelBuilder.Entity("Tablo.Api.Entities.RestaurantTable", b =>
                 {
                     b.HasOne("Tablo.Api.Entities.Restaurant", "Restaurant")
@@ -447,6 +538,25 @@ namespace Tablo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Restaurant");
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.ServiceRequest", b =>
+                {
+                    b.HasOne("Tablo.Api.Entities.Restaurant", "Restaurant")
+                        .WithMany("ServiceRequests")
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tablo.Api.Entities.RestaurantTable", "Table")
+                        .WithMany("ServiceRequests")
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Restaurant");
+
+                    b.Navigation("Table");
                 });
 
             modelBuilder.Entity("Tablo.Api.Entities.Category", b =>
@@ -474,12 +584,18 @@ namespace Tablo.Api.Migrations
 
                     b.Navigation("Orders");
 
+                    b.Navigation("ServiceRequests");
+
+                    b.Navigation("Settings");
+
                     b.Navigation("Tables");
                 });
 
             modelBuilder.Entity("Tablo.Api.Entities.RestaurantTable", b =>
                 {
                     b.Navigation("Orders");
+
+                    b.Navigation("ServiceRequests");
                 });
 
             modelBuilder.Entity("Tablo.Api.Entities.Role", b =>

@@ -13,7 +13,11 @@ namespace Tablo.Api.DTOs
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public string Status { get; set; } = string.Empty;
+        public decimal Subtotal { get; set; }
+        public decimal Tax { get; set; }
+        public decimal Discount { get; set; }
         public decimal TotalAmount { get; set; }
+        public string? ExceptionReason { get; set; }
         public IEnumerable<ReportOrderItemDto> Items { get; set; } = new List<ReportOrderItemDto>();
     }
 }

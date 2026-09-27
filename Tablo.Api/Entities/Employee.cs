@@ -30,5 +30,10 @@ namespace Tablo.Api.Entities
         public string PasswordHash { get; set; } = string.Empty;
 
         public bool IsActive { get; set; } = true;
+
+        public string? ResetOtpHash { get; set; }
+        public DateTime? ResetOtpExpiration { get; set; }
+        public int ResetOtpAttempts { get; set; }
+        public string? ResetTokenHash { get; set; }
     }
 }

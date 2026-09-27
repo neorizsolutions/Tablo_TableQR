@@ -22,7 +22,7 @@ namespace Tablo.Api.Repositories
         {
             return await _context.RestaurantTables
                 .Where(t => t.RestaurantId == restaurantId)
-                .OrderBy(t => t.NameOrNumber)
+                .OrderBy(t => t.TableNumber)
                 .ToListAsync();
         }
 
@@ -36,7 +36,14 @@ namespace Tablo.Api.Repositories
         {
             return await _context.RestaurantTables
                 .Include(t => t.Restaurant)
+                .ThenInclude(r => r.Settings)
                 .FirstOrDefaultAsync(t => t.QRToken == qrToken);
+        }
+
+        public async Task<RestaurantTable?> GetTableByNumberAsync(Guid restaurantId, int tableNumber)
+        {
+            return await _context.RestaurantTables
+                .FirstOrDefaultAsync(t => t.RestaurantId == restaurantId && t.TableNumber == tableNumber);
         }
 
         public async Task<RestaurantTable> CreateTableAsync(RestaurantTable table)

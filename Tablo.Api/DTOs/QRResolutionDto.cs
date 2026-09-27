@@ -11,5 +11,7 @@ namespace Tablo.Api.DTOs
         
         public Guid TableId { get; set; }
         public string TableNameOrNumber { get; set; } = string.Empty;
+        
+        public bool IsAcceptingOrders { get; set; } = true;
     }
 }

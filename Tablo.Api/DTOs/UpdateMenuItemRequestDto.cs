@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace Tablo.Api.DTOs
 {
@@ -20,5 +21,8 @@ namespace Tablo.Api.DTOs
         
         [MaxLength(2000)]
         public string? ImageUrl { get; set; }
+        
+        public IFormFile? ImageFile { get; set; }
     }
 }
+

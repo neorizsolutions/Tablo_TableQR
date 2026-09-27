@@ -3,6 +3,7 @@ using Tablo.Api.DTOs;
 using Tablo.Api.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Tablo.Api.Extensions;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Tablo.Api.Controllers
 {
@@ -18,6 +19,7 @@ namespace Tablo.Api.Controllers
         }
 
         [HttpPost]
+        [EnableRateLimiting("PublicApi")]
         public async Task<ActionResult<OrderResponseDto>> CreateOrder([FromBody] CreateOrderRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -58,14 +60,17 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [HttpGet("/api/restaurants/{restaurantId}/tables/{tableId}/active-order")]
-        public async Task<ActionResult<OrderDto>> GetActiveOrderForTable(Guid restaurantId, Guid tableId)
+        [HttpGet("/api/qr/{qrToken}/active-order")]
+        public async Task<ActionResult<OrderDto>> GetActiveOrderForTableByQr(string qrToken, [FromServices] IQRService qrService)
         {
             try
             {
-                var orders = await _orderService.GetOrdersAsync(restaurantId);
+                var qrResult = await qrService.ResolveQRTokenAsync(qrToken);
+                if (qrResult == null) return NotFound(new { message = "Invalid QR token." });
+
+                var orders = await _orderService.GetOrdersAsync(qrResult.RestaurantId);
                 var activeOrder = orders
-                    .Where(o => o.TableId == tableId && o.Status != "served" && o.Status != "cancelled")
+                    .Where(o => o.TableId == qrResult.TableId && o.Status != "served" && o.Status != "cancelled" && o.Status != "rejected")
                     .OrderByDescending(o => o.CreatedAt)
                     .FirstOrDefault();
 

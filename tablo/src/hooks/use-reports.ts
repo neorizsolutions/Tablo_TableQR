@@ -16,3 +16,42 @@ export function useReports(params: {
     refetchInterval: false,
   });
 }
+
+export function useAnalyticsSummary(params: {
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  tableId?: string;
+}) {
+  return useQuery({
+    queryKey: ["analytics-summary", params],
+    queryFn: () => import("@/services/api").then(m => m.getAnalyticsSummary(params)),
+    refetchInterval: false,
+  });
+}
+
+export function useSalesOverTime(params: {
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  tableId?: string;
+}) {
+  return useQuery({
+    queryKey: ["sales-over-time", params],
+    queryFn: () => import("@/services/api").then(m => m.getSalesOverTime(params)),
+    refetchInterval: false,
+  });
+}
+
+export function useTopItems(params: {
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  tableId?: string;
+}) {
+  return useQuery({
+    queryKey: ["top-items", params],
+    queryFn: () => import("@/services/api").then(m => m.getTopItems(params)),
+    refetchInterval: false,
+  });
+}

@@ -28,7 +28,8 @@ namespace Tablo.Api.Services
                 RestaurantName = table.Restaurant.Name,
                 RestaurantTagline = table.Restaurant.Description ?? string.Empty,
                 TableId = table.Id,
-                TableNameOrNumber = table.NameOrNumber
+                TableNameOrNumber = $"Table {table.TableNumber}",
+                IsAcceptingOrders = table.Restaurant.Settings?.IsAcceptingOrders ?? true
             };
         }
     }

@@ -32,7 +32,20 @@ namespace Tablo.Api.Services
                 throw new ArgumentException("This table is currently inactive and cannot accept orders.");
             }
 
-            var order = new Order
+            var settings = await _orderRepository.GetRestaurantSettingsAsync(table.RestaurantId);
+            if (settings != null && !settings.IsAcceptingOrders)
+            {
+                throw new ArgumentException("This restaurant is currently not accepting orders.");
+            }
+
+            var activeOrders = await _orderRepository.GetOrdersAsync(table.RestaurantId);
+            var existingOrder = activeOrders
+                .Where(o => o.TableId == table.Id && o.Status != "Served" && o.Status != "Cancelled" && o.Status != "Rejected")
+                .OrderByDescending(o => o.CreatedAt)
+                .FirstOrDefault();
+
+            bool isNewOrder = existingOrder == null;
+            var order = existingOrder ?? new Order
             {
                 RestaurantId = table.RestaurantId,
                 TableId = table.Id,
@@ -42,7 +55,12 @@ namespace Tablo.Api.Services
                 OrderItems = new List<OrderItem>()
             };
 
-            decimal totalAmount = 0;
+            if (!isNewOrder)
+            {
+                order.UpdatedAt = DateTime.UtcNow;
+            }
+
+            decimal subtotal = order.Subtotal;
 
             // Validate and build items
             foreach (var itemRequest in request.Items)
@@ -73,7 +91,7 @@ namespace Tablo.Api.Services
                 };
 
                 order.OrderItems.Add(orderItem);
-                totalAmount += (orderItem.UnitPrice * orderItem.Quantity);
+                subtotal += (orderItem.UnitPrice * orderItem.Quantity);
             }
 
             if (!order.OrderItems.Any())
@@ -81,20 +99,43 @@ namespace Tablo.Api.Services
                 throw new ArgumentException("Order must contain at least one valid item.");
             }
 
-            order.TotalAmount = totalAmount;
+            decimal gst = Math.Round(subtotal * 0.05m, 0, MidpointRounding.AwayFromZero);
+            order.Subtotal = subtotal;
+            order.Tax = gst;
+            order.Discount = 0; // Discount currently not supported in requests
+            order.TotalAmount = subtotal + gst;
 
-            // Atomically fetch the next order number for this restaurant
-            order.OrderNumber = await _orderRepository.GetNextOrderNumberAsync(table.RestaurantId);
+            if (isNewOrder)
+            {
+                // Atomically fetch the next order number for this restaurant
+                order.OrderNumber = await _orderRepository.GetNextOrderNumberAsync(table.RestaurantId);
+                var createdOrder = await _orderRepository.CreateOrderAsync(order);
+                order = createdOrder;
+            }
+            else
+            {
+                await _orderRepository.UpdateOrderAsync(order);
+            }
 
-            var createdOrder = await _orderRepository.CreateOrderAsync(order);
+            // Broadcast to the restaurant staff group
+            if (isNewOrder)
+            {
+                await _hubContext.Clients.Group($"restaurant_{order.RestaurantId}").SendAsync("NewOrder", order.Id);
+            }
+            else
+            {
+                // Inform clients that this specific order has updated items and totals
+                await _hubContext.Clients.Group($"restaurant_{order.RestaurantId}").SendAsync("OrderStatusUpdated", order.Id.ToString(), order.Status);
+                await _hubContext.Clients.Group($"order_{order.Id}").SendAsync("OrderStatusUpdated", order.Id.ToString(), order.Status);
+            }
 
             return new OrderResponseDto
             {
-                OrderId = createdOrder.Id,
-                OrderNumber = createdOrder.OrderNumber,
-                Status = createdOrder.Status,
-                TotalAmount = createdOrder.TotalAmount,
-                CreatedAt = createdOrder.CreatedAt
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                Status = order.Status,
+                TotalAmount = order.TotalAmount,
+                CreatedAt = order.CreatedAt
             };
         }
 
@@ -127,9 +168,17 @@ namespace Tablo.Api.Services
             order.Status = request.Status;
             order.UpdatedAt = DateTime.UtcNow;
 
+            if (request.Status == "Rejected" || request.Status == "Cancelled")
+            {
+                order.ExceptionReason = request.ExceptionReason;
+            }
+
             await _orderRepository.UpdateOrderAsync(order);
 
-            await _hubContext.Clients.All.SendAsync("OrderStatusUpdated", orderId, request.Status);
+            // Broadcast status update to staff
+            await _hubContext.Clients.Group($"restaurant_{order.RestaurantId}").SendAsync("OrderStatusUpdated", orderId, request.Status);
+            // Broadcast status update to the customer
+            await _hubContext.Clients.Group($"order_{orderId}").SendAsync("OrderStatusUpdated", orderId, request.Status);
 
             return MapToOrderDto(order);
         }
@@ -137,6 +186,12 @@ namespace Tablo.Api.Services
         private void ValidateStatusTransition(string currentStatus, string newStatus)
         {
             if (currentStatus == newStatus)
+                return;
+
+            if (newStatus == "Cancelled" && (currentStatus == "Placed" || currentStatus == "Accepted" || currentStatus == "Preparing" || currentStatus == "Ready"))
+                return;
+
+            if (newStatus == "Rejected" && currentStatus == "Placed")
                 return;
 
             var validTransitions = new Dictionary<string, string>
@@ -154,33 +209,38 @@ namespace Tablo.Api.Services
                     return;
                 }
             }
-            // Allow cancelling from placed? User said: Placed -> Accepted -> Preparing -> Ready. Do not allow other transitions.
+
             throw new ArgumentException($"Invalid status transition from {currentStatus} to {newStatus}.");
         }
 
         private OrderDto MapToOrderDto(Order order)
         {
             int tableNum = 0;
-            if (order.Table != null && !string.IsNullOrEmpty(order.Table.NameOrNumber))
+            if (order.Table != null)
             {
-                var tableStr = order.Table.NameOrNumber.Replace("Table ", "").Trim();
-                int.TryParse(tableStr, out tableNum);
+                tableNum = order.Table.TableNumber;
             }
 
             return new OrderDto
             {
                 Id = order.Id,
+                RestaurantId = order.RestaurantId,
                 OrderNumber = order.OrderNumber,
                 TableNumber = tableNum,
                 TableId = order.TableId,
                 Status = order.Status,
+                Subtotal = order.Subtotal,
+                Tax = order.Tax,
+                Discount = order.Discount,
                 TotalAmount = order.TotalAmount,
+                ExceptionReason = order.ExceptionReason,
                 CreatedAt = order.CreatedAt,
                 Items = order.OrderItems.Select(oi => new OrderItemDto
                 {
                     Id = oi.Id,
                     MenuItemId = oi.MenuItemId,
-                    Name = oi.MenuItem?.Name ?? string.Empty,
+                    Name = !string.IsNullOrEmpty(oi.ItemNameSnapshot) ? oi.ItemNameSnapshot : (oi.MenuItem?.Name ?? string.Empty),
+                    ItemNameSnapshot = oi.ItemNameSnapshot,
                     Quantity = oi.Quantity,
                     UnitPrice = oi.UnitPrice
                 }).ToList()

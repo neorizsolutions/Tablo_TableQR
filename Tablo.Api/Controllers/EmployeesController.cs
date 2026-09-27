@@ -230,5 +230,24 @@ namespace Tablo.Api.Controllers
 
             return Ok(new { message = request.IsActive ? "Employee activated." : "Employee deactivated." });
         }
+
+        [HttpPatch("{id}/password")]
+        public async Task<IActionResult> ResetPassword(Guid id, [FromBody] ResetPasswordDto request)
+        {
+            var restaurantId = User.GetRestaurantId();
+
+            var employee = await _context.Employees
+                .FirstOrDefaultAsync(e => e.Id == id && e.RestaurantId == restaurantId);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Password reset successfully." });
+        }
     }
 }

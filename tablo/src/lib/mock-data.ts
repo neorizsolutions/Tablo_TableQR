@@ -105,7 +105,12 @@ export const seedOrders: Order[] = [
 ];
 
 export function formatINR(n: number) {
-  return `₹${n.toLocaleString("en-IN")}`;
+  return n.toLocaleString("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
 export function relativeTime(iso: string) {

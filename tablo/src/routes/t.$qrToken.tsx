@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChefHat, CircleDot, Flame, Languages, Loader2, Minus, PackageCheck, Plus, Search, ShoppingBag, Sparkles, Utensils, X } from "lucide-react";
+import { Check, ChefHat, CircleDot, Flame, Languages, Loader2, Minus, PackageCheck, Plus, Search, ShoppingBag, Sparkles, Utensils, X, Bell, Receipt, HandPlatter } from "lucide-react";
 import { toast } from "sonner";
 import { formatINR } from "@/lib/mock-data";
 import { Category, OrderStatus } from "@/types";
@@ -9,7 +9,8 @@ import { useCart } from "@/hooks/use-cart";
 import { useOrderTracking } from "@/hooks/use-orders";
 import { useQRResolution } from "@/hooks/use-qr";
 import { placeOrder, getActiveOrderForTable } from "@/services/api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCreateServiceRequest, useTableActiveServiceRequests } from "@/hooks/use-service-requests";
 
 type SearchParams = {
   r?: string;
@@ -43,6 +44,7 @@ type Stage = "menu" | "confirmed";
 
 function CustomerPage() {
   const { qrToken } = Route.useParams();
+  const queryClient = useQueryClient();
   
   const [stage, setStage] = useState<Stage>("menu");
   const [selectedCat, setSelectedCat] = useState<Category | null>(null);
@@ -50,6 +52,7 @@ function CustomerPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [serviceDrawerOpen, setServiceDrawerOpen] = useState(false);
 
   const { data: qrData, isLoading: loadingQR, error: qrError } = useQRResolution(qrToken);
   const { data: menu = [], isLoading: loadingMenu } = useMenu(qrData?.restaurantId || null);
@@ -64,9 +67,9 @@ function CustomerPage() {
 
   // Auto-recover active order from backend for this table if not in localStorage
   const { data: activeOrder, error: activeOrderError } = useQuery({
-    queryKey: ["activeOrder", qrData?.restaurantId, qrData?.tableId],
-    queryFn: () => getActiveOrderForTable(qrData!.restaurantId, qrData!.tableId),
-    enabled: !!qrData?.restaurantId && !!qrData?.tableId && !orderId,
+    queryKey: ["activeOrder", qrToken],
+    queryFn: () => getActiveOrderForTable(qrToken),
+    enabled: !!qrData && !orderId,
     retry: false, // Don't retry on 404
     staleTime: 0,
   });
@@ -88,6 +91,12 @@ function CustomerPage() {
     }
   }, [currentOrder?.status, qrToken]);
 
+  const { data: serviceRequests = [] } = useTableActiveServiceRequests(qrToken);
+  const { mutate: createServiceReq, isPending: isServicePending } = useCreateServiceRequest(qrToken);
+
+  const hasPendingWaiter = serviceRequests.some(sr => sr.type === "CallWaiter" && sr.status === "Pending");
+  const hasPendingBill = serviceRequests.some(sr => sr.type === "RequestBill" && sr.status === "Pending");
+
   const loading = loadingQR || (qrData && loadingMenu);
 
   const categories = useMemo(() => Array.from(new Set(menu.map((m) => m.category))), [menu]);
@@ -95,7 +104,11 @@ function CustomerPage() {
   const setActiveCat = setSelectedCat;
 
   const visible = useMemo(() => {
-    return menu.filter((m) => m.category === activeCat && m.name.toLowerCase().includes(query.toLowerCase()));
+    return menu.filter((m) => {
+      const matchesSearch = m.name.toLowerCase().includes(query.toLowerCase());
+      const matchesCategory = query.trim() ? true : m.category === activeCat;
+      return matchesSearch && matchesCategory;
+    });
   }, [activeCat, query, menu]);
 
   const handlePlaceOrder = async () => {
@@ -105,6 +118,7 @@ function CustomerPage() {
       const { orderId: newOrderId } = await placeOrder(qrToken, cart);
       setOrderId(newOrderId);
       localStorage.setItem(`activeOrderId_${qrToken}`, newOrderId);
+      queryClient.invalidateQueries({ queryKey: ["order", newOrderId] });
       setDrawerOpen(false);
       setStage("confirmed");
       toast.success("Order sent to the kitchen!");
@@ -138,13 +152,16 @@ function CustomerPage() {
   if (stage === "confirmed") {
     const displayStatus = currentOrder?.status || "placed";
     const displayCart = currentOrder ? currentOrder.items.map((i: any) => ({ item: i, qty: i.qty })) : cart;
-    const displayTotal = currentOrder ? currentOrder.total : cartTotal;
+    const displayTotal = currentOrder ? currentOrder.total : (cartTotal + Math.round(cartTotal * 0.05));
+    const displayExceptionReason = currentOrder?.exception_reason || null;
 
     return (
       <Confirmation 
         cart={displayCart} 
         total={displayTotal} 
         stage={displayStatus} 
+        exceptionReason={displayExceptionReason}
+        currentOrder={currentOrder || undefined}
         onDone={() => { 
           setStage("menu"); 
           clearCart(); 
@@ -179,6 +196,15 @@ function CustomerPage() {
             />
           </div>
         </div>
+
+        {!qrData.isAcceptingOrders && (
+          <div className="mx-5 mt-4 rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div className="flex items-center gap-2 font-semibold">
+              <Sparkles className="h-4 w-4" /> Not accepting orders
+            </div>
+            <p className="mt-1 opacity-90">The restaurant is temporarily not accepting orders. You can browse the menu for now.</p>
+          </div>
+        )}
 
         <div className="sticky top-0 z-10 -mt-3 flex gap-2 overflow-x-auto bg-background/80 px-5 py-3 backdrop-blur">
           {categories.map((c) => (
@@ -235,7 +261,7 @@ function CustomerPage() {
         </div>
       </div>
 
-      {stage === "menu" && orderId && currentOrder?.status && currentOrder.status !== "served" && (
+      {stage === "menu" && orderId && currentOrder?.status && currentOrder.status !== "served" && currentOrder.status !== "cancelled" && currentOrder.status !== "rejected" && (
         <button
           onClick={() => setStage("confirmed")}
           className="fixed inset-x-3 bottom-20 z-20 mx-auto flex w-full max-w-md items-center justify-between rounded-full bg-foreground px-5 py-3.5 text-background shadow-glow sm:bottom-24"
@@ -259,6 +285,69 @@ function CustomerPage() {
           </span>
           <span className="font-display text-base font-bold">{formatINR(cartTotal)} · View cart</span>
         </button>
+      )}
+
+      {stage === "menu" && (
+        <button
+          onClick={() => setServiceDrawerOpen(true)}
+          className={`fixed bottom-5 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-card transition-transform hover:scale-105 sm:bottom-8 sm:right-8 ${cartCount > 0 || orderId ? "bottom-[5.5rem] sm:bottom-24" : ""}`}
+        >
+          <Bell className="h-6 w-6 text-primary" />
+          {serviceRequests.length > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+              {serviceRequests.length}
+            </span>
+          )}
+        </button>
+      )}
+
+      {serviceDrawerOpen && (
+        <div className="fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setServiceDrawerOpen(false)} />
+          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-md animate-float-up rounded-t-[2rem] bg-card p-5 shadow-glow sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-[2rem]">
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-lg font-bold">Service</h2>
+              <button onClick={() => setServiceDrawerOpen(false)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  createServiceReq("CallWaiter");
+                  setServiceDrawerOpen(false);
+                }}
+                disabled={hasPendingWaiter || isServicePending}
+                className="flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-secondary disabled:opacity-60"
+              >
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">
+                  <HandPlatter className="h-5 w-5" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold">{hasPendingWaiter ? "Waiter notified" : "Call Waiter"}</p>
+                  <p className="text-xs text-muted-foreground">{hasPendingWaiter ? "A waiter is on the way." : "Request staff assistance at your table."}</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  createServiceReq("RequestBill");
+                  setServiceDrawerOpen(false);
+                }}
+                disabled={hasPendingBill || isServicePending}
+                className="flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-secondary disabled:opacity-60"
+              >
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary text-foreground">
+                  <Receipt className="h-5 w-5" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold">{hasPendingBill ? "Bill requested" : "Request Bill"}</p>
+                  <p className="text-xs text-muted-foreground">{hasPendingBill ? "Your bill is being prepared." : "Ready to leave? Get the check."}</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {drawerOpen && (
@@ -293,11 +382,11 @@ function CustomerPage() {
             </div>
             <button
               onClick={handlePlaceOrder}
-              disabled={submitting || cart.some(c => !c.item.available)}
+              disabled={submitting || cart.some(c => !c.item.available) || !qrData.isAcceptingOrders}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-glow disabled:opacity-60"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {cart.some(c => !c.item.available) ? "Some items sold out" : "Place order"}
+              {!qrData.isAcceptingOrders ? "Not accepting orders" : cart.some(c => !c.item.available) ? "Some items sold out" : "Place order"}
             </button>
           </div>
         </div>
@@ -316,50 +405,97 @@ function EmptyState() {
   );
 }
 
-function Confirmation({ cart, total, stage, onDone }: { cart: { item: any, qty: number }[]; total: number; stage: OrderStatus; onDone: () => void }) {
-  const displayStage = stage === "accepted" ? "placed" : stage;
+function Confirmation({ cart, total, stage, exceptionReason, currentOrder, onDone }: { cart: { item: any, qty: number }[]; total: number; stage: OrderStatus; exceptionReason?: string | null; currentOrder?: Order; onDone: () => void }) {
+  const displayStage = stage === "accepted" ? "placed" : stage === "ready_to_serve" ? "ready" : stage;
   const idx = stages.findIndex((s) => s.key === displayStage);
+  const isException = stage === "cancelled" || stage === "rejected";
+
+  let title = "Order placed!";
+  let subtitle = "Your kitchen ticket is live. Sit back, we'll bring it over.";
+  let MainIcon = ChefHat;
+
+  if (isException) {
+    title = stage === "rejected" ? "Order Not Accepted" : "Order Cancelled";
+    subtitle = "We couldn't fulfill this order. Please see details below.";
+    MainIcon = X;
+  } else if (displayStage === "preparing") {
+    title = "Preparing your food!";
+    subtitle = "The chefs are working their magic on your meal.";
+  } else if (displayStage === "ready") {
+    title = "Ready to serve!";
+    subtitle = "Your food is ready and on its way to your table.";
+  } else if (displayStage === "served") {
+    title = "Order Served!";
+    subtitle = "Enjoy your meal!";
+    MainIcon = Check;
+  }
+
   return (
     <div className="min-h-screen bg-secondary/40 pb-12">
       <div className="mx-auto max-w-md bg-background sm:my-6 sm:rounded-[2rem] sm:shadow-card">
-        <div className="rounded-b-[2rem] bg-gradient-primary p-7 text-center text-primary-foreground sm:rounded-[2rem]">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-white/20 backdrop-blur">
-            <ChefHat className="h-7 w-7" />
+        <div className={`rounded-b-[2rem] p-7 text-center text-primary-foreground sm:rounded-[2rem] ${isException ? "bg-destructive" : displayStage === "served" ? "bg-success" : "bg-gradient-primary"}`}>
+          <div className={`mx-auto grid place-items-center rounded-full bg-white/20 backdrop-blur transition-all duration-700 ease-out ${displayStage === "served" ? "h-20 w-20 ring-4 ring-white/30 shadow-[0_0_40px_rgba(255,255,255,0.4)] scale-110" : "h-16 w-16"}`}>
+            <MainIcon className={displayStage === "served" ? "h-10 w-10 text-white drop-shadow-md" : "h-7 w-7"} strokeWidth={displayStage === "served" ? 3 : 2} />
           </div>
-          <h1 className="mt-4 font-display text-2xl font-bold">Order placed!</h1>
-          <p className="mt-1 text-sm opacity-90">Your kitchen ticket is live. Sit back, we'll bring it over.</p>
+          <h1 className="mt-6 font-display text-2xl font-bold">
+            {title}
+          </h1>
+          <p className="mt-1 text-sm opacity-90">
+            {subtitle}
+          </p>
         </div>
         <div className="px-5 py-6">
-          <ol className="relative space-y-5 border-l border-border pl-6">
-            {stages.map((s, i) => {
-              const reached = i <= idx || (idx === -1 && i === 0);
-              const Icon = s.icon;
-              return (
-                <li key={s.key} className="relative">
-                  <span className={`absolute -left-[34px] grid h-7 w-7 place-items-center rounded-full border-2 ${reached ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
-                    {i === idx ? <span className="h-2 w-2 animate-pulse-dot rounded-full bg-current" /> : <Icon className="h-3.5 w-3.5" />}
-                  </span>
-                  <p className={`text-sm font-semibold ${reached ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</p>
-                  {i === idx && displayStage !== "served" && <p className="text-xs text-primary">In progress…</p>}
-                </li>
-              );
-            })}
-          </ol>
+          {!isException && (
+            <ol className="relative space-y-5 border-l border-border pl-6">
+              {stages.map((s, i) => {
+                const reached = i <= idx || (idx === -1 && i === 0);
+                const Icon = s.icon;
+                return (
+                  <li key={s.key} className="relative">
+                    <span className={`absolute -left-[34px] grid h-7 w-7 place-items-center rounded-full border-2 ${reached ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
+                      {i === idx && s.key !== "served" ? <span className="h-2 w-2 animate-pulse-dot rounded-full bg-current" /> : <Icon className="h-3.5 w-3.5" />}
+                    </span>
+                    <p className={`text-sm font-semibold ${reached ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</p>
+                    {i === idx && displayStage !== "served" && <p className="text-xs text-primary">In progress…</p>}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+
+          {isException && exceptionReason && (
+            <div className="mb-6 rounded-2xl bg-destructive/10 p-4 text-sm text-destructive">
+              <span className="font-semibold block mb-1">Reason for cancellation:</span>
+              {exceptionReason}
+            </div>
+          )}
+
           <div className="mt-6 rounded-2xl border border-border bg-card p-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Order summary</p>
             <ul className="mt-2 divide-y divide-border text-sm">
               {cart.map((l) => (
                 <li key={l.item.id} className="flex justify-between py-2">
                   <span>{l.qty} × {l.item.name}</span>
-                  <span className="font-semibold">{formatINR(l.qty * l.item.price)}</span>
+                  <span className={`font-semibold ${isException ? "line-through text-muted-foreground" : ""}`}>{formatINR(l.qty * l.item.price)}</span>
                 </li>
               ))}
             </ul>
-            <div className="mt-2 flex justify-between border-t border-border pt-2 font-display font-bold">
-              <span>Total</span><span>{formatINR(total + Math.round(total * 0.05))}</span>
+            <div className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className={isException ? "line-through" : ""}>{formatINR(currentOrder ? currentOrder.subtotal : cart.reduce((s, l) => s + l.qty * l.item.price, 0))}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>GST (5%)</span>
+                <span className={isException ? "line-through" : ""}>{formatINR(currentOrder ? currentOrder.tax : Math.round(cart.reduce((s, l) => s + l.qty * l.item.price, 0) * 0.05))}</span>
+              </div>
+              <div className="flex justify-between pt-1 font-display text-base font-bold">
+                <span>Total</span>
+                <span className={isException ? "line-through text-muted-foreground" : ""}>{formatINR(currentOrder ? currentOrder.total : cart.reduce((s, l) => s + l.qty * l.item.price, 0) + Math.round(cart.reduce((s, l) => s + l.qty * l.item.price, 0) * 0.05))}</span>
+              </div>
             </div>
           </div>
-          <button onClick={onDone} className="mt-5 w-full rounded-full border border-border bg-card py-3 text-sm font-semibold">
+          <button onClick={onDone} className="mt-5 w-full rounded-full border border-border bg-card py-3 text-sm font-semibold hover:bg-secondary">
             Order something else
           </button>
         </div>

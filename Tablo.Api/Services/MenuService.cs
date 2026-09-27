@@ -4,16 +4,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using Tablo.Api.DTOs;
 using Tablo.Api.Interfaces;
+using Microsoft.AspNetCore.SignalR;
+using Tablo.Api.Hubs;
 
 namespace Tablo.Api.Services
 {
     public class MenuService : IMenuService
     {
         private readonly IMenuRepository _menuRepository;
+        private readonly IHubContext<OrderHub> _hubContext;
 
-        public MenuService(IMenuRepository menuRepository)
+        public MenuService(IMenuRepository menuRepository, IHubContext<OrderHub> hubContext)
         {
             _menuRepository = menuRepository;
+            _hubContext = hubContext;
         }
 
         public async Task<MenuResponseDto?> GetMenuAsync(Guid restaurantId, CancellationToken cancellationToken)
@@ -105,6 +109,8 @@ namespace Tablo.Api.Services
             };
 
             var created = await _menuRepository.CreateCategoryAsync(newCategory, cancellationToken);
+            await _hubContext.Clients.Group($"restaurant_{restaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
+            await _hubContext.Clients.Group($"menu_{restaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
 
             return new CategoryDto
             {
@@ -128,6 +134,8 @@ namespace Tablo.Api.Services
 
             category.Name = request.Name;
             var updated = await _menuRepository.UpdateCategoryAsync(category, cancellationToken);
+            await _hubContext.Clients.Group($"restaurant_{category.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
+            await _hubContext.Clients.Group($"menu_{category.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
 
             return new CategoryDto
             {
@@ -148,7 +156,12 @@ namespace Tablo.Api.Services
 
         public async Task DeleteCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default)
         {
+            var category = await _menuRepository.GetCategoryAsync(categoryId, cancellationToken);
             await _menuRepository.DeleteCategoryAsync(categoryId, cancellationToken);
+            if (category != null) {
+                await _hubContext.Clients.Group($"restaurant_{category.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
+                await _hubContext.Clients.Group($"menu_{category.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
+            }
         }
 
         public async Task<MenuItemDto> CreateMenuItemAsync(Guid restaurantId, CreateMenuItemRequestDto request, CancellationToken cancellationToken = default)
@@ -171,6 +184,8 @@ namespace Tablo.Api.Services
             };
 
             var created = await _menuRepository.CreateMenuItemAsync(newItem, cancellationToken);
+            await _hubContext.Clients.Group($"restaurant_{restaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
+            await _hubContext.Clients.Group($"menu_{restaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
 
             return new MenuItemDto
             {
@@ -204,6 +219,8 @@ namespace Tablo.Api.Services
             menuItem.ImageUrl = request.ImageUrl;
 
             var updated = await _menuRepository.UpdateMenuItemAsync(menuItem, cancellationToken);
+            await _hubContext.Clients.Group($"restaurant_{menuItem.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
+            await _hubContext.Clients.Group($"menu_{menuItem.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
 
             return new MenuItemDto
             {
@@ -223,6 +240,8 @@ namespace Tablo.Api.Services
 
             menuItem.IsAvailable = request.IsAvailable;
             var updated = await _menuRepository.UpdateMenuItemAsync(menuItem, cancellationToken);
+            await _hubContext.Clients.Group($"restaurant_{menuItem.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
+            await _hubContext.Clients.Group($"menu_{menuItem.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
 
             return new MenuItemDto
             {
@@ -237,7 +256,12 @@ namespace Tablo.Api.Services
 
         public async Task DeleteMenuItemAsync(Guid menuItemId, CancellationToken cancellationToken = default)
         {
+            var menuItem = await _menuRepository.GetMenuItemAsync(menuItemId, cancellationToken);
             await _menuRepository.SoftDeleteMenuItemAsync(menuItemId, cancellationToken);
+            if (menuItem != null) {
+                await _hubContext.Clients.Group($"restaurant_{menuItem.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
+                await _hubContext.Clients.Group($"menu_{menuItem.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
+            }
         }
     }
 }

@@ -174,7 +174,7 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
                       </button>
                       <button 
                         onClick={() => toggleStatus(emp)} 
-                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${emp.isActive ? 'bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground' : 'bg-success/10 text-success hover:bg-success hover:text-success-foreground'}`}
+                        className={`inline-flex items-center justify-center w-[110px] gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${emp.isActive ? 'bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground' : 'bg-success/10 text-success hover:bg-success hover:text-success-foreground'}`}
                       >
                         {emp.isActive ? (
                           <><PowerOff className="h-3.5 w-3.5" /> Deactivate</>

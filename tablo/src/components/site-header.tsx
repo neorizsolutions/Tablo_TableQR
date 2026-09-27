@@ -33,8 +33,13 @@ export function SiteHeader() {
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-soft">
             <QrCode className="h-4 w-4" />
           </span>
-          <span>
+          <span className="flex items-center">
             Tablo<span className="text-primary">.</span>
+            {user && user.role !== "SuperAdmin" && (
+              <span className="text-foreground font-bold text-lg border-l-2 pl-3 ml-3 border-border/60">
+                {user.restaurantName || "My Restaurant"}
+              </span>
+            )}
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">

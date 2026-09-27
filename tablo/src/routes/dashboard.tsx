@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatINR, relativeTime } from "@/lib/mock-data";
 import { Order, OrderStatus } from "@/types";
 import { useOrders, useUpdateOrderStatus } from "@/hooks/use-orders";
+import { useActiveServiceRequests, useManageServiceRequest } from "@/hooks/use-service-requests";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/dashboard")({
 
 const flow: OrderStatus[] = ["placed", "accepted", "preparing", "ready", "served"];
 const labels: Record<OrderStatus, string> = {
-  placed: "New", accepted: "Accepted", preparing: "Preparing", ready: "Ready", served: "Served", cancelled: "Cancelled",
+  placed: "New", accepted: "Accepted", preparing: "Preparing", ready: "Ready", served: "Served", cancelled: "Cancelled", rejected: "Rejected",
 };
 const tone: Record<OrderStatus, string> = {
   placed: "bg-warning/15 text-warning",
@@ -29,6 +30,7 @@ const tone: Record<OrderStatus, string> = {
   ready: "bg-success/15 text-success",
   served: "bg-secondary text-muted-foreground",
   cancelled: "bg-destructive/10 text-destructive",
+  rejected: "bg-destructive/10 text-destructive",
 };
 
 function DashboardPage() {
@@ -97,13 +99,20 @@ function DashboardInner() {
   
   const { data: orders = [], isLoading: loadingOrders } = useOrders(user?.restaurantId || null);
   const { mutateAsync: updateStatus } = useUpdateOrderStatus();
+  
+  const { data: serviceRequests = [] } = useActiveServiceRequests(user?.restaurantId || null);
+  const { mutate: manageServiceReq } = useManageServiceRequest();
 
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
   const [tableQ, setTableQ] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
 
+  // Modal State for Exception
+  const [exceptionModal, setExceptionModal] = useState<{ orderId: string, action: "rejected" | "cancelled" } | null>(null);
+  const [exceptionReason, setExceptionReason] = useState("");
+
   const counts = useMemo(() => ({
-    active: orders.filter((o) => o.status !== "served" && o.status !== "cancelled").length,
+    active: orders.filter((o) => o.status !== "served" && o.status !== "cancelled" && o.status !== "rejected").length,
     preparing: orders.filter((o) => o.status === "preparing").length,
     ready: orders.filter((o) => o.status === "ready").length,
     served: orders.filter((o) => o.status === "served").length,
@@ -119,7 +128,21 @@ function DashboardInner() {
     if (processingId) return; // Prevent duplicate clicks
     try {
       setProcessingId(id);
-      await updateStatus({ orderId: id, status: next });
+      await updateStatus({ orderId: id, status: next, restaurantId: user?.restaurantId || "" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update status");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleExceptionSubmit = async () => {
+    if (!exceptionModal || !exceptionReason.trim()) return;
+    try {
+      setProcessingId(exceptionModal.orderId);
+      await updateStatus({ orderId: exceptionModal.orderId, status: exceptionModal.action, restaurantId: user?.restaurantId || "", exceptionReason });
+      setExceptionModal(null);
+      setExceptionReason("");
     } catch (err: any) {
       toast.error(err.message || "Failed to update status");
     } finally {
@@ -154,16 +177,49 @@ function DashboardInner() {
           <Stat title="Served today" value={counts.served} icon={Check} />
         </div>
 
+        {serviceRequests.length > 0 && (
+          <div className="mt-8">
+            <h2 className="mb-4 font-display text-xl font-bold">Active Service Requests</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {serviceRequests.map((req) => (
+                <div key={req.id} className="flex items-center justify-between rounded-2xl border border-warning bg-warning/5 p-4 shadow-sm">
+                  <div>
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground">Table {req.tableName}</span>
+                    <p className="font-semibold text-warning">{req.type === 'CallWaiter' ? 'Waiter Requested' : 'Bill Requested'}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{relativeTime(req.createdAt)} • {req.status}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {req.status === 'Pending' && (
+                      <button 
+                        onClick={() => manageServiceReq({ id: req.id, action: "acknowledge" })}
+                        className="rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold"
+                      >
+                        Acknowledge
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => manageServiceReq({ id: req.id, action: "complete" })}
+                      className="rounded-full bg-warning px-3 py-1.5 text-xs font-semibold text-warning-foreground"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mt-8 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-soft">
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground"><Filter className="h-4 w-4" /> Status</div>
           <div className="flex flex-wrap gap-1.5">
-            {(["all", ...flow] as const).map((s) => (
+            {(["all", ...flow, "cancelled", "rejected"] as const).map((s) => (
               <button
                 key={s}
-                onClick={() => setFilter(s)}
+                onClick={() => setFilter(s as any)}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition ${filter === s ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
               >
-                {s === "all" ? "All" : labels[s]}
+                {s === "all" ? "All" : labels[s as OrderStatus]}
               </button>
             ))}
           </div>
@@ -190,9 +246,57 @@ function DashboardInner() {
               <p className="mt-1 text-xs text-muted-foreground">Place a test order from the customer page to see it appear here in real time.</p>
             </div>
           ) : (
-            visible.map((o) => <OrderCard key={o.id} order={o} isProcessing={processingId === o.id} onAdvance={advance} />)
+            visible.map((o) => <OrderCard key={o.id} order={o} isProcessing={processingId === o.id} onAdvance={advance} onException={(id, action) => setExceptionModal({ orderId: id, action })} />)
           )}
         </div>
+
+        {/* Exception Modal */}
+        {exceptionModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 shadow-card animate-in zoom-in-95">
+              <h3 className="font-display text-lg font-bold">
+                {exceptionModal.action === "rejected" ? "Reject Order" : "Cancel Order"}
+              </h3>
+              <p className="mt-2 text-sm text-muted-foreground">Please provide a reason for this action.</p>
+              
+              <div className="mt-4 space-y-2">
+                <select 
+                  value={exceptionReason}
+                  onChange={(e) => setExceptionReason(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="" disabled>Select a reason...</option>
+                  <option value="Item unavailable">Item unavailable</option>
+                  <option value="Kitchen unavailable">Kitchen unavailable</option>
+                  <option value="Customer requested cancellation">Customer requested cancellation</option>
+                  <option value="Duplicate order">Duplicate order</option>
+                  <option value="Other">Other</option>
+                </select>
+                {exceptionReason === "Other" && (
+                  <input 
+                    autoFocus
+                    placeholder="Type reason..." 
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    onChange={(e) => setExceptionReason(e.target.value)} // Note: in a real app you'd separate the custom reason state
+                  />
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={() => { setExceptionModal(null); setExceptionReason(""); }} className="rounded-full px-4 py-2 text-sm font-semibold hover:bg-secondary">
+                  Back
+                </button>
+                <button 
+                  disabled={!exceptionReason.trim() || processingId !== null}
+                  onClick={handleExceptionSubmit} 
+                  className="rounded-full bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+                >
+                  {processingId ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -212,10 +316,10 @@ function Stat({ title, value, icon: Icon, accent }: { title: string; value: numb
   );
 }
 
-function OrderCard({ order, isProcessing, onAdvance }: { order: Order; isProcessing?: boolean; onAdvance: (id: string, s: OrderStatus) => void }) {
+function OrderCard({ order, isProcessing, onAdvance, onException }: { order: Order; isProcessing?: boolean; onAdvance: (id: string, s: OrderStatus) => void; onException: (id: string, action: "rejected" | "cancelled") => void }) {
   const idx = flow.indexOf(order.status);
   const next = flow[idx + 1];
-  const total = order.items.reduce((s, i) => s + i.qty * i.price, 0) || order.total;
+  const total = order.total;
   return (
     <article className="flex flex-col rounded-3xl border border-border bg-card p-5 shadow-soft transition-shadow hover:shadow-card">
       <div className="flex items-start justify-between">
@@ -223,12 +327,19 @@ function OrderCard({ order, isProcessing, onAdvance }: { order: Order; isProcess
           <p className="text-xs uppercase tracking-wider text-muted-foreground">ORD-{String(order.order_number).padStart(4, "0")}</p>
           <h3 className="font-display text-xl font-bold">Table {order.table_number}</h3>
         </div>
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${tone[order.status]}`}>
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${tone[order.status] || tone.placed}`}>
           {order.status === "preparing" && <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-current" />}
-          {labels[order.status]}
+          {labels[order.status] || order.status}
         </span>
       </div>
       <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground"><Timer className="h-3 w-3" /> {relativeTime(order.placed_at)}</p>
+      
+      {order.exception_reason && (
+        <div className="mt-3 rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive">
+          <span className="font-semibold">Reason:</span> {order.exception_reason}
+        </div>
+      )}
+
       <ul className="mt-4 flex-1 space-y-1.5 text-sm">
         {order.items.map((it) => (
           <li key={it.id} className="flex justify-between">
@@ -239,15 +350,27 @@ function OrderCard({ order, isProcessing, onAdvance }: { order: Order; isProcess
       </ul>
       <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
         <span className="font-display text-base font-bold">{formatINR(total)}</span>
-        {next && order.status !== "cancelled" ? (
-          <button 
-            disabled={isProcessing}
-            onClick={() => onAdvance(order.id, next)} 
-            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft disabled:opacity-50"
-          >
-            {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            Mark as {labels[next]}
-          </button>
+        
+        {order.status !== "cancelled" && order.status !== "rejected" && order.status !== "served" ? (
+          <div className="flex gap-2 items-center">
+            <button 
+              disabled={isProcessing}
+              onClick={() => onException(order.id, order.status === "placed" ? "rejected" : "cancelled")} 
+              className="inline-flex items-center rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold hover:bg-destructive hover:text-destructive-foreground hover:border-destructive transition-colors disabled:opacity-50"
+            >
+              {order.status === "placed" ? "Reject" : "Cancel"}
+            </button>
+            {next && (
+              <button 
+                disabled={isProcessing}
+                onClick={() => onAdvance(order.id, next)} 
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft disabled:opacity-50"
+              >
+                {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Mark as {labels[next]}
+              </button>
+            )}
+          </div>
         ) : (
           <span className="text-xs text-muted-foreground">Closed</span>
         )}

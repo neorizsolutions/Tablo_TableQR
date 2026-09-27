@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
-type Role = "Admin" | "Kitchen" | "Waiter" | "Owner" | "Staff" | "Customer";
+type Role = "Admin" | "Kitchen" | "Waiter" | "Owner" | "Staff" | "Customer" | "SuperAdmin";
 
 interface AuthUser {
   id: string;
   email: string;
-  restaurantId: string;
+  restaurantId?: string;
+  restaurantName?: string;
   role: Role;
 }
 
@@ -15,7 +16,7 @@ interface AuthCtx {
   loading: boolean;
   isStaff: boolean;
   signIn: (token: string) => void;
-  signOut: () => Promise<void>;
+  signOut: (redirectPath?: string) => Promise<void>;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
@@ -49,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: payload.sub,
           email: email,
           restaurantId: payload.RestaurantId,
+          restaurantName: payload.RestaurantName,
           role: role as Role
         });
         setRoles([role as Role]);
@@ -69,17 +71,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: payload.sub,
         email: email,
         restaurantId: payload.RestaurantId,
+        restaurantName: payload.RestaurantName,
         role: role as Role
       });
       setRoles([role as Role]);
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (redirectPath?: string | any) => {
     localStorage.removeItem("tablo_token");
     setUser(null);
     setRoles([]);
-    window.location.href = "/auth";
+    const path = typeof redirectPath === "string" ? redirectPath : "/auth";
+    window.location.href = path;
   };
 
   const isStaff = roles.includes("Admin") || roles.includes("Kitchen") || roles.includes("Waiter");

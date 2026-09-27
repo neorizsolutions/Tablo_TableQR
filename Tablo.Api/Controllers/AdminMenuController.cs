@@ -65,13 +65,37 @@ namespace Tablo.Api.Controllers
         [HttpPost("menu-items")]
         [ProducesResponseType(typeof(MenuItemDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<MenuItemDto>> CreateMenuItem(Guid restaurantId, [FromBody] CreateMenuItemRequestDto request, CancellationToken cancellationToken)
+        public async Task<ActionResult<MenuItemDto>> CreateMenuItem(Guid restaurantId, [FromForm] CreateMenuItemRequestDto request, CancellationToken cancellationToken)
         {
             if (User.GetRestaurantId() != restaurantId) return Forbid();
 
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
+            }
+
+            if (request.ImageFile != null)
+            {
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+                var ext = System.IO.Path.GetExtension(request.ImageFile.FileName).ToLowerInvariant();
+                if (string.IsNullOrEmpty(ext) || !System.Linq.Enumerable.Contains(allowedExtensions, ext))
+                {
+                    return BadRequest(new { Message = "Invalid image format." });
+                }
+
+                var uploadsFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "images", "menu");
+                if (!System.IO.Directory.Exists(uploadsFolder))
+                    System.IO.Directory.CreateDirectory(uploadsFolder);
+
+                var uniqueFileName = Guid.NewGuid().ToString() + ext;
+                var filePath = System.IO.Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var fileStream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
+                {
+                    await request.ImageFile.CopyToAsync(fileStream, cancellationToken);
+                }
+
+                request.ImageUrl = $"/images/menu/{uniqueFileName}";
             }
 
             try
@@ -86,3 +110,4 @@ namespace Tablo.Api.Controllers
         }
     }
 }
+

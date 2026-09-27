@@ -25,10 +25,14 @@ namespace Tablo.Api.Services
 
         public async Task<TableDto> CreateTableAsync(Guid restaurantId, CreateTableRequestDto request)
         {
+            var existingTable = await _tableRepository.GetTableByNumberAsync(restaurantId, request.TableNumber);
+            if (existingTable != null)
+                throw new ArgumentException($"Table {request.TableNumber} already exists.");
+
             var table = new RestaurantTable
             {
                 RestaurantId = restaurantId,
-                NameOrNumber = request.NameOrNumber,
+                TableNumber = request.TableNumber,
                 IsActive = true,
                 QRToken = GenerateSecureToken()
             };
@@ -49,7 +53,11 @@ namespace Tablo.Api.Services
             if (table == null)
                 throw new ArgumentException("Table not found.");
 
-            table.NameOrNumber = request.NameOrNumber;
+            var existingTable = await _tableRepository.GetTableByNumberAsync(restaurantId, request.TableNumber);
+            if (existingTable != null && existingTable.Id != tableId)
+                throw new ArgumentException($"Table {request.TableNumber} already exists.");
+
+            table.TableNumber = request.TableNumber;
             table.IsActive = request.IsActive;
 
             await _tableRepository.UpdateTableAsync(table);
@@ -87,7 +95,7 @@ namespace Tablo.Api.Services
             {
                 Id = table.Id,
                 RestaurantId = table.RestaurantId,
-                NameOrNumber = table.NameOrNumber,
+                TableNumber = table.TableNumber,
                 QRToken = table.QRToken,
                 IsActive = table.IsActive
             };

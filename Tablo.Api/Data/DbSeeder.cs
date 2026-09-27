@@ -4,12 +4,16 @@ namespace Tablo.Api.Data
 {
     public static class DbSeeder
     {
-        public static void Seed(ApplicationDbContext context)
+        public static void Seed(ApplicationDbContext context, bool seedDummyData)
         {
-            if (context.Restaurants.Any())
+            if (context.Roles.Any())
             {
-                var existingRestaurant = context.Restaurants.First();
-                Console.WriteLine($"[INFO] RestaurantId: {existingRestaurant.Id}");
+                // Roles exist, check if we need to migrate passwords
+                var existingRestaurant = context.Restaurants.FirstOrDefault();
+                if (existingRestaurant != null)
+                {
+                    Console.WriteLine($"[INFO] RestaurantId: {existingRestaurant.Id}");
+                }
                 
                 // Migrate passwords if they are plain text (not starting with $2a$ or $2b$ or $2y$)
                 var employees = context.Employees.ToList();
@@ -31,11 +35,18 @@ namespace Tablo.Api.Data
                 return; // DB has been seeded
             }
 
-            // 1. Roles
+            // 1. Roles (Always seeded)
             var adminRole = new Role { Id = Guid.NewGuid(), Name = "Admin", Description = "Administrator" };
             var kitchenRole = new Role { Id = Guid.NewGuid(), Name = "Kitchen", Description = "Kitchen Staff" };
             var waiterRole = new Role { Id = Guid.NewGuid(), Name = "Waiter", Description = "Waiter Staff" };
             context.Roles.AddRange(adminRole, kitchenRole, waiterRole);
+            context.SaveChanges();
+
+            if (!seedDummyData)
+            {
+                Console.WriteLine("[INFO] SeedDummyData is false. Only roles created. Skipping demo data.");
+                return;
+            }
 
             // 2. Restaurant
             var restaurant = new Restaurant
@@ -89,7 +100,7 @@ namespace Tablo.Api.Data
                 {
                     Id = Guid.NewGuid(),
                     RestaurantId = restaurant.Id,
-                    NameOrNumber = $"Table {i}",
+                    TableNumber = i,
                     QRToken = Guid.NewGuid().ToString("N")
                 });
             }

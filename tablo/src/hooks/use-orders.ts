@@ -20,8 +20,11 @@ export function useOrders(restaurantId: string | null) {
     if (!restaurantId) return;
     
     const hubUrl = API_BASE_URL.replace(/\/api\/?$/, "/hubs/order");
+    const token = localStorage.getItem("tablo_token");
     const connection = new HubConnectionBuilder()
-      .withUrl(hubUrl)
+      .withUrl(hubUrl, {
+        accessTokenFactory: () => token || ""
+      })
       .withAutomaticReconnect()
       .build();
 
@@ -29,7 +32,13 @@ export function useOrders(restaurantId: string | null) {
       queryClient.invalidateQueries({ queryKey });
     });
 
-    connection.start().catch(err => console.error("SignalR connection error:", err));
+    connection.on("NewOrder", () => {
+      queryClient.invalidateQueries({ queryKey });
+    });
+
+    connection.start().then(() => {
+      connection.invoke("JoinRestaurantGroup").catch(err => console.error("SignalR JoinGroup error:", err));
+    }).catch(err => console.error("SignalR connection error:", err));
 
     return () => {
       connection.stop();
@@ -43,8 +52,8 @@ export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>
-      updateOrderStatus(orderId, status),
+    mutationFn: ({ orderId, status, restaurantId, exceptionReason }: { orderId: string; status: OrderStatus; restaurantId: string; exceptionReason?: string }) =>
+      updateOrderStatus(orderId, status, restaurantId, exceptionReason),
     onSuccess: () => {
       // Invalidate queries so the UI fetches the updated in-memory data immediately
       queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -85,7 +94,9 @@ export function useOrderTracking(restaurantId: string | null, orderId: string | 
       }
     });
 
-    connection.start().catch(err => console.error("SignalR connection error:", err));
+    connection.start().then(() => {
+      connection.invoke("JoinOrderGroup", orderId).catch(err => console.error("SignalR JoinGroup error:", err));
+    }).catch(err => console.error("SignalR connection error:", err));
 
     return () => {
       connection.stop();

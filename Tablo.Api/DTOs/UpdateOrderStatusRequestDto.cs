@@ -10,5 +10,7 @@ namespace Tablo.Api.DTOs
 
         [Required]
         public string Status { get; set; } = string.Empty;
+
+        public string? ExceptionReason { get; set; }
     }
 }

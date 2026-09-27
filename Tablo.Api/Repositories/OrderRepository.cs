@@ -16,12 +16,8 @@ namespace Tablo.Api.Repositories
 
         public async Task<RestaurantTable?> GetTableByNumberAsync(Guid restaurantId, int tableNumber)
         {
-            string tableStr = tableNumber.ToString();
-            string tableStrWithPrefix = $"Table {tableNumber}";
-            
             return await _context.RestaurantTables
-                .FirstOrDefaultAsync(t => t.RestaurantId == restaurantId && 
-                    (t.NameOrNumber == tableStr || t.NameOrNumber == tableStrWithPrefix));
+                .FirstOrDefaultAsync(t => t.RestaurantId == restaurantId && t.TableNumber == tableNumber);
         }
 
         public async Task<RestaurantTable?> GetTableByQRTokenAsync(string qrToken)
@@ -41,6 +37,12 @@ namespace Tablo.Api.Repositories
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
             return order;
+        }
+
+        public async Task<RestaurantSettings?> GetRestaurantSettingsAsync(Guid restaurantId)
+        {
+            return await _context.RestaurantSettings
+                .FirstOrDefaultAsync(s => s.RestaurantId == restaurantId);
         }
 
         public async Task<IEnumerable<Order>> GetOrdersAsync(Guid restaurantId, string? status = null)

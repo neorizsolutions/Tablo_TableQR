@@ -28,7 +28,7 @@ namespace Tablo.Api.Controllers
         [HttpPut]
         [ProducesResponseType(typeof(MenuItemDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<MenuItemDto>> UpdateMenuItem(Guid menuItemId, [FromBody] UpdateMenuItemRequestDto request, CancellationToken cancellationToken)
+        public async Task<ActionResult<MenuItemDto>> UpdateMenuItem(Guid menuItemId, [FromForm] UpdateMenuItemRequestDto request, CancellationToken cancellationToken)
         {
             var itemToUpdate = await _menuRepository.GetMenuItemAsync(menuItemId, cancellationToken);
             if (itemToUpdate == null) return NotFound(new { Message = "Menu item not found." });
@@ -37,6 +37,30 @@ namespace Tablo.Api.Controllers
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
+            }
+
+            if (request.ImageFile != null)
+            {
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+                var ext = System.IO.Path.GetExtension(request.ImageFile.FileName).ToLowerInvariant();
+                if (string.IsNullOrEmpty(ext) || !System.Linq.Enumerable.Contains(allowedExtensions, ext))
+                {
+                    return BadRequest(new { Message = "Invalid image format." });
+                }
+
+                var uploadsFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "images", "menu");
+                if (!System.IO.Directory.Exists(uploadsFolder))
+                    System.IO.Directory.CreateDirectory(uploadsFolder);
+
+                var uniqueFileName = Guid.NewGuid().ToString() + ext;
+                var filePath = System.IO.Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var fileStream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
+                {
+                    await request.ImageFile.CopyToAsync(fileStream, cancellationToken);
+                }
+
+                request.ImageUrl = $"/images/menu/{uniqueFileName}";
             }
 
             try
@@ -88,3 +112,4 @@ namespace Tablo.Api.Controllers
         }
     }
 }
+
