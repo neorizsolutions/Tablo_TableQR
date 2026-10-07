@@ -13,11 +13,13 @@ namespace Tablo.Api.Services
     {
         private readonly IMenuRepository _menuRepository;
         private readonly IHubContext<OrderHub> _hubContext;
+        private readonly IImageStorageService _imageStorageService;
 
-        public MenuService(IMenuRepository menuRepository, IHubContext<OrderHub> hubContext)
+        public MenuService(IMenuRepository menuRepository, IHubContext<OrderHub> hubContext, IImageStorageService imageStorageService)
         {
             _menuRepository = menuRepository;
             _hubContext = hubContext;
+            _imageStorageService = imageStorageService;
         }
 
         public async Task<MenuResponseDto?> GetMenuAsync(Guid restaurantId, CancellationToken cancellationToken)
@@ -45,7 +47,7 @@ namespace Tablo.Api.Services
                         Description = m.Description,
                         Price = m.Price,
                         IsAvailable = m.IsAvailable,
-                        ImageUrl = m.ImageUrl
+                        ImageUrl = _imageStorageService.GetImageUrl(m.ImageUrl)
                     }).ToList()
                 }).ToList()
             };
@@ -78,7 +80,7 @@ namespace Tablo.Api.Services
                         Description = m.Description,
                         Price = m.Price,
                         IsAvailable = m.IsAvailable,
-                        ImageUrl = m.ImageUrl
+                        ImageUrl = _imageStorageService.GetImageUrl(m.ImageUrl)
                     }).ToList()
                 }).ToList()
             };
@@ -149,7 +151,7 @@ namespace Tablo.Api.Services
                     Description = m.Description,
                     Price = m.Price,
                     IsAvailable = m.IsAvailable,
-                    ImageUrl = m.ImageUrl
+                    ImageUrl = _imageStorageService.GetImageUrl(m.ImageUrl)
                 }).ToList() ?? new System.Collections.Generic.List<MenuItemDto>()
             };
         }
@@ -194,7 +196,7 @@ namespace Tablo.Api.Services
                 Description = created.Description,
                 Price = created.Price,
                 IsAvailable = created.IsAvailable,
-                ImageUrl = created.ImageUrl
+                ImageUrl = _imageStorageService.GetImageUrl(created.ImageUrl)
             };
         }
 
@@ -229,7 +231,7 @@ namespace Tablo.Api.Services
                 Description = updated.Description,
                 Price = updated.Price,
                 IsAvailable = updated.IsAvailable,
-                ImageUrl = updated.ImageUrl
+                ImageUrl = _imageStorageService.GetImageUrl(updated.ImageUrl)
             };
         }
 
@@ -250,7 +252,7 @@ namespace Tablo.Api.Services
                 Description = updated.Description,
                 Price = updated.Price,
                 IsAvailable = updated.IsAvailable,
-                ImageUrl = updated.ImageUrl
+                ImageUrl = _imageStorageService.GetImageUrl(updated.ImageUrl)
             };
         }
 

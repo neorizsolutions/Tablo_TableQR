@@ -52,9 +52,11 @@ This project is separated into a frontend client and a backend API.
    cd Tablo.Api
    ```
 2. Configure your database connection and secrets:
-   - Copy `appsettings.example.json` to `appsettings.json`.
+   - Copy `appsettings.example.json` to `appsettings.Development.json`.
    - Update the `DefaultConnection` string with your PostgreSQL credentials.
    - Update the `Jwt:Key` with a strong, 32+ character secret key.
+   - Update the `SuperAdmin` block with your own local-only development credentials.
+   - *Do not commit `appsettings.Development.json`.*
 3. Apply database migrations:
    ```bash
    dotnet ef database update

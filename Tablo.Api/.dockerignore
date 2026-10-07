@@ -1,0 +1,13 @@
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/*.*proj.user
+**/bin
+**/obj
+**/appsettings.Development.json
+**/*.db
+**/*.sqlite
+**/*.log
+**/node_modules
+**/.env*

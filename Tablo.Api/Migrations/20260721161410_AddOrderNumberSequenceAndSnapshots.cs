@@ -29,12 +29,14 @@ namespace Tablo.Api.Migrations
                 nullable: false,
                 defaultValue: "");
 
-            migrationBuilder.AddColumn<decimal>(
+            migrationBuilder.AlterColumn<decimal>(
                 name: "UnitPrice",
                 table: "OrderItems",
                 type: "numeric(18,2)",
                 nullable: false,
-                defaultValue: 0m);
+                defaultValue: 0m,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,2)");
 
             migrationBuilder.CreateTable(
                 name: "RestaurantOrderSequences",
@@ -101,9 +103,14 @@ namespace Tablo.Api.Migrations
                 name: "ItemNameSnapshot",
                 table: "OrderItems");
 
-            migrationBuilder.DropColumn(
+            migrationBuilder.AlterColumn<decimal>(
                 name: "UnitPrice",
-                table: "OrderItems");
+                table: "OrderItems",
+                type: "numeric(18,2)",
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,2)",
+                oldDefaultValue: 0m);
 
             migrationBuilder.AlterColumn<int>(
                 name: "OrderNumber",
