@@ -1,18 +1,18 @@
 version: 1
-frontend:
-  phases:
-    preBuild:
-      commands:
-        - cd tablo
-        - npm ci
-    build:
-      commands:
-        - cd tablo
-        - npm run build
-  artifacts:
-    baseDirectory: tablo/dist
-    files:
-      - '**/*'
-  cache:
-    paths:
-      - tablo/node_modules/**/*
+applications:
+  - appRoot: tablo
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: dist
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
