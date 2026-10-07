@@ -18,11 +18,13 @@ namespace Tablo.Api.Controllers
     {
         private readonly IMenuService _menuService;
         private readonly IMenuRepository _menuRepository;
+        private readonly IImageStorageService _imageStorageService;
 
-        public MenuItemsController(IMenuService menuService, IMenuRepository menuRepository)
+        public MenuItemsController(IMenuService menuService, IMenuRepository menuRepository, IImageStorageService imageStorageService)
         {
             _menuService = menuService;
             _menuRepository = menuRepository;
+            _imageStorageService = imageStorageService;
         }
 
         [HttpPut]
@@ -48,19 +50,7 @@ namespace Tablo.Api.Controllers
                     return BadRequest(new { Message = "Invalid image format." });
                 }
 
-                var uploadsFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "images", "menu");
-                if (!System.IO.Directory.Exists(uploadsFolder))
-                    System.IO.Directory.CreateDirectory(uploadsFolder);
-
-                var uniqueFileName = Guid.NewGuid().ToString() + ext;
-                var filePath = System.IO.Path.Combine(uploadsFolder, uniqueFileName);
-
-                using (var fileStream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
-                {
-                    await request.ImageFile.CopyToAsync(fileStream, cancellationToken);
-                }
-
-                request.ImageUrl = $"/images/menu/{uniqueFileName}";
+                request.ImageUrl = await _imageStorageService.UploadImageAsync(request.ImageFile, cancellationToken);
             }
 
             try

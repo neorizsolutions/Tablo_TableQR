@@ -6,7 +6,17 @@ namespace Tablo.Api.Data
     {
         public static void Seed(ApplicationDbContext context, bool seedDummyData)
         {
-            if (context.Roles.Any())
+            bool rolesExist = false;
+            try
+            {
+                rolesExist = context.Roles.Any();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Database schema is missing or invalid. Please ensure all migrations are applied before starting the API.", ex);
+            }
+
+            if (rolesExist)
             {
                 // Roles exist, check if we need to migrate passwords
                 var existingRestaurant = context.Restaurants.FirstOrDefault();
@@ -15,6 +25,30 @@ namespace Tablo.Api.Data
                     Console.WriteLine($"[INFO] RestaurantId: {existingRestaurant.Id}");
                 }
                 
+                if (seedDummyData)
+                {
+                    // Quick fix to ensure Table 11-20 exist for testing
+                    var existingRestaurantToFix = context.Restaurants.FirstOrDefault();
+                    if (existingRestaurantToFix != null)
+                    {
+                        var existingTables = context.RestaurantTables.Where(t => t.RestaurantId == existingRestaurantToFix.Id).Select(t => t.TableNumber).ToList();
+                        for (int i = 11; i <= 20; i++)
+                        {
+                            if (!existingTables.Contains(i))
+                            {
+                                context.RestaurantTables.Add(new RestaurantTable
+                                {
+                                    Id = Guid.NewGuid(),
+                                    RestaurantId = existingRestaurantToFix.Id,
+                                    TableNumber = i,
+                                    QRToken = Guid.NewGuid().ToString("N")
+                                });
+                            }
+                        }
+                        context.SaveChanges();
+                    }
+                }
+
                 // Migrate passwords if they are plain text (not starting with $2a$ or $2b$ or $2y$)
                 var employees = context.Employees.ToList();
                 bool passwordsUpdated = false;

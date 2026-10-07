@@ -30,8 +30,28 @@ When deploying the `.NET` backend, you must provide secure production values for
   }
   ```
 
+### SuperAdmin Credentials
+- **Exact JSON Path:** `"SuperAdmin": { "Username": "...", "Password": "..." }`
+- **What to Change:** The base configuration has been hardened to prevent default logins. You must provide your own initial secure credentials.
+- **Example Environment Variables:**
+  ```env
+  SuperAdmin__Username=your_secure_admin_username
+  SuperAdmin__Password=your_secure_admin_password
+  ```
+
+### CORS (Allowed Origins)
+- **Exact JSON Path:** `"AllowedOrigins": [ "..." ]`
+- **What to Change:** The backend must explicitly know and trust the frontend's URL to allow browser requests.
+- **Exact Environment Variable Syntax:** Use double underscores `__` for nested properties, and an index number `0`, `1`, etc., to specify items in the array.
+- **Example:**
+  ```env
+  AllowedOrigins__0=https://your-amplify-domain.example
+  AllowedOrigins__1=https://another-approved-origin.example
+  ```
+- **Note:** Only configure explicitly approved frontend origins. Do not use wildcards `*` for AllowedOrigins.
+
 > [!TIP]
-> **Best Practice:** Instead of writing these secrets directly into the `appsettings.json` file on the server, modern hosting providers allow you to set them as **Environment Variables**. For example, setting an environment variable named `ConnectionStrings__DefaultConnection` will automatically override the value in the JSON file securely.
+> **Best Practice:** Modern hosting providers allow you to set these as **Environment Variables**. For example, setting an environment variable named `ConnectionStrings__DefaultConnection` will automatically override the value in the JSON file securely without exposing it in your codebase.
 
 ---
 

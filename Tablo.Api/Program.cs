@@ -22,7 +22,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? new[] { "http://localhost:8080" };
+        var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+        if (allowedOrigins == null || allowedOrigins.Length == 0) throw new InvalidOperationException("AllowedOrigins configuration is missing or empty.");
         policy.WithOrigins(allowedOrigins)
                .AllowAnyMethod()
                .AllowAnyHeader()
@@ -89,6 +90,24 @@ builder.Services.AddScoped<Tablo.Api.Interfaces.IReportService, Tablo.Api.Servic
 builder.Services.AddScoped<Tablo.Api.Interfaces.IServiceRequestService, Tablo.Api.Services.ServiceRequestService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.ISettingsService, Tablo.Api.Services.SettingsService>();
 
+var imageStorageOptions = builder.Configuration.GetSection(Tablo.Api.Configurations.ImageStorageOptions.ImageStorage).Get<Tablo.Api.Configurations.ImageStorageOptions>() ?? new Tablo.Api.Configurations.ImageStorageOptions();
+builder.Services.Configure<Tablo.Api.Configurations.ImageStorageOptions>(builder.Configuration.GetSection(Tablo.Api.Configurations.ImageStorageOptions.ImageStorage));
+
+if (imageStorageOptions.Provider.Equals("S3", StringComparison.OrdinalIgnoreCase))
+{
+    var awsOptions = builder.Configuration.GetAWSOptions();
+    if (!string.IsNullOrEmpty(imageStorageOptions.S3.Region))
+    {
+        awsOptions.Region = Amazon.RegionEndpoint.GetBySystemName(imageStorageOptions.S3.Region);
+    }
+    builder.Services.AddDefaultAWSOptions(awsOptions);
+    builder.Services.AddAWSService<Amazon.S3.IAmazonS3>();
+    builder.Services.AddScoped<Tablo.Api.Interfaces.IImageStorageService, Tablo.Api.Services.S3ImageStorageService>();
+}
+else
+{
+    builder.Services.AddScoped<Tablo.Api.Interfaces.IImageStorageService, Tablo.Api.Services.LocalImageStorageService>();
+}
 builder.Services.AddRateLimiter(options => {
     options.AddFixedWindowLimiter("PublicApi", opt => {
         opt.Window = TimeSpan.FromMinutes(1);
@@ -113,15 +132,33 @@ app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseWebSockets();
 
 // Add health endpoint
-app.MapGet("/health", () =>
+app.MapGet("/health", async (Tablo.Api.Data.ApplicationDbContext context, ILogger<Program> logger) =>
 {
-    return Results.Ok(new
+    try
     {
-        status = "Healthy",
-        service = "Tablo API"
-    });
+        bool canConnect = await context.Database.CanConnectAsync();
+        if (canConnect)
+        {
+            return Results.Ok(new
+            {
+                status = "Healthy",
+                service = "Tablo API"
+            });
+        }
+        else
+        {
+            logger.LogWarning("Health check failed: Database is unreachable.");
+            return Results.Json(new { status = "Unhealthy", service = "Tablo API" }, statusCode: 503);
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Health check failed due to a database connection exception.");
+        return Results.Json(new { status = "Unhealthy", service = "Tablo API" }, statusCode: 503);
+    }
 })
 .WithName("GetHealthStatus")
 .WithOpenApi();
@@ -135,41 +172,31 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var configuration = services.GetRequiredService<IConfiguration>();
-        bool seedDummyData = configuration.GetValue<bool>("SeedDummyData", true);
+        var env = services.GetRequiredService<IWebHostEnvironment>();
+        
+        bool seedDummyData = configuration.GetValue<bool>("SeedDummyData", false);
+        if (env.IsProduction())
+        {
+            seedDummyData = false; // Strictly prevent demo data in production
+        }
         
         var context = services.GetRequiredService<Tablo.Api.Data.ApplicationDbContext>();
-        context.Database.Migrate(); // Ensures db is created and migrated
+        // Migrations must be run explicitly via: dotnet ef database update
+        // context.Database.Migrate(); 
+        
         Tablo.Api.Data.DbSeeder.Seed(context, seedDummyData);
 
-        // Quick fix to ensure Table 11-20 exist for testing
-        if (seedDummyData)
-        {
-            var restaurant = context.Restaurants.FirstOrDefault();
-            if (restaurant != null)
-            {
-                var existingTables = context.RestaurantTables.Where(t => t.RestaurantId == restaurant.Id).Select(t => t.TableNumber).ToList();
-                for (int i = 11; i <= 20; i++)
-                {
-                    if (!existingTables.Contains(i))
-                    {
-                        context.RestaurantTables.Add(new Tablo.Api.Entities.RestaurantTable
-                        {
-                            Id = Guid.NewGuid(),
-                            RestaurantId = restaurant.Id,
-                            TableNumber = i,
-                            QRToken = Guid.NewGuid().ToString("N")
-                        });
-                    }
-                }
-                context.SaveChanges();
-            }
-        }
+
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred seeding the DB.");
+        logger.LogCritical(ex, "A critical error occurred initializing the database schema or foundational data. The application cannot start.");
+        throw; // Fail-fast on startup
     }
 }
 
 app.Run();
+
+public partial class Program { }
+
