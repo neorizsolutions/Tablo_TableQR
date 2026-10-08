@@ -37,3 +37,21 @@ Thumbs.db
 # Project Specific
 *.log
 npm_install_log.txt
+# Targeted local deployment artifacts
+db_pass.json
+db_endpoint.json
+access-details.json
+job_steps*.json
+build_log*.txt
+tablo-src*.zip
+tablo.tar.gz
+
+# Local testing and setup scripts
+tablo/*.py
+test_*.py
+test_*.sh
+tablo/test.cjs
+tablo/test_fetch.js
+policy.json
+amplify-rules.json
+nginx-default.conf
