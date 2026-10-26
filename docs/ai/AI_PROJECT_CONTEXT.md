@@ -2,7 +2,7 @@
 
 ## 0. AI READ-FIRST NOTICE
 
-**This document describes the current TABLO project.**
+**This document describe the current TABLO project.**
 
 Before making any change to this repository:
 - **Understand the existing architecture.**
