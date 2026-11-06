@@ -56,7 +56,7 @@ export function SiteHeader() {
         </nav>
         <div className="hidden items-center gap-2 sm:flex">
           {user ? (
-            <button onClick={signOut} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-2 text-xs font-semibold">
+            <button onClick={() => void signOut()} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-2 text-xs font-semibold">
               <LogOut className="h-3.5 w-3.5" /> Sign out
             </button>
           ) : (

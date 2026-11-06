@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, ChefHat, CircleDot, Flame, Languages, Loader2, Minus, PackageCheck, Plus, Search, ShoppingBag, Sparkles, Utensils, X, Bell, Receipt, HandPlatter } from "lucide-react";
 import { toast } from "sonner";
 import { formatINR } from "@/lib/mock-data";
-import { Category, OrderStatus } from "@/types";
+import { Category, Order, OrderStatus } from "@/types";
 import { useMenu } from "@/hooks/use-menu";
 import { useCart } from "@/hooks/use-cart";
 import { useOrderTracking } from "@/hooks/use-orders";
@@ -406,7 +406,7 @@ function EmptyState() {
 }
 
 function Confirmation({ cart, total, stage, exceptionReason, currentOrder, onDone }: { cart: { item: any, qty: number }[]; total: number; stage: OrderStatus; exceptionReason?: string | null; currentOrder?: Order; onDone: () => void }) {
-  const displayStage = stage === "accepted" ? "placed" : stage === "ready_to_serve" ? "ready" : stage;
+  const displayStage = stage === "accepted" ? "placed" : stage;
   const idx = stages.findIndex((s) => s.key === displayStage);
   const isException = stage === "cancelled" || stage === "rejected";
 

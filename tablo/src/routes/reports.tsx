@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { Loader2, LogIn, LogOut, Search, X, FileText, ChevronLeft, ChevronRight, TrendingUp, ShoppingBag, DollarSign, Receipt, Download } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
+import { PaymentReports } from "@/components/payment-reports";
 import { useAuth } from "@/hooks/use-auth";
 import { useReports, useAnalyticsSummary, useSalesOverTime, useTopItems } from "@/hooks/use-reports";
 import { exportOrderHistory } from "@/services/api";
@@ -149,7 +150,7 @@ function ReportsInner() {
     }
     try {
       setIsExporting(true);
-      await exportOrderHistory(params);
+      await exportOrderHistory({ ...params, search: search || undefined });
       toast.success("Excel report exported successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to export Excel report");
@@ -162,11 +163,12 @@ function ReportsInner() {
     <div className="min-h-screen bg-secondary/40">
       <SiteHeader />
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        {restaurantId && <PaymentReports restaurantId={restaurantId} />}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-primary">Admin Analytics</p>
             <h1 className="mt-1 font-display text-3xl font-bold">Order History</h1>
-            <p className="mt-1 text-sm text-muted-foreground">View past orders and historical data.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Order sales, including unpaid orders. Order date filters use UTC; payment collections above use settlement dates in IST.</p>
           </div>
           <button 
             onClick={handleExport}
@@ -193,6 +195,7 @@ function ReportsInner() {
             <select value={status} onChange={e => setStatus(e.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="all">All Statuses</option>
               <option value="Placed">Placed</option>
+              <option value="Accepted">Accepted</option>
               <option value="Preparing">Preparing</option>
               <option value="Ready">Ready</option>
               <option value="Served">Served</option>
@@ -234,7 +237,7 @@ function ReportsInner() {
                 <DollarSign className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                <p className="text-sm font-medium text-muted-foreground">Order sales (not collections)</p>
                 {isLoadingSummary ? (
                   <div className="h-8 w-24 animate-pulse rounded-md bg-secondary/50 mt-1" />
                 ) : (
@@ -296,13 +299,13 @@ function ReportsInner() {
         {/* Charts & Top Items */}
         <div className="mb-6 grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 rounded-3xl border border-border bg-card p-6 shadow-soft">
-            <h3 className="mb-6 font-display text-lg font-bold">Sales Over Time</h3>
+            <h3 className="mb-6 font-display text-lg font-bold">Order sales over time (UTC)</h3>
             <div className="h-[300px] w-full">
               {isLoadingSales ? (
                 <div className="h-full w-full animate-pulse rounded-xl bg-secondary/30" />
               ) : salesData && salesData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={salesData.map(d => ({ ...d, date: new Date(d.date).toLocaleDateString() }))}>
+                  <LineChart data={salesData.map(d => ({ ...d, date: new Date(d.date).toLocaleDateString("en-IN", { timeZone: "UTC" }) }))}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis 
                       dataKey="date" 
@@ -342,7 +345,7 @@ function ReportsInner() {
           </div>
 
           <div className="rounded-3xl border border-border bg-card p-6 shadow-soft flex flex-col">
-            <h3 className="mb-6 font-display text-lg font-bold">Top Selling Items</h3>
+            <h3 className="mb-6 font-display text-lg font-bold">Top items (before tax / discount)</h3>
             <div className="flex-1 overflow-y-auto pr-2">
               {isLoadingTopItems ? (
                 <div className="space-y-4">

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Bell, Check, ChefHat, Filter, Flame, Loader2, LogIn, LogOut, PackageCheck, Search, ShieldAlert, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
+import { ServiceDesk } from "@/components/service-desk";
 import { useAuth } from "@/hooks/use-auth";
 import { formatINR, relativeTime } from "@/lib/mock-data";
 import { Order, OrderStatus } from "@/types";
@@ -96,6 +97,8 @@ function NoAccessGate({ roles, onSignOut }: { roles: string[]; onSignOut: () => 
 
 function DashboardInner() {
   const { signOut, user } = useAuth();
+  const [showServiceDesk, setShowServiceDesk] = useState(false);
+  const canManageBills = user?.role === "Admin" || user?.role === "Waiter";
   
   const { data: orders = [], isLoading: loadingOrders } = useOrders(user?.restaurantId || null);
   const { mutateAsync: updateStatus } = useUpdateOrderStatus();
@@ -161,14 +164,17 @@ function DashboardInner() {
             <p className="mt-1 text-xs text-muted-foreground">Signed in as {user?.email}</p>
           </div>
           <div className="flex items-center gap-2">
+            {canManageBills && <button type="button" aria-expanded={showServiceDesk} onClick={() => setShowServiceDesk(value => !value)} className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground">{showServiceDesk ? "Hide orders & billing" : "Orders & billing"}</button>}
             <span className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-1.5 text-xs font-medium shadow-soft">
               <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary" /> Real-time updates
             </span>
-            <button onClick={signOut} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold">
+            <button onClick={() => void signOut()} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold">
               <LogOut className="h-3.5 w-3.5" /> Sign out
             </button>
           </div>
         </div>
+
+        {showServiceDesk && canManageBills && user?.restaurantId && <ServiceDesk restaurantId={user.restaurantId} employeeId={user.id} />}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat title="Active orders" value={counts.active} icon={Bell} accent />

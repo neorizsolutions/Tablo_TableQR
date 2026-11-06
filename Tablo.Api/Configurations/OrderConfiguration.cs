@@ -10,6 +10,10 @@ namespace Tablo.Api.Configurations
         {
             builder.ToTable("Orders");
             builder.HasKey(o => o.Id);
+            builder.HasOne(o => o.TableBill).WithMany(b => b.Orders)
+                .HasForeignKey(o => new { o.RestaurantId, o.TableId, o.TableBillId })
+                .HasPrincipalKey(b => new { b.RestaurantId, b.TableId, b.Id })
+                .OnDelete(DeleteBehavior.Restrict);
 
             builder.Property(o => o.OrderNumber).IsRequired();
             builder.Property(o => o.Status).IsRequired().HasMaxLength(50).HasDefaultValue("Placed");

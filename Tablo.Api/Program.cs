@@ -84,6 +84,9 @@ builder.Services.AddScoped<Tablo.Api.Interfaces.ITableService, Tablo.Api.Service
 builder.Services.AddScoped<Tablo.Api.Interfaces.IQRService, Tablo.Api.Services.QRService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IOrderRepository, Tablo.Api.Repositories.OrderRepository>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IOrderService, Tablo.Api.Services.OrderService>();
+builder.Services.AddScoped<Tablo.Api.Services.BillingService>();
+builder.Services.AddScoped<Tablo.Api.Services.PaymentReportService>();
+builder.Services.AddScoped<Tablo.Api.Services.StaffOrderingService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IAuthService, Tablo.Api.Services.AuthService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IEmailService, Tablo.Api.Services.EmailService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IReportService, Tablo.Api.Services.ReportService>();

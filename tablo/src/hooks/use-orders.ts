@@ -4,6 +4,7 @@ import { OrderStatus } from "@/types";
 import { useEffect } from "react";
 import { HubConnectionBuilder } from "@microsoft/signalr";
 import { API_BASE_URL } from "@/services/apiClient";
+import { subscribeCustomerOrder } from "@/services/customer-order-events";
 
 export function useOrders(restaurantId: string | null) {
   const queryClient = useQueryClient();
@@ -74,6 +75,7 @@ export function useOrderTracking(restaurantId: string | null, orderId: string | 
       return order;
     },
     enabled: !!orderId && !!restaurantId,
+    refetchInterval: 15000,
   });
 
   useEffect(() => {
@@ -85,23 +87,16 @@ export function useOrderTracking(restaurantId: string | null, orderId: string | 
       .withAutomaticReconnect()
       .build();
 
-    connection.on("OrderStatusUpdated", (updatedOrderId: string, newStatus: string) => {
-      if (updatedOrderId.toLowerCase() === orderId.toLowerCase()) {
-        queryClient.setQueryData(queryKey, (oldData: any) => {
-          if (!oldData) return oldData;
-          return { ...oldData, status: newStatus.toLowerCase() as OrderStatus };
-        });
-      }
-    });
+    const refresh = subscribeCustomerOrder(connection, queryClient, orderId);
 
     connection.start().then(() => {
-      connection.invoke("JoinOrderGroup", orderId).catch(err => console.error("SignalR JoinGroup error:", err));
+      connection.invoke("JoinOrderGroup", orderId).then(refresh).catch(err => console.error("SignalR JoinGroup error:", err));
     }).catch(err => console.error("SignalR connection error:", err));
 
     return () => {
       connection.stop();
     };
-  }, [orderId, queryClient, queryKey]);
+  }, [orderId, queryClient]);
 
   return query;
 }

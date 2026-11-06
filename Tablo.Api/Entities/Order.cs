@@ -14,6 +14,9 @@ namespace Tablo.Api.Entities
         public RestaurantTable Table { get; set; } = null!;
         
         public int OrderNumber { get; set; }
+
+        public Guid? TableBillId { get; set; }
+        public TableBill? TableBill { get; set; }
         
         [Required]
         [MaxLength(50)]

@@ -65,7 +65,8 @@ export async function apiDownloadBlob(endpoint: string, options?: RequestInit): 
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to download from ${url}: ${response.statusText}`);
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.message || `Download failed (${response.status}). Please retry.`);
   }
 
   return response.blob();

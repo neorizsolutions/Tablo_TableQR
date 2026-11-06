@@ -186,6 +186,9 @@ namespace Tablo.Api.Migrations
                     b.Property<decimal>("Subtotal")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid?>("TableBillId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("TableId")
                         .HasColumnType("uuid");
 
@@ -212,6 +215,8 @@ namespace Tablo.Api.Migrations
                         .IsUnique();
 
                     b.HasIndex("RestaurantId", "Status");
+
+                    b.HasIndex("RestaurantId", "TableId", "TableBillId");
 
                     b.ToTable("Orders", (string)null);
                 });
@@ -420,6 +425,119 @@ namespace Tablo.Api.Migrations
                     b.ToTable("ServiceRequests");
                 });
 
+            modelBuilder.Entity("Tablo.Api.Entities.StaffOrderSubmission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OriginalResponseJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("PayloadHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TableId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId", "ActorEmployeeId");
+
+                    b.HasIndex("RestaurantId", "OperationId")
+                        .IsUnique();
+
+                    b.HasIndex("RestaurantId", "TableId");
+
+                    b.ToTable("StaffOrderSubmissions");
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.TableBill", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Discount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("ReceiptJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("SettledAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SettledByEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SettlementHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("SettlementOperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("TableId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TableNumberSnapshot")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Tax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId", "SettledAtUtc");
+
+                    b.HasIndex("RestaurantId", "SettledByEmployeeId");
+
+                    b.HasIndex("RestaurantId", "SettlementOperationId")
+                        .IsUnique()
+                        .HasFilter("\"SettlementOperationId\" IS NOT NULL");
+
+                    b.HasIndex("RestaurantId", "TableId")
+                        .IsUnique()
+                        .HasFilter("\"SettledAtUtc\" IS NULL");
+
+                    b.ToTable("TableBills");
+                });
+
             modelBuilder.Entity("Tablo.Api.Entities.Category", b =>
                 {
                     b.HasOne("Tablo.Api.Entities.Restaurant", "Restaurant")
@@ -483,9 +601,17 @@ namespace Tablo.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Tablo.Api.Entities.TableBill", "TableBill")
+                        .WithMany("Orders")
+                        .HasForeignKey("RestaurantId", "TableId", "TableBillId")
+                        .HasPrincipalKey("RestaurantId", "TableId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Restaurant");
 
                     b.Navigation("Table");
+
+                    b.Navigation("TableBill");
                 });
 
             modelBuilder.Entity("Tablo.Api.Entities.OrderItem", b =>
@@ -559,6 +685,39 @@ namespace Tablo.Api.Migrations
                     b.Navigation("Table");
                 });
 
+            modelBuilder.Entity("Tablo.Api.Entities.StaffOrderSubmission", b =>
+                {
+                    b.HasOne("Tablo.Api.Entities.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId", "ActorEmployeeId")
+                        .HasPrincipalKey("RestaurantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Tablo.Api.Entities.RestaurantTable", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId", "TableId")
+                        .HasPrincipalKey("RestaurantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.TableBill", b =>
+                {
+                    b.HasOne("Tablo.Api.Entities.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId", "SettledByEmployeeId")
+                        .HasPrincipalKey("RestaurantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Tablo.Api.Entities.RestaurantTable", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId", "TableId")
+                        .HasPrincipalKey("RestaurantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Tablo.Api.Entities.Category", b =>
                 {
                     b.Navigation("MenuItems");
@@ -601,6 +760,11 @@ namespace Tablo.Api.Migrations
             modelBuilder.Entity("Tablo.Api.Entities.Role", b =>
                 {
                     b.Navigation("Employees");
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.TableBill", b =>
+                {
+                    b.Navigation("Orders");
                 });
 #pragma warning restore 612, 618
         }

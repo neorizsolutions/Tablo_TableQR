@@ -335,7 +335,7 @@ namespace Tablo.Api.Services
                 {
                     ItemName = g.Key,
                     QuantitySold = g.Sum(oi => oi.Quantity),
-                    Revenue = g.Sum(oi => oi.Quantity * oi.UnitPrice) * 1.05m
+                    Revenue = g.Sum(oi => oi.Quantity * oi.UnitPrice)
                 })
                 .OrderByDescending(x => x.QuantitySold)
                 .Take(10)

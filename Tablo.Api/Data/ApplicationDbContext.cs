@@ -15,6 +15,8 @@ namespace Tablo.Api.Data
         public DbSet<Category> Categories { get; set; } = null!;
         public DbSet<MenuItem> MenuItems { get; set; } = null!;
         public DbSet<Order> Orders { get; set; } = null!;
+        public DbSet<TableBill> TableBills { get; set; } = null!;
+        public DbSet<StaffOrderSubmission> StaffOrderSubmissions { get; set; } = null!;
         public DbSet<RestaurantOrderSequence> RestaurantOrderSequences { get; set; } = null!;
         public DbSet<OrderItem> OrderItems { get; set; } = null!;
         public DbSet<Employee> Employees { get; set; } = null!;

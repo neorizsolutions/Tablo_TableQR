@@ -10,6 +10,7 @@ namespace Tablo.Api.Configurations
         {
             builder.ToTable("Employees");
             builder.HasKey(e => e.Id);
+            builder.HasAlternateKey(e => new { e.RestaurantId, e.Id });
 
             builder.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
             builder.Property(e => e.LastName).IsRequired().HasMaxLength(100);
