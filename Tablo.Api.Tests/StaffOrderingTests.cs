@@ -31,7 +31,7 @@ public class StaffOrderingTests
         db.Orders.Add(order);
         await db.SaveChangesAsync();
         var orders = new Mock<IOrderService>();
-        orders.Setup(o => o.CreateOrderAsync(It.IsAny<CreateOrderRequestDto>())).ReturnsAsync(new OrderResponseDto { OrderId = order.Id, Status = "Placed" });
+        orders.Setup(o => o.CreateOrderAsync(It.IsAny<CreateOrderRequestDto>(), It.IsAny<bool>())).ReturnsAsync(new OrderResponseDto { OrderId = order.Id, Status = "Accepted" });
         var messages = new List<(string Method, object?[] Args)>();
         var proxy = new Mock<IClientProxy>();
         proxy.Setup(p => p.SendCoreAsync(It.IsAny<string>(), It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
@@ -65,8 +65,8 @@ public class StaffOrderingTests
         db.Employees.Add(new Employee { Id = actor, RestaurantId = restaurant, IsActive = true, Role = new Role { Name = "Waiter" } });
         await db.SaveChangesAsync();
         var orders = new Mock<IOrderService>();
-        var result = new OrderResponseDto { OrderId = Guid.NewGuid(), OrderNumber = 15, TotalAmount = 105, Status = "Placed" };
-        orders.Setup(o => o.CreateOrderAsync(It.IsAny<CreateOrderRequestDto>())).ReturnsAsync(result);
+        var result = new OrderResponseDto { OrderId = Guid.NewGuid(), OrderNumber = 15, TotalAmount = 105, Status = "Accepted" };
+        orders.Setup(o => o.CreateOrderAsync(It.IsAny<CreateOrderRequestDto>(), It.IsAny<bool>())).ReturnsAsync(result);
         var service = new StaffOrderingService(db, orders.Object);
         var request = new StaffOrderRequestDto { OperationId = Guid.NewGuid(), TableId = table.Id,
             Items = [new OrderItemRequestDto { MenuItemId = Guid.NewGuid(), Quantity = 1 }] };
@@ -74,7 +74,7 @@ public class StaffOrderingTests
         var second = await service.SubmitAsync(restaurant, actor, request);
         Assert.Equal(first.OrderId, second.OrderId);
         Assert.Single(await db.StaffOrderSubmissions.ToListAsync());
-        orders.Verify(o => o.CreateOrderAsync(It.Is<CreateOrderRequestDto>(r => r.QRToken == "table-qr" && r.Items[0].Quantity == 1)), Times.Once);
+        orders.Verify(o => o.CreateOrderAsync(It.Is<CreateOrderRequestDto>(r => r.QRToken == "table-qr" && r.Items[0].Quantity == 1), true), Times.Once);
         request.Items[0].Quantity = 2;
         await Assert.ThrowsAsync<ServiceConflictException>(() => service.SubmitAsync(restaurant, actor, request));
     }

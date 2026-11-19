@@ -11,10 +11,12 @@ namespace Tablo.Api.Configurations
             builder.ToTable("Orders");
             builder.HasKey(o => o.Id);
             builder.HasOne(o => o.TableBill).WithMany(b => b.Orders)
-                .HasForeignKey(o => new { o.RestaurantId, o.TableId, o.TableBillId })
-                .HasPrincipalKey(b => new { b.RestaurantId, b.TableId, b.Id })
+                .HasForeignKey(o => new { o.RestaurantId, o.TableBillId })
+                .HasPrincipalKey(b => new { b.RestaurantId, b.Id })
                 .OnDelete(DeleteBehavior.Restrict);
 
+            builder.Property(o=>o.GroupLabel).HasMaxLength(8);
+            builder.HasOne<DiningGroup>().WithMany().HasForeignKey(o=>new{o.RestaurantId,o.DiningGroupId}).HasPrincipalKey(g=>new{g.RestaurantId,g.Id}).OnDelete(DeleteBehavior.Restrict);
             builder.Property(o => o.OrderNumber).IsRequired();
             builder.Property(o => o.Status).IsRequired().HasMaxLength(50).HasDefaultValue("Placed");
             builder.Property(o => o.TotalAmount).HasColumnType("decimal(18,2)").IsRequired();

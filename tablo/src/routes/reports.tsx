@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { Loader2, LogIn, LogOut, Search, X, FileText, ChevronLeft, ChevronRight, TrendingUp, ShoppingBag, DollarSign, Receipt, Download } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
+import { AppLayout } from "@/components/app-layout";
 import { PaymentReports } from "@/components/payment-reports";
 import { useAuth } from "@/hooks/use-auth";
 import { useReports, useAnalyticsSummary, useSalesOverTime, useTopItems } from "@/hooks/use-reports";
@@ -160,9 +161,9 @@ function ReportsInner() {
   };
 
   return (
-    <div className="min-h-screen bg-secondary/40">
-      <SiteHeader />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <AppLayout>
+      <div className="min-h-screen bg-secondary/40">
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {restaurantId && <PaymentReports restaurantId={restaurantId} />}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -556,6 +557,7 @@ function ReportsInner() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AppLayout>
   );
 }

@@ -10,6 +10,8 @@ export interface PaymentFilters {
   pageSize?: number;
 }
 export interface PaymentRow {
+  billId: string;
+  groupLabel?: string;
   id: string;
   tableId: string;
   tableNumber: number;
@@ -19,6 +21,8 @@ export interface PaymentRow {
   totalAmount: number;
 }
 export interface PaymentReport {
+  settledBillCount:number;
+  outstandingBalance:number;
   timeZone: string;
   totalCollected: number;
   cash: number;

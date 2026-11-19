@@ -4,6 +4,7 @@ namespace Tablo.Api.DTOs;
 
 public class StaffOrderRequestDto
 {
+    public Guid? DiningGroupId { get; set; }
     public Guid OperationId { get; set; }
     public Guid TableId { get; set; }
     [Required, MinLength(1), MaxLength(200)]
@@ -23,6 +24,13 @@ public class SettleBillRequestDto
 
 public class BillDto
 {
+    public Guid? DiningGroupId { get; set; }
+    public string? GroupLabel { get; set; }
+    public Guid? ParentBillId { get; set; }
+    public string? ShareDescription { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal RemainingAmount { get; set; }
+    public List<BillPaymentDto> Payments { get; set; } = new();
     public string? RestaurantName { get; set; }
     public Guid? SettledByEmployeeId { get; set; }
     public Guid Id { get; set; }
@@ -40,6 +48,8 @@ public class BillDto
     public List<BillOrderDto> Orders { get; set; } = new();
 }
 
+public record BillPaymentDto(Guid Id, string Method, decimal Amount, DateTime CollectedAtUtc, Guid ActorEmployeeId);
+
 public class BillOrderDto
 {
     public Guid Id { get; set; }
@@ -53,6 +63,7 @@ public class TableBillReviewDto
 {
     public Guid TableId { get; set; }
     public int TableNumber { get; set; }
+    public List<BillDto> OpenBills { get; set; } = new();
     public BillDto? OpenBill { get; set; }
     public int UnbilledActiveOrderCount { get; set; }
     public List<BillDto> RecentSettlements { get; set; } = new();

@@ -87,7 +87,7 @@ public class ServiceDeskAuthorizationTests(ServiceDeskTestHost host) : IClassFix
 {
     public static IEnumerable<object[]> EndpointAuthorizationCases()
     {
-        foreach (var endpoint in new[] { "review", "open", "submit", "settle", "receipt" })
+        foreach (var endpoint in new[] { "review", "open", "submit", "settle", "receipt", "groups", "create-group", "pay", "split", "preview", "transfer", "close-group" })
             foreach (var identity in new[] { "anonymous", "Kitchen", "Waiter", "foreign-tenant", "missing-tenant", "empty-tenant", "inactive" })
                 yield return [endpoint, identity];
     }
@@ -110,6 +110,13 @@ public class ServiceDeskAuthorizationTests(ServiceDeskTestHost host) : IClassFix
         var response = endpoint switch
         {
             "review" => await client.GetAsync(root + $"tables/{missingResource}/bill"),
+            "groups" => await client.GetAsync(root+$"tables/{missingResource}/groups"),
+            "create-group" => await client.PostAsJsonAsync(root+$"tables/{missingResource}/groups",new{operationId=Guid.NewGuid(),label="A"}),
+            "pay" => await client.PostAsJsonAsync(root+$"bills/{missingResource}/payments",new{operationId=Guid.NewGuid(),method="Cash",amount=1}),
+            "split" => await client.PostAsJsonAsync(root+$"bills/{missingResource}/split",new{operationId=Guid.NewGuid(),expectedRevision=new string('0',64),amounts=new[]{1,1}}),
+            "preview" => await client.PostAsJsonAsync(root+$"bills/{missingResource}/split-preview",new{operationId=Guid.NewGuid(),expectedRevision=new string('0',64),amounts=new[]{1,1}}),
+            "transfer" => await client.PostAsJsonAsync(root+$"tables/{missingResource}/transfer",new{operationId=Guid.NewGuid(),destinationTableId=Guid.NewGuid()}),
+            "close-group" => await client.PostAsJsonAsync(root+$"tables/{missingResource}/groups/{Guid.NewGuid()}/close",new{operationId=Guid.NewGuid()}),
             "receipt" => await client.GetAsync(root + $"bills/{missingResource}/receipt"),
             "open" => await client.PostAsJsonAsync(root + $"tables/{missingResource}/bill/open", new { }),
             "submit" => await client.PostAsJsonAsync(root + "orders", new { operationId = Guid.NewGuid(), tableId = missingResource,

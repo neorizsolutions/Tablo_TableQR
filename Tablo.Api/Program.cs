@@ -86,12 +86,15 @@ builder.Services.AddScoped<Tablo.Api.Interfaces.IOrderRepository, Tablo.Api.Repo
 builder.Services.AddScoped<Tablo.Api.Interfaces.IOrderService, Tablo.Api.Services.OrderService>();
 builder.Services.AddScoped<Tablo.Api.Services.BillingService>();
 builder.Services.AddScoped<Tablo.Api.Services.PaymentReportService>();
+builder.Services.AddScoped<Tablo.Api.Services.InventoryService>();
+builder.Services.AddScoped<Tablo.Api.Services.InventoryReportService>();
 builder.Services.AddScoped<Tablo.Api.Services.StaffOrderingService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IAuthService, Tablo.Api.Services.AuthService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IEmailService, Tablo.Api.Services.EmailService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IReportService, Tablo.Api.Services.ReportService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IServiceRequestService, Tablo.Api.Services.ServiceRequestService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.ISettingsService, Tablo.Api.Services.SettingsService>();
+builder.Services.AddScoped<Tablo.Api.Interfaces.ISubscriptionService, Tablo.Api.Services.SubscriptionService>();
 
 var imageStorageOptions = builder.Configuration.GetSection(Tablo.Api.Configurations.ImageStorageOptions.ImageStorage).Get<Tablo.Api.Configurations.ImageStorageOptions>() ?? new Tablo.Api.Configurations.ImageStorageOptions();
 builder.Services.Configure<Tablo.Api.Configurations.ImageStorageOptions>(builder.Configuration.GetSection(Tablo.Api.Configurations.ImageStorageOptions.ImageStorage));

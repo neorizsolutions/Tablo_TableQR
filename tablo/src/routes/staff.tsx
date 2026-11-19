@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Loader2, ShieldAlert, LogIn, LogOut, Plus, Pencil, Power, PowerOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
+import { AppLayout } from "@/components/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useStaff, useCreateEmployee, useUpdateEmployee, useUpdateEmployeeStatus } from "@/hooks/use-staff";
 import { Employee } from "@/services/api";
@@ -114,9 +115,9 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
   };
 
   return (
-    <div className="min-h-screen bg-secondary/40">
-      <SiteHeader />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <AppLayout>
+      <div className="min-h-screen bg-secondary/40">
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-primary">Manager workspace</p>
@@ -197,7 +198,8 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
           onClose={() => { setCreating(false); setEditing(null); }} 
         />
       )}
-    </div>
+      </div>
+    </AppLayout>
   );
 }
 

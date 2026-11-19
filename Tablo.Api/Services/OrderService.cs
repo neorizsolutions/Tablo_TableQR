@@ -23,7 +23,7 @@ namespace Tablo.Api.Services
             _logger = logger;
         }
 
-        public async Task<OrderResponseDto> CreateOrderAsync(CreateOrderRequestDto request)
+        public async Task<OrderResponseDto> CreateOrderAsync(CreateOrderRequestDto request, bool isStaff = false)
         {
             // Validate table using QRToken
             var table = await _orderRepository.GetTableByQRTokenAsync(request.QRToken);
@@ -48,18 +48,43 @@ namespace Tablo.Api.Services
                 throw new ArgumentException("This restaurant is currently not accepting orders.");
             }
 
+            var selectedGroup = await DiningGroupService.ResolveAsync(_context,table.RestaurantId,table.Id,request.DiningGroupId);
             var activeOrders = await _orderRepository.GetOrdersAsync(table.RestaurantId);
-            var existingOrder = activeOrders
-                .Where(o => o.TableId == table.Id && o.Status != "Served" && o.Status != "Cancelled" && o.Status != "Rejected")
-                .OrderByDescending(o => o.CreatedAt)
-                .FirstOrDefault();
+            Order? existingOrder = null;
+            if (isStaff)
+            {
+                // If staff add items to an existing Accepted or Preparing order, preserve its status.
+                // If the table/group only has an unaccepted QR order (Placed), do not attach to it:
+                // keep the QR order pending, and create a separate Accepted ticket on the same bill.
+                existingOrder = activeOrders
+                    .Where(o => o.TableId == table.Id
+                             && o.DiningGroupId == selectedGroup.Id
+                             && (o.Status == "Accepted" || o.Status == "Preparing"))
+                    .OrderByDescending(o => o.CreatedAt)
+                    .FirstOrDefault();
+            }
+            else
+            {
+                // Customer table QR order:
+                // Starts as Placed (shown as New). If there is already an unaccepted Placed order,
+                // customer additions append to it. If existing orders are Accepted or Preparing,
+                // customer additions start as a separate Placed order requiring staff acceptance.
+                existingOrder = activeOrders
+                    .Where(o => o.TableId == table.Id
+                             && o.DiningGroupId == selectedGroup.Id
+                             && o.Status == "Placed")
+                    .OrderByDescending(o => o.CreatedAt)
+                    .FirstOrDefault();
+            }
+            if(existingOrder?.TableBillId is {} existingBill && await _context.TableBills.AnyAsync(b=>b.Id==existingBill && (b.PaymentRevision!=null || b.SplitAtUtc!=null))) existingOrder=null;
 
             bool isNewOrder = existingOrder == null;
             var order = existingOrder ?? new Order
             {
                 RestaurantId = table.RestaurantId,
                 TableId = table.Id,
-                Status = "Placed",
+                DiningGroupId=selectedGroup.Id,GroupLabel=selectedGroup.Label,
+                Status = isStaff ? "Accepted" : "Placed",
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 OrderItems = new List<OrderItem>()
@@ -71,6 +96,7 @@ namespace Tablo.Api.Services
             }
 
             decimal subtotal = order.Subtotal;
+            var newlyAddedItems = new List<OrderItem>();
 
             // Validate and build items
             foreach (var itemRequest in request.Items)
@@ -101,12 +127,49 @@ namespace Tablo.Api.Services
                 };
 
                 order.OrderItems.Add(orderItem);
+                newlyAddedItems.Add(orderItem);
                 subtotal += (orderItem.UnitPrice * orderItem.Quantity);
             }
 
             if (!order.OrderItems.Any())
             {
                 throw new ArgumentException("Order must contain at least one valid item.");
+            }
+
+            // Recipe and Stock Reservation verification
+            var reqMenuItemIds = newlyAddedItems.Select(x => x.MenuItemId).Distinct().ToList();
+            var itemRecipes = await _context.RecipeItems
+                .Where(r => r.RestaurantId == table.RestaurantId && reqMenuItemIds.Contains(r.MenuItemId))
+                .ToListAsync();
+
+            if (itemRecipes.Count > 0 && settings != null && settings.AutoManageAvailability)
+            {
+                var ingIds = itemRecipes.Select(r => r.IngredientId).Distinct().ToList();
+                var onHands = await _context.StockMovements.AsNoTracking()
+                    .Where(m => m.RestaurantId == table.RestaurantId && ingIds.Contains(m.IngredientId))
+                    .GroupBy(m => m.IngredientId)
+                    .Select(g => new { IngredientId = g.Key, Qty = g.Sum(m => m.QuantityChange) })
+                    .ToDictionaryAsync(x => x.IngredientId, x => x.Qty);
+
+                var reserved = await _context.StockReservations.AsNoTracking()
+                    .Where(r => r.RestaurantId == table.RestaurantId && ingIds.Contains(r.IngredientId) && r.Status == "Active")
+                    .GroupBy(r => r.IngredientId)
+                    .Select(g => new { IngredientId = g.Key, Reserved = g.Sum(r => r.ReservedQuantity) })
+                    .ToDictionaryAsync(x => x.IngredientId, x => x.Reserved);
+
+                foreach (var newItem in newlyAddedItems)
+                {
+                    var rList = itemRecipes.Where(r => r.MenuItemId == newItem.MenuItemId).ToList();
+                    foreach (var r in rList)
+                    {
+                        var needed = UnitConverter.CalculateRawQuantity(r.UsableQuantity, r.YieldPercent) * newItem.Quantity;
+                        var avail = onHands.GetValueOrDefault(r.IngredientId, 0m) - reserved.GetValueOrDefault(r.IngredientId, 0m);
+                        if (avail < needed)
+                        {
+                            throw new ArgumentException($"Menu item '{newItem.ItemNameSnapshot}' does not have sufficient ingredient stock available.");
+                        }
+                    }
+                }
             }
 
             decimal gst = Math.Round(subtotal * 0.05m, 0, MidpointRounding.AwayFromZero);
@@ -127,6 +190,30 @@ namespace Tablo.Api.Services
             else
             {
                 await _orderRepository.UpdateOrderAsync(order);
+            }
+
+            // Create stock reservations for newly added items
+            if (itemRecipes.Count > 0)
+            {
+                foreach (var newItem in newlyAddedItems)
+                {
+                    var rList = itemRecipes.Where(r => r.MenuItemId == newItem.MenuItemId).ToList();
+                    foreach (var r in rList)
+                    {
+                        var rawQty = UnitConverter.CalculateRawQuantity(r.UsableQuantity, r.YieldPercent) * newItem.Quantity;
+                        _context.StockReservations.Add(new StockReservation
+                        {
+                            RestaurantId = table.RestaurantId,
+                            OrderId = order.Id,
+                            OrderItemId = newItem.Id,
+                            IngredientId = r.IngredientId,
+                            ReservedQuantity = rawQty,
+                            Status = "Active",
+                            ReservedAtUtc = DateTime.UtcNow
+                        });
+                    }
+                }
+                await _context.SaveChangesAsync();
             }
 
             if (transaction != null) await transaction.CommitAsync();
@@ -184,12 +271,22 @@ namespace Tablo.Api.Services
                 throw new ArgumentException("A settled order cannot be changed.");
             }
 
+            if(order.TableBillId is {} frozenId && await _context.TableBills.AnyAsync(b=>b.Id==frozenId && (b.PaymentRevision!=null || b.SplitAtUtc!=null)))
+                throw new ArgumentException("A bill with payments or split allocations cannot change food status.");
             order.Status = request.Status;
             order.UpdatedAt = DateTime.UtcNow;
 
             if (request.Status == "Rejected" || request.Status == "Cancelled")
             {
                 order.ExceptionReason = request.ExceptionReason;
+                var activeRes = await _context.StockReservations
+                    .Where(r => r.RestaurantId == restaurantId && r.OrderId == order.Id && r.Status == "Active")
+                    .ToListAsync();
+                foreach (var res in activeRes)
+                {
+                    res.Status = "Released";
+                    res.ReleasedAtUtc = DateTime.UtcNow;
+                }
             }
 
             await _orderRepository.UpdateOrderAsync(order);
@@ -258,6 +355,7 @@ namespace Tablo.Api.Services
                 OrderNumber = order.OrderNumber,
                 TableNumber = tableNum,
                 TableId = order.TableId,
+                DiningGroupId=order.DiningGroupId,GroupLabel=order.GroupLabel,
                 Status = order.Status,
                 Subtotal = order.Subtotal,
                 Tax = order.Tax,

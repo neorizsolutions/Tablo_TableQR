@@ -23,6 +23,8 @@ export interface OrderItem {
 }
 
 export interface Order {
+  group_label?: string;
+  dining_group_id?: string;
   id: string;
   order_number: number;
   table_number: number;

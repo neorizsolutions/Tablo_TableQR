@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Tablo.Api.Attributes;
+using Tablo.Api.Constants;
 using Tablo.Api.Data;
 using Tablo.Api.DTOs;
 using Tablo.Api.Extensions;
@@ -22,6 +24,7 @@ public class ServiceDeskController(ApplicationDbContext db, BillingService billi
             .OrderBy(t => t.TableNumber).Select(t => new ServiceTableDto(t.Id, t.TableNumber, t.IsActive)).ToListAsync());
 
     [HttpPost("orders")]
+    [RequireCapability(Capabilities.StaffOrdering)]
     public Task<IActionResult> Submit(Guid restaurantId, StaffOrderRequestDto request) => Execute(restaurantId, async () =>
     {
         var result = await ordering.SubmitAsync(restaurantId, User.GetUserId(), request);
@@ -40,17 +43,64 @@ public class ServiceDeskController(ApplicationDbContext db, BillingService billi
     });
 
     [HttpGet("tables/{tableId:guid}/bill")]
-    public Task<IActionResult> Review(Guid restaurantId, Guid tableId) => Execute(restaurantId,
-        async () => await billing.ReviewAsync(restaurantId, tableId));
+    public Task<IActionResult> Review(Guid restaurantId, Guid tableId, [FromQuery] Guid? diningGroupId=null) => Execute(restaurantId,
+        async () => await billing.ReviewAsync(restaurantId, tableId,diningGroupId));
+
+    [HttpGet("tables/{tableId:guid}/groups")]
+    public Task<IActionResult> Groups(Guid restaurantId,Guid tableId)=>Execute(restaurantId,async()=>await new DiningGroupService(db).ListAsync(restaurantId,tableId));
+
+    public record CreateGroupRequest(Guid OperationId,string Label);
+    public record CloseGroupRequest(Guid OperationId);
+    [HttpPost("tables/{tableId:guid}/groups/{groupId:guid}/close")]
+    public Task<IActionResult> CloseGroup(Guid restaurantId,Guid tableId,Guid groupId,CloseGroupRequest request)=>Execute(restaurantId,async()=>{
+        if(request.OperationId==Guid.Empty)throw new ArgumentException("Operation ID is required.");
+        await using var tx=await TableOrderTransaction.BeginAsync(db);await TableOrderTransaction.LockAsync(db,restaurantId,tableId);
+        var hash=BillingService.Hash($"Close:{User.GetUserId()}:{tableId}:{groupId}");
+        var old=await db.FloorOperations.SingleOrDefaultAsync(o=>o.RestaurantId==restaurantId && o.OperationId==request.OperationId);
+        if(old!=null){if(old.Hash!=hash)throw new ServiceConflictException("Operation ID used for another action.");return new{closed=true};}
+        var group=await db.DiningGroups.SingleOrDefaultAsync(g=>g.RestaurantId==restaurantId && g.TableId==tableId && g.Id==groupId && g.ClosedAtUtc==null)??throw new KeyNotFoundException();
+        if(await db.TableBills.AnyAsync(b=>b.RestaurantId==restaurantId && b.DiningGroupId==groupId && b.SettledAtUtc==null && b.SplitAtUtc==null) || await db.Orders.AnyAsync(o=>o.RestaurantId==restaurantId && o.DiningGroupId==groupId && o.Status!="Served" && o.Status!="Cancelled" && o.Status!="Rejected"))throw new ServiceConflictException("Settle all bills and finish active food before closing the group.");
+        group.ClosedAtUtc=DateTime.UtcNow;db.FloorOperations.Add(new(){RestaurantId=restaurantId,ActorEmployeeId=User.GetUserId(),OperationId=request.OperationId,Hash=hash,Kind="Close",ResultJson="{\"closed\":true}"});
+        await db.SaveChangesAsync();if(tx!=null)await tx.CommitAsync();await Notify(restaurantId,tableId);return new{closed=true};
+    });
+    [HttpPost("tables/{tableId:guid}/groups")]
+    [RequireCapability(Capabilities.DiningGroups)]
+    public Task<IActionResult> CreateGroup(Guid restaurantId,Guid tableId,CreateGroupRequest request)=>Execute(restaurantId,async()=>{
+        var result=await new DiningGroupService(db).CreateAsync(restaurantId,User.GetUserId(),tableId,request.Label,request.OperationId);await Notify(restaurantId,tableId);return result;
+    });
+
+    [HttpPost("bills/{billId:guid}/payments")]
+    public Task<IActionResult> Pay(Guid restaurantId,Guid billId,RecordBillPayment request)=>Execute(restaurantId,async()=>{
+        var result=await new BillPaymentService(db).RecordAsync(restaurantId,User.GetUserId(),billId,request);await Notify(restaurantId,Guid.Empty);return result;
+    });
+
+    [HttpPost("bills/{billId:guid}/split-preview")]
+    [RequireCapability(Capabilities.SplitBilling)]
+    public Task<IActionResult> PreviewSplit(Guid restaurantId,Guid billId,SplitBillRequest request)=>Execute(restaurantId,async()=>await new FloorOperationsService(db).SplitAsync(restaurantId,User.GetUserId(),billId,request,true));
+
+    [HttpPost("bills/{billId:guid}/split")]
+    [RequireCapability(Capabilities.SplitBilling)]
+    public Task<IActionResult> Split(Guid restaurantId,Guid billId,SplitBillRequest request)=>Execute(restaurantId,async()=>{
+        var result=await new FloorOperationsService(db).SplitAsync(restaurantId,User.GetUserId(),billId,request);await Notify(restaurantId,Guid.Empty);return result;
+    });
+
+    [HttpPost("tables/{tableId:guid}/transfer")]
+    [RequireCapability(Capabilities.TableTransfers)]
+    public Task<IActionResult> Transfer(Guid restaurantId,Guid tableId,TransferGroupRequest request)=>Execute(restaurantId,async()=>{
+        var result=await new FloorOperationsService(db).TransferAsync(restaurantId,User.GetUserId(),tableId,request);await Notify(restaurantId,Guid.Empty);
+        var orders=await db.Orders.AsNoTracking().Where(o=>o.RestaurantId==restaurantId && o.TableId==result.DestinationTableId && o.DiningGroupId==result.DiningGroupId).Select(o=>new{o.Id,o.Status}).ToListAsync();
+        foreach(var order in orders){try{await hub.Clients.Group($"order_{order.Id}").SendAsync("OrderStatusUpdated",order.Id,order.Status);}catch(Exception ex){logger.LogWarning(ex,"Transfer notification failed");}}
+        return result;
+    });
 
     [HttpGet("bills/{billId:guid}/receipt")]
     public Task<IActionResult> Receipt(Guid restaurantId, Guid billId) => Execute(restaurantId,
         async () => await billing.ReceiptAsync(restaurantId, billId));
 
     [HttpPost("tables/{tableId:guid}/bill/open")]
-    public Task<IActionResult> Open(Guid restaurantId, Guid tableId) => Execute(restaurantId, async () =>
+    public Task<IActionResult> Open(Guid restaurantId, Guid tableId, [FromQuery] Guid? diningGroupId=null) => Execute(restaurantId, async () =>
     {
-        var result = await billing.OpenAsync(restaurantId, tableId, User.GetUserId());
+        var result = await billing.OpenAsync(restaurantId, tableId, User.GetUserId(),diningGroupId);
         await Notify(restaurantId, tableId);
         return result;
     });
@@ -81,7 +131,7 @@ public class ServiceDeskController(ApplicationDbContext db, BillingService billi
 
     private async Task Notify(Guid restaurantId, Guid tableId)
     {
-        try { await hub.Clients.Group($"restaurant_{restaurantId}").SendAsync("BillUpdated", tableId); }
+        try { await hub.Clients.Group($"restaurant_{restaurantId}").SendAsync("BillUpdated", tableId); await hub.Clients.Group($"restaurant_{restaurantId}").SendAsync("NewOrder", Guid.Empty); }
         catch (Exception ex) { logger.LogWarning(ex, "Bill committed but staff notification failed for restaurant {RestaurantId}", restaurantId); }
     }
 }

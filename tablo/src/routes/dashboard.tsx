@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Bell, Check, ChefHat, Filter, Flame, Loader2, LogIn, LogOut, PackageCheck, Search, ShieldAlert, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
+import { AppLayout } from "@/components/app-layout";
 import { ServiceDesk } from "@/components/service-desk";
 import { useAuth } from "@/hooks/use-auth";
 import { formatINR, relativeTime } from "@/lib/mock-data";
@@ -154,9 +155,9 @@ function DashboardInner() {
   };
 
   return (
-    <div className="min-h-screen bg-secondary/40">
-      <SiteHeader />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <AppLayout>
+      <div className="min-h-screen bg-secondary/40">
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-primary">Live kitchen view</p>
@@ -190,7 +191,7 @@ function DashboardInner() {
               {serviceRequests.map((req) => (
                 <div key={req.id} className="flex items-center justify-between rounded-2xl border border-warning bg-warning/5 p-4 shadow-sm">
                   <div>
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground">Table {req.tableName}</span>
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground">{req.tableName}</span>
                     <p className="font-semibold text-warning">{req.type === 'CallWaiter' ? 'Waiter Requested' : 'Bill Requested'}</p>
                     <p className="text-xs text-muted-foreground mt-1">{relativeTime(req.createdAt)} • {req.status}</p>
                   </div>
@@ -305,6 +306,7 @@ function DashboardInner() {
         )}
       </main>
     </div>
+    </AppLayout>
   );
 }
 
@@ -331,7 +333,7 @@ function OrderCard({ order, isProcessing, onAdvance, onException }: { order: Ord
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs uppercase tracking-wider text-muted-foreground">ORD-{String(order.order_number).padStart(4, "0")}</p>
-          <h3 className="font-display text-xl font-bold">Table {order.table_number}</h3>
+          <h3 className="font-display text-xl font-bold">Table {order.table_number}{order.group_label}</h3>
         </div>
         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${tone[order.status] || tone.placed}`}>
           {order.status === "preparing" && <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-current" />}

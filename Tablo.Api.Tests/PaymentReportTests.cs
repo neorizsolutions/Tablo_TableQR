@@ -97,4 +97,17 @@ public class PaymentReportTests : IDisposable
         Assert.Equal(3,(await new ReportService(db).GetTopItemsAsync(tenant,null,null,null,null)).Single().Revenue);
     }
     public void Dispose()=>db.Dispose();
+
+    [Fact]
+    public async Task LedgerCollections_IncludePartialPaymentsAndNeverDoubleCountFinalSettlement()
+    {
+        var bill=Add(105,"Mixed","2026-11-04T10:00:00Z");
+        db.BillPayments.AddRange(new BillPayment{RestaurantId=tenant,TableBillId=bill.Id,TableIdSnapshot=table,TableNumberSnapshot=4,Method="Cash",Amount=40,CollectedAtUtc=DateTime.Parse("2026-11-03T10:00:00Z").ToUniversalTime()},
+            new BillPayment{RestaurantId=tenant,TableBillId=bill.Id,TableIdSnapshot=table,TableNumberSnapshot=4,Method="UPI",Amount=65,CollectedAtUtc=DateTime.Parse("2026-11-04T10:00:00Z").ToUniversalTime()});
+        await db.SaveChangesAsync();var service=new PaymentReportService(db);
+        var first=await service.GetAsync(tenant,new(){StartDate=new(2026,11,3),EndDate=new(2026,11,3)});
+        Assert.Equal(40,first.TotalCollected);Assert.Equal(40,first.Cash);Assert.Equal(0,first.UPI);
+        var all=await service.GetAsync(tenant,new());Assert.Equal(105,all.TotalCollected);Assert.Equal(2,all.TotalCount);Assert.Equal(1,all.SettledBillCount);
+        Assert.All(all.Items,p=>Assert.Equal(bill.Id,p.BillId));
+    }
 }

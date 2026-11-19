@@ -35,6 +35,7 @@ export const Route = createFileRoute("/t/$qrToken")({
 
 const stages: { key: OrderStatus; label: string; icon: typeof CircleDot }[] = [
   { key: "placed", label: "Order placed", icon: CircleDot },
+  { key: "accepted", label: "Accepted by staff", icon: Check },
   { key: "preparing", label: "Preparing", icon: Flame },
   { key: "ready", label: "Ready to serve", icon: PackageCheck },
   { key: "served", label: "Served", icon: Check },
@@ -45,6 +46,8 @@ type Stage = "menu" | "confirmed";
 function CustomerPage() {
   const { qrToken } = Route.useParams();
   const queryClient = useQueryClient();
+  const [groupId,setGroupId]=useState("");
+  const orderStorageKey=`activeOrderId_${qrToken}${groupId?`_${groupId}`:""}`;
   
   const [stage, setStage] = useState<Stage>("menu");
   const [selectedCat, setSelectedCat] = useState<Category | null>(null);
@@ -59,17 +62,15 @@ function CustomerPage() {
   const { cart, cartCount, cartTotal, updateQty, qtyOf, clearCart } = useCart();
 
   useEffect(() => {
-    const savedOrderId = localStorage.getItem(`activeOrderId_${qrToken}`);
-    if (savedOrderId) {
-      setOrderId(savedOrderId);
-    }
-  }, [qrToken]);
+    const savedOrderId = localStorage.getItem(orderStorageKey);
+    setOrderId(savedOrderId||null);setStage("menu");
+  }, [orderStorageKey]);
 
   // Auto-recover active order from backend for this table if not in localStorage
   const { data: activeOrder, error: activeOrderError } = useQuery({
-    queryKey: ["activeOrder", qrToken],
-    queryFn: () => getActiveOrderForTable(qrToken),
-    enabled: !!qrData && !orderId,
+    queryKey: ["activeOrder", qrToken,groupId],
+    queryFn: () => getActiveOrderForTable(qrToken,groupId||undefined),
+    enabled: !!qrData && !orderId && (!qrData.diningGroups?.length||!!groupId),
     retry: false, // Don't retry on 404
     staleTime: 0,
   });
@@ -77,22 +78,22 @@ function CustomerPage() {
   useEffect(() => {
     if (activeOrder && !orderId) {
       setOrderId(activeOrder.id);
-      localStorage.setItem(`activeOrderId_${qrToken}`, activeOrder.id);
+      localStorage.setItem(orderStorageKey, activeOrder.id);
     }
-  }, [activeOrder, orderId, qrToken]);
+  }, [activeOrder, orderId, orderStorageKey]);
 
   const { data: currentOrder } = useOrderTracking(qrData?.restaurantId || null, orderId);
 
   useEffect(() => {
     if (currentOrder?.status === "served") {
-      localStorage.removeItem(`activeOrderId_${qrToken}`);
+      localStorage.removeItem(orderStorageKey);
       // Keep orderId in state so they can see the "Served" screen until they click "Order something else"
       // But we removed it from localStorage so it won't persist on refresh.
     }
-  }, [currentOrder?.status, qrToken]);
+  }, [currentOrder?.status, orderStorageKey]);
 
-  const { data: serviceRequests = [] } = useTableActiveServiceRequests(qrToken);
-  const { mutate: createServiceReq, isPending: isServicePending } = useCreateServiceRequest(qrToken);
+  const { data: serviceRequests = [] } = useTableActiveServiceRequests(qrToken,groupId||undefined);
+  const { mutate: createServiceReq, isPending: isServicePending } = useCreateServiceRequest(qrToken,groupId||undefined);
 
   const hasPendingWaiter = serviceRequests.some(sr => sr.type === "CallWaiter" && sr.status === "Pending");
   const hasPendingBill = serviceRequests.some(sr => sr.type === "RequestBill" && sr.status === "Pending");
@@ -113,11 +114,12 @@ function CustomerPage() {
 
   const handlePlaceOrder = async () => {
     if (!qrData || cart.length === 0) return;
+    if(qrData.diningGroups?.length&&!qrData.diningGroups.some(g=>g.id===groupId)){toast.error("Select your dining group first.");return;}
     setSubmitting(true);
     try {
-      const { orderId: newOrderId } = await placeOrder(qrToken, cart);
+      const { orderId: newOrderId } = await placeOrder(qrToken, cart,groupId||undefined);
       setOrderId(newOrderId);
-      localStorage.setItem(`activeOrderId_${qrToken}`, newOrderId);
+      localStorage.setItem(orderStorageKey, newOrderId);
       queryClient.invalidateQueries({ queryKey: ["order", newOrderId] });
       setDrawerOpen(false);
       setStage("confirmed");
@@ -148,6 +150,8 @@ function CustomerPage() {
       </div>
     );
   }
+
+  if(stage!=="confirmed" && qrData.diningGroups?.length && !qrData.diningGroups.some(g=>g.id===groupId)) return <div className="mx-auto max-w-md p-6"><h1 className="text-2xl font-bold">Choose your dining group</h1><p className="my-3">{qrData.restaurantName} · {qrData.tableNameOrNumber}. Ask your waiter which group to select.</p>{qrData.diningGroups.map(g=><button key={g.id} className="m-2 rounded-xl border px-5 py-3" onClick={()=>{clearCart();setGroupId(g.id);}}>Group {g.label}</button>)}</div>;
 
   if (stage === "confirmed") {
     const displayStatus = currentOrder?.status || "placed";
@@ -180,7 +184,7 @@ function CustomerPage() {
               <p className="text-xs uppercase tracking-wider opacity-80">{qrData.restaurantTagline}</p>
               <h1 className="font-display text-2xl font-bold">{qrData.restaurantName}</h1>
             </div>
-            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">{qrData.tableNameOrNumber}</span>
+            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">{qrData.tableNameOrNumber}{qrData.diningGroups?.find(g=>g.id===groupId)?.label}</span>
           </div>
           <div className="mt-3 flex items-center gap-3 text-xs opacity-90">
             <span className="inline-flex items-center gap-1"><Languages className="h-3.5 w-3.5" /> EN · മലയാളം</span>
@@ -406,24 +410,30 @@ function EmptyState() {
 }
 
 function Confirmation({ cart, total, stage, exceptionReason, currentOrder, onDone }: { cart: { item: any, qty: number }[]; total: number; stage: OrderStatus; exceptionReason?: string | null; currentOrder?: Order; onDone: () => void }) {
-  const displayStage = stage === "accepted" ? "placed" : stage;
+  const displayStage = stage;
   const idx = stages.findIndex((s) => s.key === displayStage);
   const isException = stage === "cancelled" || stage === "rejected";
 
   let title = "Order placed!";
-  let subtitle = "Your kitchen ticket is live. Sit back, we'll bring it over.";
+  let subtitle = "Waiting for staff to accept your order. Sit back, we'll notify you.";
   let MainIcon = ChefHat;
 
   if (isException) {
     title = stage === "rejected" ? "Order Not Accepted" : "Order Cancelled";
     subtitle = "We couldn't fulfill this order. Please see details below.";
     MainIcon = X;
+  } else if (displayStage === "accepted") {
+    title = "Order accepted!";
+    subtitle = "Staff accepted your order. Getting ready for the kitchen!";
+    MainIcon = Check;
   } else if (displayStage === "preparing") {
     title = "Preparing your food!";
     subtitle = "The chefs are working their magic on your meal.";
+    MainIcon = Flame;
   } else if (displayStage === "ready") {
     title = "Ready to serve!";
     subtitle = "Your food is ready and on its way to your table.";
+    MainIcon = PackageCheck;
   } else if (displayStage === "served") {
     title = "Order Served!";
     subtitle = "Enjoy your meal!";
@@ -471,7 +481,7 @@ function Confirmation({ cart, total, stage, exceptionReason, currentOrder, onDon
           )}
 
           <div className="mt-6 rounded-2xl border border-border bg-card p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Order summary</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Order summary · Table {currentOrder?.table_number}{currentOrder?.group_label}</p>
             <ul className="mt-2 divide-y divide-border text-sm">
               {cart.map((l) => (
                 <li key={l.item.id} className="flex justify-between py-2">

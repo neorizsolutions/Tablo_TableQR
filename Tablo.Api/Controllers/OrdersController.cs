@@ -61,16 +61,17 @@ namespace Tablo.Api.Controllers
         }
 
         [HttpGet("/api/qr/{qrToken}/active-order")]
-        public async Task<ActionResult<OrderDto>> GetActiveOrderForTableByQr(string qrToken, [FromServices] IQRService qrService)
+        public async Task<ActionResult<OrderDto>> GetActiveOrderForTableByQr(string qrToken, [FromServices] IQRService qrService, [FromQuery] Guid? diningGroupId=null)
         {
             try
             {
                 var qrResult = await qrService.ResolveQRTokenAsync(qrToken);
                 if (qrResult == null) return NotFound(new { message = "Invalid QR token." });
+                if(qrResult.DiningGroups.Count>0 && !qrResult.DiningGroups.Any(g=>g.Id==diningGroupId))return BadRequest(new{message="Select an active dining group."});
 
                 var orders = await _orderService.GetOrdersAsync(qrResult.RestaurantId);
                 var activeOrder = orders
-                    .Where(o => o.TableId == qrResult.TableId && o.Status != "served" && o.Status != "cancelled" && o.Status != "rejected")
+                    .Where(o => o.TableId == qrResult.TableId && o.DiningGroupId==diningGroupId && !string.Equals(o.Status,"served",StringComparison.OrdinalIgnoreCase) && !string.Equals(o.Status,"cancelled",StringComparison.OrdinalIgnoreCase) && !string.Equals(o.Status,"rejected",StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(o => o.CreatedAt)
                     .FirstOrDefault();
 

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Tablo.Api.Attributes;
+using Tablo.Api.Constants;
 using Tablo.Api.Data;
 using Tablo.Api.DTOs;
 using Tablo.Api.Extensions;
@@ -10,6 +12,7 @@ namespace Tablo.Api.Controllers;
 
 [ApiController]
 [Authorize(Roles="Admin")]
+[RequireCapability(Capabilities.AdvancedPaymentReports)]
 [Route("api/restaurants/{restaurantId:guid}/payment-reports")]
 public class PaymentReportsController(ApplicationDbContext db, PaymentReportService reports, BillingService billing) : ControllerBase
 {
@@ -23,7 +26,10 @@ public class PaymentReportsController(ApplicationDbContext db, PaymentReportServ
 
     [HttpGet("{billId:guid}/receipt")]
     public Task<IActionResult> Receipt(Guid restaurantId,Guid billId) => Execute(restaurantId,
-        async()=>Ok(await billing.ReceiptAsync(restaurantId,billId)));
+        async()=>{
+            var bill=await db.TableBills.AsNoTracking().Include(b=>b.Orders).ThenInclude(o=>o.OrderItems).SingleOrDefaultAsync(b=>b.Id==billId && b.RestaurantId==restaurantId && b.SplitAtUtc==null)??throw new KeyNotFoundException();
+            return Ok(bill.SettledAtUtc!=null?await billing.ReceiptAsync(restaurantId,billId):await billing.ViewAsync(bill));
+        });
 
     private async Task<IActionResult> Execute(Guid tenant,Func<Task<IActionResult>> action)
     {

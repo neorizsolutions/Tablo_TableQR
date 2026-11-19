@@ -26,7 +26,7 @@ namespace Tablo.Api.Controllers
         }
 
         [HttpGet("qr/{qrToken}")]
-        public async Task<ActionResult<IEnumerable<ServiceRequestDto>>> GetTableActiveRequests(string qrToken)
+        public async Task<ActionResult<IEnumerable<ServiceRequestDto>>> GetTableActiveRequests(string qrToken,[FromQuery] Guid? diningGroupId=null)
         {
             try
             {
@@ -36,11 +36,11 @@ namespace Tablo.Api.Controllers
                 var activeStatuses = new[] { "Pending", "Acknowledged" };
                 var requests = await _context.ServiceRequests
                     .Include(sr => sr.Table)
-                    .Where(sr => sr.TableId == table.Id && activeStatuses.Contains(sr.Status))
+                    .Where(sr => sr.TableId == table.Id && sr.DiningGroupId==diningGroupId && activeStatuses.Contains(sr.Status))
                     .OrderBy(sr => sr.CreatedAt)
                     .Select(sr => new ServiceRequestDto
                     {
-                        Id = sr.Id,
+                        Id = sr.Id, DiningGroupId=sr.DiningGroupId,
                         RestaurantId = sr.RestaurantId,
                         TableId = sr.TableId,
                         TableName = $"Table {sr.Table.TableNumber}",

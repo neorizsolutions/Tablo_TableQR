@@ -19,8 +19,8 @@ public class StaffOrderingService(ApplicationDbContext db, IOrderService orders)
         await TableOrderTransaction.LockAsync(db, restaurantId, request.TableId);
         var table = await db.RestaurantTables.SingleOrDefaultAsync(t => t.Id == request.TableId && t.RestaurantId == restaurantId)
             ?? throw new KeyNotFoundException("Table not found.");
-        var hash = BillingService.Hash(JsonSerializer.Serialize(new { actorId, request.TableId,
-            Items = request.Items.Select(i => new { i.MenuItemId, i.Quantity }) }));
+        var payload=request.DiningGroupId==null?JsonSerializer.Serialize(new { actorId, request.TableId, Items=request.Items.Select(i=>new{i.MenuItemId,i.Quantity}) }):JsonSerializer.Serialize(new{actorId,request.TableId,request.DiningGroupId,Items=request.Items.Select(i=>new{i.MenuItemId,i.Quantity})});
+        var hash=BillingService.Hash(payload);
         var replay = await db.StaffOrderSubmissions.SingleOrDefaultAsync(s => s.RestaurantId == restaurantId && s.OperationId == request.OperationId);
         if (replay != null)
         {
@@ -29,7 +29,7 @@ public class StaffOrderingService(ApplicationDbContext db, IOrderService orders)
         }
         if (!table.IsActive) throw new ArgumentException("This table is inactive.");
         // Reuse server menu validation, price snapshots, tax and active-order semantics.
-        var result = await orders.CreateOrderAsync(new CreateOrderRequestDto { QRToken = table.QRToken, Items = request.Items });
+        var result = await orders.CreateOrderAsync(new CreateOrderRequestDto { QRToken = table.QRToken, DiningGroupId=request.DiningGroupId, Items = request.Items }, isStaff: true);
         db.StaffOrderSubmissions.Add(new StaffOrderSubmission { RestaurantId = restaurantId, TableId = table.Id,
             ActorEmployeeId = actorId, OperationId = request.OperationId, PayloadHash = hash, OriginalResponseJson = JsonSerializer.Serialize(result) });
         await db.SaveChangesAsync();

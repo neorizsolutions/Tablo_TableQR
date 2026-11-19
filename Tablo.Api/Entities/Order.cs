@@ -13,6 +13,8 @@ namespace Tablo.Api.Entities
         public Guid TableId { get; set; }
         public RestaurantTable Table { get; set; } = null!;
         
+        public Guid? DiningGroupId { get; set; }
+        public string? GroupLabel { get; set; }
         public int OrderNumber { get; set; }
 
         public Guid? TableBillId { get; set; }

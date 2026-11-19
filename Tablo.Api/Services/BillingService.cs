@@ -36,13 +36,15 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
         {
             var attached = await db.TableBills.SingleAsync(b => b.Id == order.TableBillId && b.RestaurantId == table.RestaurantId && b.TableId == table.Id);
             if (attached.SettledAtUtc.HasValue) throw new ServiceConflictException("A settled order cannot accept more items.");
+            if (attached.SplitAtUtc != null) throw new ServiceConflictException("This bill has been split. Start a new order.");
+            if (attached.PaymentRevision != null) throw new ServiceConflictException("This bill is frozen because payments have started.");
             return attached;
         }
-        var bill = db.TableBills.Local.FirstOrDefault(b => b.TableId == table.Id && b.RestaurantId == table.RestaurantId && b.SettledAtUtc == null)
-            ?? await db.TableBills.SingleOrDefaultAsync(b => b.TableId == table.Id && b.RestaurantId == table.RestaurantId && b.SettledAtUtc == null);
+        var bill = db.TableBills.Local.FirstOrDefault(b => b.TableId == table.Id && b.RestaurantId == table.RestaurantId && b.DiningGroupId == order.DiningGroupId && b.SettledAtUtc == null && b.SplitAtUtc == null && b.PaymentRevision == null && b.ParentBillId == null)
+            ?? await db.TableBills.SingleOrDefaultAsync(b => b.TableId == table.Id && b.RestaurantId == table.RestaurantId && b.DiningGroupId == order.DiningGroupId && b.SettledAtUtc == null && b.SplitAtUtc == null && b.PaymentRevision == null && b.ParentBillId == null);
         if (bill == null)
         {
-            bill = new TableBill { RestaurantId = table.RestaurantId, TableId = table.Id, TableNumberSnapshot = table.TableNumber };
+            bill = new TableBill { RestaurantId = table.RestaurantId, TableId = table.Id, TableNumberSnapshot = table.TableNumber, DiningGroupId=order.DiningGroupId, GroupLabelSnapshot=order.GroupLabel };
             db.TableBills.Add(bill);
         }
         order.TableBill = bill;
@@ -50,36 +52,38 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
         return bill;
     }
 
-    public async Task<TableBillReviewDto> ReviewAsync(Guid restaurantId, Guid tableId)
+    public async Task<TableBillReviewDto> ReviewAsync(Guid restaurantId, Guid tableId, Guid? groupId=null)
     {
         var table = await db.RestaurantTables.AsNoTracking().SingleOrDefaultAsync(t => t.Id == tableId && t.RestaurantId == restaurantId)
             ?? throw new KeyNotFoundException("Table not found.");
         var open = await db.TableBills.AsNoTracking().Include(b => b.Orders).ThenInclude(o => o.OrderItems)
-            .SingleOrDefaultAsync(b => b.RestaurantId == restaurantId && b.TableId == tableId && b.SettledAtUtc == null);
-        var receipts = await db.TableBills.AsNoTracking().Where(b => b.RestaurantId == restaurantId && b.TableId == tableId && b.SettledAtUtc != null)
+            .Where(b => b.RestaurantId == restaurantId && b.TableId == tableId && b.DiningGroupId == groupId && b.SettledAtUtc == null && b.SplitAtUtc == null).OrderBy(b=>b.CreatedAtUtc).ThenBy(b=>b.Id).ToListAsync();
+        var projected = new List<BillDto>();
+        foreach(var b in open) projected.Add(await ViewAsync(b));
+        var receipts = await db.TableBills.AsNoTracking().Where(b => b.RestaurantId == restaurantId && b.TableId == tableId && b.DiningGroupId == groupId && b.SettledAtUtc != null)
             .OrderByDescending(b => b.SettledAtUtc).Take(10).ToListAsync();
         return new TableBillReviewDto
         {
-            TableId = tableId, TableNumber = table.TableNumber, OpenBill = open == null ? null : Project(open),
-            UnbilledActiveOrderCount = await db.Orders.CountAsync(o => o.RestaurantId == restaurantId && o.TableId == tableId && o.TableBillId == null
+            TableId = tableId, TableNumber = table.TableNumber, OpenBill = projected.FirstOrDefault(), OpenBills=projected,
+            UnbilledActiveOrderCount = await db.Orders.CountAsync(o => o.RestaurantId == restaurantId && o.TableId == tableId && o.DiningGroupId == groupId && o.TableBillId == null
                 && o.Status != "Served" && o.Status != "Cancelled" && o.Status != "Rejected"),
             RecentSettlements = receipts.Select(b => JsonSerializer.Deserialize<BillDto>(b.ReceiptJson!)!).ToList()
         };
     }
 
-    public async Task<BillDto> OpenAsync(Guid restaurantId, Guid tableId, Guid actorId)
+    public async Task<BillDto> OpenAsync(Guid restaurantId, Guid tableId, Guid actorId, Guid? groupId=null)
     {
         await RequireActorAsync(db, restaurantId, actorId);
         await using var tx = await TableOrderTransaction.BeginAsync(db);
         await TableOrderTransaction.LockAsync(db, restaurantId, tableId);
         var table = await db.RestaurantTables.SingleOrDefaultAsync(t => t.Id == tableId && t.RestaurantId == restaurantId)
             ?? throw new KeyNotFoundException("Table not found.");
-        var active = await db.Orders.Where(o => o.RestaurantId == restaurantId && o.TableId == tableId && o.TableBillId == null
+        var active = await db.Orders.Where(o => o.RestaurantId == restaurantId && o.TableId == tableId && o.DiningGroupId==groupId && o.TableBillId == null
             && o.Status != "Served" && o.Status != "Cancelled" && o.Status != "Rejected").ToListAsync();
         foreach (var order in active) await AttachAsync(db, table, order);
         await db.SaveChangesAsync();
         var bill = await db.TableBills.Include(b => b.Orders).ThenInclude(o => o.OrderItems)
-            .SingleOrDefaultAsync(b => b.RestaurantId == restaurantId && b.TableId == tableId && b.SettledAtUtc == null)
+            .SingleOrDefaultAsync(b => b.RestaurantId == restaurantId && b.TableId == tableId && b.DiningGroupId==groupId && b.SettledAtUtc == null && b.SplitAtUtc==null && b.PaymentRevision==null && b.ParentBillId==null)
             ?? throw new ServiceConflictException("There are no active orders to start a bill for.");
         if (tx != null) await tx.CommitAsync();
         return Project(bill);
@@ -96,6 +100,7 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
         await TableOrderTransaction.LockAsync(db, restaurantId, tableId);
         var bill = await db.TableBills.Include(b => b.Orders).ThenInclude(o => o.OrderItems)
             .SingleAsync(b => b.Id == billId && b.RestaurantId == restaurantId);
+        if(bill.TableId!=tableId) throw new ServiceConflictException("This bill moved. Refresh before paying.");
         var hash = Hash(JsonSerializer.Serialize(new { billId, actorId, request.ExpectedRevision, ExpectedTotal = Amount(request.ExpectedTotal), request.PaymentMethod }));
         if (bill.SettledAtUtc.HasValue)
         {
@@ -105,10 +110,13 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
         }
         if (await db.TableBills.AnyAsync(b => b.RestaurantId == restaurantId && b.SettlementOperationId == request.OperationId))
             throw new ServiceConflictException("This operation ID has already been used for another bill.");
+        if (bill.PaymentRevision != null || await db.BillPayments.AnyAsync(p=>p.RestaurantId==restaurantId && p.TableBillId==billId))
+            throw new ServiceConflictException("This bill has recorded payments. Use its remaining balance instead of full settlement.");
         // Do not settle an incomplete legacy attachment or food still being prepared.
-        if (await db.Orders.AnyAsync(o => o.RestaurantId == restaurantId && o.TableId == tableId && o.TableBillId == null
+        if (await db.Orders.AnyAsync(o => o.RestaurantId == restaurantId && o.TableId == tableId && o.DiningGroupId == bill.DiningGroupId && o.TableBillId == null
             && o.Status != "Served" && o.Status != "Cancelled" && o.Status != "Rejected"))
             throw new ServiceConflictException("Attach the table's active orders before settling.");
+        if(bill.SplitAtUtc!=null) throw new ServiceConflictException("This bill has been split.");
         var reviewed = Project(bill);
         if (!reviewed.CanSettle) throw new ServiceConflictException("All chargeable orders must be served before settlement.");
         if (reviewed.Revision != request.ExpectedRevision || reviewed.TotalAmount != request.ExpectedTotal)
@@ -130,9 +138,9 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
         reviewed.SettledByEmployeeId = actorId;
         bill.ReceiptJson = JsonSerializer.Serialize(reviewed);
         // Complete bill requests only; never mark a kitchen order served here.
-        var requests = await db.ServiceRequests.Where(s => s.RestaurantId == restaurantId && s.TableId == tableId
-            && s.Type == "RequestBill" && (s.Status == "Pending" || s.Status == "Acknowledged")).ToListAsync();
+        var requests = await OutstandingBillRequestsAsync(db,bill);
         foreach (var sr in requests) { sr.Status = "Completed"; sr.UpdatedAt = bill.SettledAtUtc.Value; }
+        await new InventoryService(db).DeductForSettlementAsync(db, restaurantId, billId, actorId, request.OperationId);
         await db.SaveChangesAsync();
         if (tx != null) await tx.CommitAsync();
         if (hub != null && (tx != null || !db.Database.IsRelational()))
@@ -149,16 +157,43 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
         return reviewed;
     }
 
+    internal static async Task<List<ServiceRequest>> OutstandingBillRequestsAsync(ApplicationDbContext db, TableBill settling)
+    {
+        // The current settlement has not been saved yet. Ignore it explicitly and
+        // retain the visit's request until every other payable bill is closed.
+        if (await db.TableBills.AnyAsync(b => b.RestaurantId == settling.RestaurantId
+            && b.TableId == settling.TableId && b.DiningGroupId == settling.DiningGroupId
+            && b.Id != settling.Id && b.SettledAtUtc == null && b.SplitAtUtc == null)) return [];
+        return await db.ServiceRequests.Where(s => s.RestaurantId == settling.RestaurantId
+            && s.TableId == settling.TableId && s.DiningGroupId == settling.DiningGroupId
+            && s.Type == "RequestBill" && (s.Status == "Pending" || s.Status == "Acknowledged")).ToListAsync();
+    }
+
+    public async Task<BillDto> ViewAsync(TableBill bill)
+    {
+        var view=Project(bill);
+        view.Payments=await db.BillPayments.AsNoTracking().Where(p=>p.RestaurantId==bill.RestaurantId && p.TableBillId==bill.Id).OrderBy(p=>p.CollectedAtUtc).Select(p=>new BillPaymentDto(p.Id,p.Method,p.Amount,p.CollectedAtUtc,p.ActorEmployeeId)).ToListAsync();
+        view.PaidAmount=view.Payments.Sum(p=>p.Amount);view.RemainingAmount=view.TotalAmount-view.PaidAmount;
+        return view;
+    }
+
     internal static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     private static string Amount(decimal value) => value.ToString("G29", CultureInfo.InvariantCulture);
 
     internal static BillDto Project(TableBill bill)
     {
+        if(bill.AllocationJson!=null)
+        {
+            var allocation=JsonSerializer.Deserialize<BillDto>(bill.AllocationJson)!;
+            allocation.Id=bill.Id;allocation.TableNumber=bill.TableNumberSnapshot;allocation.DiningGroupId=bill.DiningGroupId;allocation.GroupLabel=bill.GroupLabelSnapshot;allocation.ParentBillId=bill.ParentBillId;
+            allocation.Status=bill.SettledAtUtc==null?"Open":"Settled";allocation.SettledAtUtc=bill.SettledAtUtc;allocation.PaymentMethod=bill.PaymentMethod;
+            return allocation;
+        }
         var orders = bill.Orders.OrderBy(o => o.CreatedAt).ThenBy(o => o.Id).ToList();
         var chargeable = orders.Where(Chargeable).ToList();
         return new BillDto
         {
-            Id = bill.Id, TableNumber = bill.TableNumberSnapshot, CreatedAtUtc = bill.CreatedAtUtc,
+            Id = bill.Id, DiningGroupId=bill.DiningGroupId, GroupLabel=bill.GroupLabelSnapshot, ParentBillId=bill.ParentBillId, TableNumber = bill.TableNumberSnapshot, CreatedAtUtc = bill.CreatedAtUtc,
             Status = bill.SettledAtUtc == null ? "Open" : "Settled", SettledAtUtc = bill.SettledAtUtc, PaymentMethod = bill.PaymentMethod,
             // PostgreSQL stores microseconds/numeric scale; canonicalize so tracked and reloaded values agree.
             Revision = Hash(JsonSerializer.Serialize(orders.Select(o => new { o.Id, o.Status, UpdatedAtMicroseconds = o.UpdatedAt.Ticks / 10,

@@ -75,7 +75,7 @@ export function PaymentReports({ restaurantId }: { restaurantId: string }) {
             Payment collections
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Settled bills only · settlement dates in Asia/Kolkata (IST). Payments are recorded as
+            All recorded collections, including partial payments · collection dates in Asia/Kolkata (IST). Payments are recorded as
             collected externally.
           </p>
         </div>
@@ -178,7 +178,9 @@ export function PaymentReports({ restaurantId }: { restaurantId: string }) {
           <dl className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
             {[
               ["Collected", formatINR(data.totalCollected)],
-              ["Settled bills", data.totalCount],
+              ["Fully settled bills", data.settledBillCount],
+              ["Current outstanding (table, all dates)", formatINR(data.outstandingBalance)],
+              ["Collections", data.totalCount],
               ["Cash", formatINR(data.cash)],
               ["UPI", formatINR(data.upi)],
               ["Card", formatINR(data.card)],
@@ -190,7 +192,7 @@ export function PaymentReports({ restaurantId }: { restaurantId: string }) {
             ))}
           </dl>
           {!data.totalCount ? (
-            <p>No settled bills match these filters.</p>
+            <p>No collections match these filters.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -214,7 +216,7 @@ export function PaymentReports({ restaurantId }: { restaurantId: string }) {
                   {data.items.map((row) => (
                     <tr key={row.id} className="border-t">
                       <td className="max-w-40 break-all p-2">{row.id}</td>
-                      <td className="p-2">{row.tableNumber}</td>
+                      <td className="p-2">{row.tableNumber}{row.groupLabel}</td>
                       <td className="p-2">
                         {new Date(row.settledAtUtc).toLocaleString("en-IN", {
                           timeZone: "Asia/Kolkata",
@@ -223,7 +225,7 @@ export function PaymentReports({ restaurantId }: { restaurantId: string }) {
                       <td className="p-2">{row.paymentMethod}</td>
                       <td className="p-2">{formatINR(row.totalAmount)}</td>
                       <td className="p-2">
-                        <button className={control} onClick={() => setReceipt(row.id)}>
+                        <button className={control} onClick={() => setReceipt(row.billId)}>
                           Show receipt
                         </button>
                       </td>

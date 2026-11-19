@@ -6,6 +6,7 @@ import type { TableBill } from "@/services/service-desk";
 export function PaymentReceipt({ bill }: { bill: TableBill }) {
   const [open, setOpen] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
+  if (bill.status !== "Settled") return <p className="mt-3 text-sm">Partial collections: {bill.paidAmount?.toFixed(2)} · Remaining: {bill.remainingAmount?.toFixed(2)}. Final receipt is available after full settlement.</p>;
   return (
     <>
       <button

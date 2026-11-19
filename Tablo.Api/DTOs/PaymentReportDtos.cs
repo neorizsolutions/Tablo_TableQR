@@ -14,6 +14,8 @@ public class PaymentReportFilter
 
 public class PaymentReportRow
 {
+    public Guid BillId { get; set; }
+    public string? GroupLabel { get; set; }
     public Guid Id { get; set; }
     public Guid TableId { get; set; }
     public int TableNumber { get; set; }
@@ -25,6 +27,8 @@ public class PaymentReportRow
 
 public class PaymentReportDto
 {
+    public int SettledBillCount { get; set; }
+    public decimal OutstandingBalance { get; set; }
     public string TimeZone { get; set; } = "Asia/Kolkata";
     public decimal TotalCollected { get; set; }
     public decimal Cash { get; set; }

@@ -5,6 +5,8 @@ namespace Tablo.Api.DTOs
 {
     public class OrderDto
     {
+        public Guid? DiningGroupId { get; set; }
+        public string? GroupLabel { get; set; }
         public Guid Id { get; set; }
         public Guid RestaurantId { get; set; }
         public int OrderNumber { get; set; }

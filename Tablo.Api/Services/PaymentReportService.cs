@@ -12,7 +12,7 @@ public class PaymentReportService(ApplicationDbContext db)
     public const int ExportLimit = 10000;
     private static readonly TimeZoneInfo India = TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
 
-    private IQueryable<TableBill> Query(Guid tenant, PaymentReportFilter filter)
+    private IQueryable<PaymentReportRow> Query(Guid tenant, PaymentReportFilter filter)
     {
         if (tenant == Guid.Empty) throw new ArgumentException("Restaurant is required.");
         if (filter.Page < 1 || filter.PageSize is < 1 or > 100 || (long)(filter.Page-1)*filter.PageSize > int.MaxValue)
@@ -21,7 +21,10 @@ public class PaymentReportService(ApplicationDbContext db)
         if (filter.EndDate == DateOnly.MaxValue) throw new ArgumentException("End date is outside the supported range.");
         if (!string.IsNullOrEmpty(filter.PaymentMethod) && filter.PaymentMethod is not ("Cash" or "UPI" or "Card"))
             throw new ArgumentException("Payment method must be Cash, UPI or Card.");
-        var query = db.TableBills.AsNoTracking().Where(b=>b.RestaurantId==tenant && b.SettledAtUtc!=null);
+        var legacy=db.TableBills.AsNoTracking().Where(b=>b.RestaurantId==tenant && b.SettledAtUtc!=null && !db.BillPayments.Any(p=>p.RestaurantId==tenant && p.TableBillId==b.Id))
+            .Select(b=>new PaymentReportRow { Id=b.Id, BillId=b.Id,TableId=b.TableId,TableNumber=b.TableNumberSnapshot,GroupLabel=b.GroupLabelSnapshot,SettledAtUtc=b.SettledAtUtc!.Value,SettledByEmployeeId=b.SettledByEmployeeId,PaymentMethod=b.PaymentMethod,TotalAmount=b.TotalAmount });
+        var ledger=db.BillPayments.AsNoTracking().Where(p=>p.RestaurantId==tenant).Select(p=>new PaymentReportRow { Id=p.Id,BillId=p.TableBillId,TableId=p.TableIdSnapshot,TableNumber=p.TableNumberSnapshot,GroupLabel=p.GroupLabelSnapshot,SettledAtUtc=p.CollectedAtUtc,SettledByEmployeeId=p.ActorEmployeeId,PaymentMethod=p.Method,TotalAmount=p.Amount });
+        var query=legacy.Concat(ledger);
         if (filter.StartDate is {} start)
         {
             var utc = TimeZoneInfo.ConvertTimeToUtc(start.ToDateTime(TimeOnly.MinValue), India);
@@ -37,11 +40,7 @@ public class PaymentReportService(ApplicationDbContext db)
         return query;
     }
 
-    private static IQueryable<PaymentReportRow> Rows(IQueryable<TableBill> query) => query
-        .OrderByDescending(b=>b.SettledAtUtc).ThenByDescending(b=>b.Id)
-        .Select(b=>new PaymentReportRow { Id=b.Id, TableId=b.TableId, TableNumber=b.TableNumberSnapshot,
-            SettledAtUtc=b.SettledAtUtc!.Value, SettledByEmployeeId=b.SettledByEmployeeId,
-            PaymentMethod=b.PaymentMethod, TotalAmount=b.TotalAmount });
+    private static IQueryable<PaymentReportRow> Rows(IQueryable<PaymentReportRow> query) => query.OrderByDescending(b=>b.SettledAtUtc).ThenByDescending(b=>b.Id);
 
     public async Task<PaymentReportDto> GetAsync(Guid tenant, PaymentReportFilter filter)
     {
@@ -56,6 +55,9 @@ public class PaymentReportService(ApplicationDbContext db)
             Cash=totals.Where(t=>t.Method=="Cash").Sum(t=>t.Amount), UPI=totals.Where(t=>t.Method=="UPI").Sum(t=>t.Amount),
             Card=totals.Where(t=>t.Method=="Card").Sum(t=>t.Amount),
             Items=await Rows(query).Skip((filter.Page-1)*filter.PageSize).Take(filter.PageSize).ToListAsync() };
+        result.SettledBillCount=await query.Select(p=>p.BillId).Distinct().CountAsync(id=>db.TableBills.Any(b=>b.Id==id && b.RestaurantId==tenant && b.SettledAtUtc!=null));
+        result.OutstandingBalance=await db.TableBills.Where(b=>b.RestaurantId==tenant && b.SettledAtUtc==null && b.SplitAtUtc==null && (filter.TableId==null || b.TableId==filter.TableId))
+            .Select(b=>(b.AllocationJson!=null?b.TotalAmount:b.Orders.Where(o=>o.Status!="Cancelled" && o.Status!="Rejected").Sum(o=>o.TotalAmount))-db.BillPayments.Where(p=>p.RestaurantId==tenant && p.TableBillId==b.Id).Sum(p=>p.Amount)).SumAsync();
         if(tx!=null) await tx.CommitAsync();
         return result;
     }
@@ -71,7 +73,7 @@ public class PaymentReportService(ApplicationDbContext db)
         for(var i=0;i<rows.Count;i++)
         {
             var b=rows[i]; var r=i+2;
-            sheet.Cell(r,1).Value=b.Id.ToString(); sheet.Cell(r,2).Value=b.TableNumber;
+            sheet.Cell(r,1).Value=b.BillId.ToString(); sheet.Cell(r,2).Value=b.TableNumber.ToString()+(b.GroupLabel??"");
             sheet.Cell(r,3).Value=TimeZoneInfo.ConvertTimeFromUtc(b.SettledAtUtc,India).ToString("yyyy-MM-dd HH:mm:ss");
             sheet.Cell(r,4).Value=b.SettledByEmployeeId?.ToString()??"Unavailable";
             sheet.Cell(r,5).Value=b.PaymentMethod??"Unavailable"; sheet.Cell(r,6).Value=b.TotalAmount;

@@ -103,7 +103,8 @@ export async function getActiveOrders(restaurantId: string): Promise<Order[]> {
     .map(dto => ({
       id: dto.id,
       order_number: dto.orderNumber,
-      table_number: dto.tableNumber,
+      group_label: dto.groupLabel, dining_group_id:dto.diningGroupId,
+    table_number: dto.tableNumber,
       table_id: dto.tableId,
       status: dto.status.toLowerCase() as OrderStatus,
       subtotal: dto.subtotal,
@@ -141,9 +142,9 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, re
   });
 }
 
-export async function placeOrder(qrToken: string, items: { item: MenuItem; qty: number }[]): Promise<{ orderId: string }> {
+export async function placeOrder(qrToken: string, items: { item: MenuItem; qty: number }[], diningGroupId?: string): Promise<{ orderId: string }> {
   const payload = {
-    qrToken,
+    qrToken, diningGroupId,
     items: items.map((i) => ({ menuItemId: i.item.id, quantity: i.qty })),
   };
   return apiClient<{ orderId: string }>(`/orders`, {
@@ -159,6 +160,7 @@ export async function getOrderById(restaurantId: string, orderId: string): Promi
   return {
     id: res.id,
     order_number: res.orderNumber,
+    group_label: res.groupLabel, dining_group_id:res.diningGroupId,
     table_number: res.tableNumber,
     table_id: res.tableId,
     status: res.status.toLowerCase() as OrderStatus,
@@ -251,6 +253,7 @@ export interface QRResolution {
   restaurantName: string;
   restaurantTagline: string;
   tableId: string;
+  diningGroups: {id:string;label:string;tableId:string}[];
   tableNameOrNumber: string;
   isAcceptingOrders: boolean;
 }
@@ -259,8 +262,8 @@ export async function resolveQRToken(qrToken: string): Promise<QRResolution> {
   return apiClient<QRResolution>(`/qr/${qrToken}`);
 }
 
-export async function getActiveOrderForTable(qrToken: string): Promise<any> {
-  return await apiClient<any>(`/qr/${qrToken}/active-order`);
+export async function getActiveOrderForTable(qrToken: string,diningGroupId?: string): Promise<any> {
+  return await apiClient<any>(`/qr/${qrToken}/active-order${diningGroupId?`?diningGroupId=${diningGroupId}`:""}`);
 }
 
 export async function getTables(restaurantId: string): Promise<Table[]> {
@@ -575,10 +578,10 @@ export async function updateAcceptingOrders(restaurantId: string, isAcceptingOrd
 
 import { ServiceRequest } from "@/types";
 
-export async function createServiceRequest(qrToken: string, type: string): Promise<ServiceRequest> {
+export async function createServiceRequest(qrToken: string, type: string,diningGroupId?:string): Promise<ServiceRequest> {
   return apiClient<ServiceRequest>(`/ServiceRequests/qr/${qrToken}`, {
     method: 'POST',
-    body: JSON.stringify({ type })
+    body: JSON.stringify({ type,diningGroupId })
   });
 }
 
@@ -586,8 +589,8 @@ export async function getActiveServiceRequests(): Promise<ServiceRequest[]> {
   return apiClient<ServiceRequest[]>('/ServiceRequests');
 }
 
-export async function getTableActiveServiceRequests(qrToken: string): Promise<ServiceRequest[]> {
-  return apiClient<ServiceRequest[]>(`/ServiceRequests/qr/${qrToken}`);
+export async function getTableActiveServiceRequests(qrToken: string,diningGroupId?:string): Promise<ServiceRequest[]> {
+  return apiClient<ServiceRequest[]>(`/ServiceRequests/qr/${qrToken}${diningGroupId?`?diningGroupId=${diningGroupId}`:""}`);
 }
 
 export async function acknowledgeServiceRequest(id: string): Promise<ServiceRequest> {

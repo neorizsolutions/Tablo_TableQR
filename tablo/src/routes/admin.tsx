@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Languages, Loader2, Pencil, Plus, QrCode, Search, Sparkles, X, Trash2, FolderPlus, LogIn, ShieldAlert, LogOut } from "lucide-react";
+import { Eye, Languages, Loader2, Pencil, Plus, QrCode, Search, Sparkles, X, Trash2, FolderPlus, LogIn, ShieldAlert, LogOut, Package } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
+import { AppLayout } from "@/components/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { formatINR } from "@/lib/mock-data";
 import { Category, MenuItem } from "@/types";
@@ -190,9 +191,9 @@ function AdminInner() {
   };
 
   return (
-    <div className="min-h-screen bg-secondary/40">
-      <SiteHeader />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <AppLayout>
+      <div className="min-h-screen bg-secondary/40">
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-primary">Manager workspace</p>
@@ -200,6 +201,9 @@ function AdminInner() {
             <p className="mt-1 text-sm text-muted-foreground">Changes here update the customer menu instantly.</p>
           </div>
           <div className="flex gap-2">
+            <Link to="/inventory" className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-semibold hover:bg-secondary transition">
+              <Package className="h-4 w-4" /> Inventory
+            </Link>
             <button onClick={() => setManageSettings(true)} className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-semibold hover:bg-secondary transition">
               <Settings className="h-4 w-4" /> Settings
             </button>
@@ -346,6 +350,7 @@ function AdminInner() {
       {manageTables && <TablesModal restaurantId={user!.restaurantId!} tables={tables} onClose={() => setManageTables(false)} />}
       {manageSettings && <SettingsModal restaurantId={user!.restaurantId!} onClose={() => setManageSettings(false)} />}
     </div>
+    </AppLayout>
   );
 }
 
