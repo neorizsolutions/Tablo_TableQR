@@ -16,7 +16,7 @@ namespace Tablo.Api.Controllers;
 [Authorize(Roles = "Admin,Waiter")]
 [Route("api/restaurants/{restaurantId:guid}/service-desk")]
 public class ServiceDeskController(ApplicationDbContext db, BillingService billing, StaffOrderingService ordering,
-    IHubContext<OrderHub> hub, ILogger<ServiceDeskController> logger) : ControllerBase
+    IHubContext<OrderHub> hub, ILogger<ServiceDeskController> logger, Tablo.Api.Services.Printing.IKotRoutingService? kotRouting = null) : ControllerBase
 {
     [HttpGet("tables")]
     public Task<IActionResult> Tables(Guid restaurantId) => Execute(restaurantId, async () =>
@@ -88,8 +88,18 @@ public class ServiceDeskController(ApplicationDbContext db, BillingService billi
     [RequireCapability(Capabilities.TableTransfers)]
     public Task<IActionResult> Transfer(Guid restaurantId,Guid tableId,TransferGroupRequest request)=>Execute(restaurantId,async()=>{
         var result=await new FloorOperationsService(db).TransferAsync(restaurantId,User.GetUserId(),tableId,request);await Notify(restaurantId,Guid.Empty);
+        var srcTable = await db.RestaurantTables.FindAsync(result.SourceTableId);
+        var destTable = await db.RestaurantTables.FindAsync(result.DestinationTableId);
+        var group = result.DiningGroupId.HasValue ? await db.DiningGroups.FindAsync(result.DiningGroupId.Value) : null;
         var orders=await db.Orders.AsNoTracking().Where(o=>o.RestaurantId==restaurantId && o.TableId==result.DestinationTableId && o.DiningGroupId==result.DiningGroupId).Select(o=>new{o.Id,o.Status}).ToListAsync();
-        foreach(var order in orders){try{await hub.Clients.Group($"order_{order.Id}").SendAsync("OrderStatusUpdated",order.Id,order.Status);}catch(Exception ex){logger.LogWarning(ex,"Transfer notification failed");}}
+        foreach(var order in orders)
+        {
+            try{await hub.Clients.Group($"order_{order.Id}").SendAsync("OrderStatusUpdated",order.Id,order.Status);}catch(Exception ex){logger.LogWarning(ex,"Transfer notification failed");}
+            if (kotRouting != null)
+            {
+                try{await kotRouting.RecordTableTransferNoticeAsync(restaurantId, order.Id, srcTable?.TableNumber ?? 0, destTable?.TableNumber ?? 0, group?.Label, group?.Label);}catch(Exception ex){logger.LogWarning(ex,"Transfer KOT notice failed");}
+            }
+        }
         return result;
     });
 

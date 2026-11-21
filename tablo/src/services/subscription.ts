@@ -43,6 +43,7 @@ export interface PlanItem {
   monthlyPriceInr: number;
   maxOutlets: number;
   maxTables: number;
+  maxKitchenStations?: number;
   features: string[];
   isActive: boolean;
   displayOrder: number;
@@ -130,11 +131,12 @@ export async function getSysAdminPlans(): Promise<PlanItem[]> {
 export async function updatePlanFeatures(
   planId: string,
   features: string[],
-  reason: string
+  reason: string,
+  maxKitchenStations?: number
 ): Promise<PlanItem> {
   return apiClient<PlanItem>(`/sysadmin/plans/${planId}`, {
     method: "PUT",
-    body: JSON.stringify({ features, reason })
+    body: JSON.stringify({ features, reason, maxKitchenStations })
   });
 }
 

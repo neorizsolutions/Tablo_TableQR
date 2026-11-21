@@ -4,7 +4,7 @@ public class BillPayment
 {
     public Guid Id { get; set; }=Guid.NewGuid();
     public Guid RestaurantId { get; set; }
-    public Guid TableIdSnapshot { get; set; }
+    public Guid? TableIdSnapshot { get; set; }
     public int TableNumberSnapshot { get; set; }
     public string? GroupLabelSnapshot { get; set; }
     public Guid TableBillId { get; set; }

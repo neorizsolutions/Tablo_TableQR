@@ -44,6 +44,7 @@ import {
   TransfersTab,
   InventorySettingsModal,
 } from "@/components/inventory-advanced";
+import { CentralKitchenManager } from "@/components/central-kitchen-manager";
 import {
   getIngredients,
   createIngredient,
@@ -69,6 +70,9 @@ import {
 import { formatINR } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/inventory")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Inventory & Costing — Tablo Admin" },
@@ -112,7 +116,9 @@ function InventoryPage() {
 
 function InventoryInner({ restaurantId }: { restaurantId: string }) {
   const { plan, hasCapability, isLoading: accessLoading } = useEffectiveAccess();
-  const [tab, setTab] = useState<
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const tab = (search.tab as
     | "ingredients"
     | "recipes"
     | "preparations"
@@ -120,11 +126,14 @@ function InventoryInner({ restaurantId }: { restaurantId: string }) {
     | "purchasing"
     | "lots"
     | "transfers"
+    | "central-kitchen"
     | "movements"
     | "stocktakes"
     | "stock-report"
-    | "gross-profit"
-  >("ingredients");
+    | "gross-profit") || "ingredients";
+  const setTab = (newTab: string) => {
+    navigate({ search: { tab: newTab } });
+  };
   const [settingsOpen, setSettingsOpen] = useState(false);
   const cache = useQueryClient();
 
@@ -199,12 +208,6 @@ function InventoryInner({ restaurantId }: { restaurantId: string }) {
                 <Settings className="h-3.5 w-3.5 text-muted-foreground" />
                 Costing & Policy
               </button>
-              <Link to="/reports" className="rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary">
-                Orders & payments →
-              </Link>
-              <Link to="/admin" className="rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary">
-                ← Menu & tables
-              </Link>
             </div>
           </div>
 
@@ -318,6 +321,7 @@ function InventoryInner({ restaurantId }: { restaurantId: string }) {
             {tab === "purchasing" && <PurchasingTab restaurantId={restaurantId} ingredients={ingredientsQuery.data || []} />}
             {tab === "lots" && <LotsAndExpiryTab restaurantId={restaurantId} />}
             {tab === "transfers" && <TransfersTab restaurantId={restaurantId} ingredients={ingredientsQuery.data || []} />}
+            {tab === "central-kitchen" && <CentralKitchenManager restaurantId={restaurantId} />}
             {tab === "movements" && <MovementsTab restaurantId={restaurantId} ingredients={ingredientsQuery.data || []} />}
             {tab === "stocktakes" && <StocktakesTab restaurantId={restaurantId} ingredients={ingredientsQuery.data || []} />}
             {tab === "stock-report" && <StockReportTab restaurantId={restaurantId} ingredients={ingredientsQuery.data || []} />}

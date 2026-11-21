@@ -23,11 +23,16 @@ public class FloorOperationsService(ApplicationDbContext db)
         await BillingService.RequireActorAsync(db,tenant,actor);
         if(request.OperationId==Guid.Empty || string.IsNullOrEmpty(request.ExpectedRevision) || (request.Amounts==null)==(request.Items==null))throw new ArgumentException("Select either amount shares or item quantities and review the bill first.");
         var hash=BillingService.Hash(JsonSerializer.Serialize(new{Kind="Split",actor,billId,request}));
-        var table=await db.TableBills.Where(b=>b.Id==billId && b.RestaurantId==tenant).Select(b=>(Guid?)b.TableId).SingleOrDefaultAsync()??throw new KeyNotFoundException("Bill not found.");
-        await using var tx=await TableOrderTransaction.BeginAsync(db);await TableOrderTransaction.LockAsync(db,tenant,table);
+        var billMeta=await db.TableBills.Where(b=>b.Id==billId && b.RestaurantId==tenant).Select(b=>new{b.TableId,b.OrderChannel}).SingleOrDefaultAsync()??throw new KeyNotFoundException("Bill not found.");
+        await using var tx=await TableOrderTransaction.BeginAsync(db);
+        if(billMeta.TableId.HasValue)
+        {
+            await TableOrderTransaction.LockAsync(db,tenant,billMeta.TableId.Value);
+        }
+        await TableOrderTransaction.LockBillAsync(db,tenant,billId);
         var replay=await Replay<List<BillDto>>(tenant,request.OperationId,hash);if(replay!=null)return replay;
         var bill=await db.TableBills.Include(b=>b.Orders).ThenInclude(o=>o.OrderItems).SingleAsync(b=>b.Id==billId && b.RestaurantId==tenant);
-        if(bill.TableId!=table || bill.SettledAtUtc!=null || bill.SplitAtUtc!=null || bill.ParentBillId!=null || bill.PaymentRevision!=null || await db.BillPayments.AnyAsync(p=>p.RestaurantId==tenant && p.TableBillId==billId))throw new ServiceConflictException("Only an unpaid, unsplit original bill can be split.");
+        if(bill.TableId!=billMeta.TableId || bill.SettledAtUtc!=null || bill.SplitAtUtc!=null || bill.ParentBillId!=null || bill.PaymentRevision!=null || await db.BillPayments.AnyAsync(p=>p.RestaurantId==tenant && p.TableBillId==billId))throw new ServiceConflictException("Only an unpaid, unsplit original bill can be split.");
         var original=BillingService.Project(bill);
         if(!original.CanSettle || original.Revision!=request.ExpectedRevision)throw new ServiceConflictException("Serve all food and review the latest bill before splitting.");
         var chargeable=original.Orders.Where(o=>o.Status is not ("Cancelled" or "Rejected")).ToList();
@@ -38,7 +43,7 @@ public class FloorOperationsService(ApplicationDbContext db)
         for(var n=0;n<parts.Count;n++)
         {
             var share=parts[n];
-            var child=new TableBill{RestaurantId=tenant,TableId=table,DiningGroupId=bill.DiningGroupId,GroupLabelSnapshot=bill.GroupLabelSnapshot,TableNumberSnapshot=bill.TableNumberSnapshot,ParentBillId=billId,Subtotal=share.Subtotal,Tax=share.Tax,Discount=share.Discount,TotalAmount=share.Total};
+            var child=new TableBill{RestaurantId=tenant,TableId=bill.TableId,DiningGroupId=bill.DiningGroupId,GroupLabelSnapshot=bill.GroupLabelSnapshot,TableNumberSnapshot=bill.TableNumberSnapshot,ParentBillId=billId,Subtotal=share.Subtotal,Tax=share.Tax,Discount=share.Discount,TotalAmount=share.Total};
             var dto=new BillDto{Id=child.Id,ParentBillId=billId,DiningGroupId=bill.DiningGroupId,GroupLabel=bill.GroupLabelSnapshot,TableNumber=bill.TableNumberSnapshot,CreatedAtUtc=child.CreatedAtUtc,
                 Revision=BillingService.Hash(original.Revision+":"+request.OperationId+":"+n),Subtotal=share.Subtotal,Tax=share.Tax,Discount=share.Discount,TotalAmount=share.Total,RemainingAmount=share.Total,CanSettle=true,
                 ShareDescription=$"{(request.Amounts!=null?"Amount":"Item")} share {n+1} of {parts.Count} · source receipt {billId}"};

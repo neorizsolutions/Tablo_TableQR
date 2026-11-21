@@ -39,6 +39,7 @@ export function AppSidebar({
   const { plan, hasCapability, isLoading } = useEffectiveAccess(selectedOutletId);
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
+  const currentSearch = (routerState.location.search || {}) as Record<string, any>;
 
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     inventory: false,
@@ -155,7 +156,13 @@ export function AppSidebar({
                       item.requiredCapabilities.length === 0 ||
                       item.requiredCapabilities.some((cap) => hasCapability(cap));
 
-                    const isActive = currentPath === item.to;
+                    const isPathMatch = currentPath === item.to;
+                    const currentTab = currentSearch?.tab;
+                    const isActive = isPathMatch && (
+                      item.tabParam
+                        ? currentTab === item.tabParam || (!currentTab && !!item.isDefault)
+                        : !currentTab || !!item.isDefault || !item.tabParam
+                    );
                     const Icon = item.icon;
 
                     if (!isCapabilitySatisfied) {
@@ -183,6 +190,8 @@ export function AppSidebar({
                       <Link
                         key={item.id}
                         to={item.to}
+                        search={item.search}
+                        aria-current={isActive ? "page" : undefined}
                         onClick={() => onMobileOpenChange?.(false)}
                         className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition ${
                           isActive

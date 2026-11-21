@@ -19,7 +19,9 @@ public class StaffOrderingService(ApplicationDbContext db, IOrderService orders)
         await TableOrderTransaction.LockAsync(db, restaurantId, request.TableId);
         var table = await db.RestaurantTables.SingleOrDefaultAsync(t => t.Id == request.TableId && t.RestaurantId == restaurantId)
             ?? throw new KeyNotFoundException("Table not found.");
-        var payload=request.DiningGroupId==null?JsonSerializer.Serialize(new { actorId, request.TableId, Items=request.Items.Select(i=>new{i.MenuItemId,i.Quantity}) }):JsonSerializer.Serialize(new{actorId,request.TableId,request.DiningGroupId,Items=request.Items.Select(i=>new{i.MenuItemId,i.Quantity})});
+        var payload = request.DiningGroupId == null
+            ? JsonSerializer.Serialize(new { actorId, request.TableId, Items = request.Items.Select(i => new { i.MenuItemId, i.Quantity, i.ReleaseState, i.CourseName, Modifiers = i.SelectedModifiers?.Select(m => new { m.ModifierGroupId, m.ModifierOptionId }) }) })
+            : JsonSerializer.Serialize(new { actorId, request.TableId, request.DiningGroupId, Items = request.Items.Select(i => new { i.MenuItemId, i.Quantity, i.ReleaseState, i.CourseName, Modifiers = i.SelectedModifiers?.Select(m => new { m.ModifierGroupId, m.ModifierOptionId }) }) });
         var hash=BillingService.Hash(payload);
         var replay = await db.StaffOrderSubmissions.SingleOrDefaultAsync(s => s.RestaurantId == restaurantId && s.OperationId == request.OperationId);
         if (replay != null)

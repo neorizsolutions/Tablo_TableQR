@@ -31,6 +31,7 @@ public class PlanLimitsDto
 {
     public int MaxOutlets { get; set; }
     public int MaxTables { get; set; }
+    public int MaxKitchenStations { get; set; }
 }
 
 public class PlanDto
@@ -42,6 +43,7 @@ public class PlanDto
     public decimal MonthlyPriceInr { get; set; }
     public int MaxOutlets { get; set; }
     public int MaxTables { get; set; }
+    public int MaxKitchenStations { get; set; }
     public List<string> Features { get; set; } = new();
     public bool IsActive { get; set; }
     public int DisplayOrder { get; set; }
@@ -77,6 +79,7 @@ public class ChangeSubscriptionRequestDto
 public class UpdatePlanFeaturesRequestDto
 {
     public List<string> Features { get; set; } = new();
+    public int? MaxKitchenStations { get; set; }
     public string Reason { get; set; } = string.Empty;
 }
 

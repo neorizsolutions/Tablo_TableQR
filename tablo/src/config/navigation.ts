@@ -8,6 +8,7 @@ import {
   BarChart3,
   Package,
   ShoppingCart,
+  ShoppingBag,
   Boxes,
   ArrowLeftRight,
   ShieldCheck,
@@ -53,11 +54,13 @@ export interface NavItem {
   id: string;
   label: string;
   to: string;
+  search?: Record<string, string>;
+  tabParam?: string;
+  isDefault?: boolean;
   icon: LucideIcon;
   section: "main" | "operations" | "inventory" | "analytics" | "admin";
   requiredRoles?: ("Admin" | "Owner" | "Waiter" | "Kitchen")[];
   requiredCapabilities?: string[];
-  tabParam?: string;
 }
 
 export const NAVIGATION_REGISTRY: NavItem[] = [
@@ -75,15 +78,31 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     id: "orders-servicedesk",
     label: "Floor & Orders",
     to: "/dashboard",
+    search: { tab: "floor" },
+    tabParam: "floor",
+    isDefault: true,
     icon: UtensilsCrossed,
     section: "operations",
     requiredRoles: ["Admin", "Owner", "Waiter"],
     requiredCapabilities: [CAPABILITIES.StandardBilling]
   },
   {
+    id: "staff-order-taking",
+    label: "Staff Order Taking",
+    to: "/dashboard",
+    search: { tab: "order" },
+    tabParam: "order",
+    icon: ShoppingCart,
+    section: "operations",
+    requiredRoles: ["Admin", "Owner", "Waiter"],
+    requiredCapabilities: [CAPABILITIES.StaffOrdering, CAPABILITIES.StandardBilling]
+  },
+  {
     id: "kitchen-queue",
     label: "Kitchen Queue",
     to: "/dashboard",
+    search: { tab: "kitchen" },
+    tabParam: "kitchen",
     icon: ChefHat,
     section: "operations",
     requiredRoles: ["Admin", "Owner", "Kitchen"],
@@ -93,6 +112,9 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     id: "menu-management",
     label: "Menu & Categories",
     to: "/admin",
+    search: { tab: "menu" },
+    tabParam: "menu",
+    isDefault: true,
     icon: Receipt,
     section: "operations",
     requiredRoles: ["Admin", "Owner"],
@@ -102,10 +124,34 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     id: "tables-qr",
     label: "Tables & QR Codes",
     to: "/admin",
+    search: { tab: "tables" },
+    tabParam: "tables",
     icon: QrCode,
     section: "operations",
     requiredRoles: ["Admin", "Owner"],
     requiredCapabilities: [CAPABILITIES.TablesAndQr]
+  },
+  {
+    id: "crm-loyalty",
+    label: "Customer CRM & Loyalty",
+    to: "/admin",
+    search: { tab: "crm" },
+    tabParam: "crm",
+    icon: Users,
+    section: "operations",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.StandardBilling]
+  },
+  {
+    id: "marketplace-automation",
+    label: "Marketplace Orders",
+    to: "/admin",
+    search: { tab: "marketplace" },
+    tabParam: "marketplace",
+    icon: ShoppingBag,
+    section: "operations",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.StandardBilling]
   },
 
   // Inventory & Purchasing (Premium tier)
@@ -113,6 +159,9 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     id: "inventory-stock",
     label: "Stock & Recipes",
     to: "/inventory",
+    search: { tab: "ingredients" },
+    tabParam: "ingredients",
+    isDefault: true,
     icon: Package,
     section: "inventory",
     requiredRoles: ["Admin", "Owner"],
@@ -122,6 +171,8 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     id: "purchasing-orders",
     label: "Purchasing & POs",
     to: "/inventory",
+    search: { tab: "purchasing" },
+    tabParam: "purchasing",
     icon: ShoppingCart,
     section: "inventory",
     requiredRoles: ["Admin", "Owner"],
@@ -131,6 +182,8 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     id: "lots-expiry",
     label: "Lots & Expiry",
     to: "/inventory",
+    search: { tab: "lots" },
+    tabParam: "lots",
     icon: Boxes,
     section: "inventory",
     requiredRoles: ["Admin", "Owner"],
@@ -140,6 +193,8 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     id: "outlet-transfers",
     label: "Outlet Transfers",
     to: "/inventory",
+    search: { tab: "transfers" },
+    tabParam: "transfers",
     icon: ArrowLeftRight,
     section: "inventory",
     requiredRoles: ["Admin", "Owner"],

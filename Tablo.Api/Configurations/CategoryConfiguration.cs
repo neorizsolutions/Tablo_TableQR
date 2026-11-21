@@ -20,6 +20,11 @@ namespace Tablo.Api.Configurations
                 .WithMany(r => r.Categories)
                 .HasForeignKey(c => c.RestaurantId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(c => c.KitchenStation)
+                .WithMany(s => s.Categories)
+                .HasForeignKey(c => c.KitchenStationId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

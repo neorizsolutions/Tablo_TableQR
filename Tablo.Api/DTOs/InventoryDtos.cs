@@ -684,6 +684,35 @@ public record ReceiveTransferItemDto(
     string? DiscrepancyReason = null
 );
 
+public record TransferDiscrepancyDryRunDto(
+    Guid TransferId,
+    string TransferNumber,
+    Guid IngredientId,
+    string IngredientName,
+    Guid? OutletId,
+    decimal DoubleDeductedQuantity,
+    decimal ProposedCorrectionQuantity,
+    decimal UnitCostSnapshot,
+    decimal ProposedValuationCorrection,
+    string UnitSnapshot,
+    DateTime OriginalMovementDateUtc
+);
+
+public record TransferDiscrepancyReportDto(
+    int AffectedTransferCount,
+    decimal TotalQuantityToCorrect,
+    decimal TotalValuationToCorrect,
+    List<TransferDiscrepancyDryRunDto> Discrepancies
+);
+
+public record ApplyTransferCorrectionResponseDto(
+    int CorrectedTransferCount,
+    decimal TotalQuantityCorrected,
+    decimal TotalValuationCorrected,
+    DateTime CorrectedAtUtc,
+    List<TransferDiscrepancyDryRunDto> AppliedCorrections
+);
+
 // --- 8. MENU AVAILABILITY ---
 
 public record MenuItemAvailabilityDto(

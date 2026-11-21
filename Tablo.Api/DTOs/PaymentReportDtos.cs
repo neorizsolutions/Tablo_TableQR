@@ -17,7 +17,7 @@ public class PaymentReportRow
     public Guid BillId { get; set; }
     public string? GroupLabel { get; set; }
     public Guid Id { get; set; }
-    public Guid TableId { get; set; }
+    public Guid? TableId { get; set; }
     public int TableNumber { get; set; }
     public DateTime SettledAtUtc { get; set; }
     public Guid? SettledByEmployeeId { get; set; }
@@ -34,6 +34,7 @@ public class PaymentReportDto
     public decimal Cash { get; set; }
     public decimal UPI { get; set; }
     public decimal Card { get; set; }
+    public decimal Marketplace { get; set; }
     public int TotalCount { get; set; }
     public int Page { get; set; }
     public int PageSize { get; set; }

@@ -51,6 +51,27 @@ namespace Tablo.Api.Data
         public DbSet<Plan> Plans { get; set; } = null!;
         public DbSet<Subscription> Subscriptions { get; set; } = null!;
         public DbSet<SubscriptionAuditLog> SubscriptionAuditLogs { get; set; } = null!;
+        public DbSet<KitchenStation> KitchenStations { get; set; } = null!;
+        public DbSet<ThermalPrinter> ThermalPrinters { get; set; } = null!;
+        public DbSet<PrintAgentRegistration> PrintAgentRegistrations { get; set; } = null!;
+        public DbSet<KotBatch> KotBatches { get; set; } = null!;
+        public DbSet<KotTicket> KotTickets { get; set; } = null!;
+        public DbSet<PrintJob> PrintJobs { get; set; } = null!;
+        public DbSet<DailyTokenSequence> DailyTokenSequences { get; set; } = null!;
+        public DbSet<ModifierGroup> ModifierGroups { get; set; } = null!;
+        public DbSet<ModifierOption> ModifierOptions { get; set; } = null!;
+        public DbSet<MenuItemModifierGroup> MenuItemModifierGroups { get; set; } = null!;
+        public DbSet<ItemCancellationLog> ItemCancellationLogs { get; set; } = null!;
+        public DbSet<OrderProductionOperation> OrderProductionOperations { get; set; } = null!;
+        public DbSet<ManagerPinRateLimit> ManagerPinRateLimits { get; set; } = null!;
+        public DbSet<MarketplacePayout> MarketplacePayouts { get; set; } = null!;
+        public DbSet<CustomerProfile> Customers { get; set; } = null!;
+        public DbSet<LoyaltyLedgerEntry> LoyaltyLedgerEntries { get; set; } = null!;
+        public DbSet<CustomerFeedback> CustomerFeedbacks { get; set; } = null!;
+        public DbSet<MarketplaceOutletMapping> MarketplaceOutletMappings { get; set; } = null!;
+        public DbSet<MarketplaceItemMapping> MarketplaceItemMappings { get; set; } = null!;
+        public DbSet<MarketplaceInboundEvent> MarketplaceInboundEvents { get; set; } = null!;
+        public DbSet<MarketplaceOutboundUpdate> MarketplaceOutboundUpdates { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

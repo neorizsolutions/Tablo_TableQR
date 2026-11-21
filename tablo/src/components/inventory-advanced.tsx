@@ -62,6 +62,7 @@ import {
   type StockTransfer,
   type IngredientPriceComparison
 } from "@/services/inventory";
+import { parcelApi, type TransferDiscrepancyReportDto } from "@/services/parcel";
 
 function getErrorMessage(err: unknown) {
   if (err instanceof Error) return err.message;
@@ -2042,6 +2043,40 @@ export function TransfersTab({ restaurantId, ingredients }: { restaurantId: stri
   const [dispatchModal, setDispatchModal] = useState<StockTransfer | null>(null);
   const [receiveModal, setReceiveModal] = useState<StockTransfer | null>(null);
 
+  const [shortageAuditOpen, setShortageAuditOpen] = useState(false);
+  const [auditData, setAuditData] = useState<TransferDiscrepancyReportDto | null>(null);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [applyingCorrection, setApplyingCorrection] = useState(false);
+
+  const runAudit = async () => {
+    setLoadingAudit(true);
+    try {
+      const data = await parcelApi.getTransferShortageDryRun(restaurantId);
+      setAuditData(data);
+      setShortageAuditOpen(true);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to run shortage dry-run.");
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+
+  const handleApplyCorrection = async () => {
+    setApplyingCorrection(true);
+    try {
+      const res = await parcelApi.applyTransferShortageCorrection(restaurantId);
+      toast.success(res.message || "Traceable compensating movements applied successfully.");
+      const refreshed = await parcelApi.getTransferShortageDryRun(restaurantId);
+      setAuditData(refreshed);
+      cache.invalidateQueries({ queryKey: ["transfers", restaurantId] });
+      cache.invalidateQueries({ queryKey: ["ingredients", restaurantId] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to apply correction.");
+    } finally {
+      setApplyingCorrection(false);
+    }
+  };
+
   const outletsQuery = useQuery({ queryKey: ["outlets", restaurantId], queryFn: () => getOutlets(restaurantId) });
   const transfersQuery = useQuery({ queryKey: ["transfers", restaurantId], queryFn: () => getTransfers(restaurantId) });
 
@@ -2055,7 +2090,15 @@ export function TransfersTab({ restaurantId, ingredients }: { restaurantId: stri
           <p className="font-bold text-sm">Multi-Outlet & Central Kitchen Transfers</p>
           <p className="text-xs text-muted-foreground">Manage stock requisitions, dispatch in-transit items, and destination receipts with discrepancy audit.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={runAudit}
+            disabled={loadingAudit}
+            className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 dark:bg-amber-950/40 px-4 py-2 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100"
+          >
+            {loadingAudit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+            Shortage Audit & Correction
+          </button>
           <button
             onClick={() => setCreateOutletModal(true)}
             className="rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold hover:bg-secondary"
@@ -2203,6 +2246,107 @@ export function TransfersTab({ restaurantId, ingredients }: { restaurantId: stri
             cache.invalidateQueries({ queryKey: ["inventory_ingredients", restaurantId] });
           }}
         />
+      )}
+
+      {/* Shortage Audit & Compensating Correction Modal */}
+      {shortageAuditOpen && auditData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-card space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-display text-lg font-bold flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  Outlet Transfer Shortage Dry-Run Audit
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Validates physical stock ledger movements for past transfers where dispatch quantity exceeded receipt quantity.
+                </p>
+              </div>
+              <button
+                onClick={() => setShortageAuditOpen(false)}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 text-xs">
+              <div className="p-3 bg-muted/40 rounded-xl border">
+                <span className="text-[11px] text-muted-foreground block font-medium">Affected Transfers</span>
+                <span className="text-base font-bold">{auditData.totalAffectedTransfers} past transfer(s)</span>
+              </div>
+              <div className="p-3 bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-xl">
+                <span className="text-[11px] text-amber-700 dark:text-amber-400 block font-medium">Shortage Units</span>
+                <span className="text-base font-bold font-mono text-amber-600 dark:text-amber-400">
+                  {auditData.totalShortageUnits.toFixed(2)} units
+                </span>
+              </div>
+              <div className="p-3 bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-xl">
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-400 block font-medium">Excess Loss Valuation</span>
+                <span className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                  ₹{auditData.totalExcessLossValuation.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            <div className="max-h-60 overflow-y-auto border rounded-xl divide-y text-xs">
+              {auditData.items.length === 0 ? (
+                <div className="p-6 text-center text-muted-foreground">
+                  No transfers with shortage discrepancies found. All transfers have balanced stock ledger accounting.
+                </div>
+              ) : (
+                auditData.items.map((item) => (
+                  <div key={item.transferId} className="p-3 flex justify-between items-center">
+                    <div>
+                      <div className="font-bold flex items-center gap-1.5">
+                        <span>{item.transferNumber}</span>
+                        <span className="text-muted-foreground">({item.sourceOutletName} → {item.destinationOutletName})</span>
+                        {item.isCorrected && (
+                          <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
+                            ✓ Compensated
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        {item.stockItemName}: Dispatched {item.dispatchedQuantity} {item.unit}, Received {item.receivedQuantity} {item.unit} (Shortage: {item.shortageQuantity} {item.unit})
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono font-bold text-amber-600">₹{item.excessLossValuation.toFixed(2)}</div>
+                      <div className="text-[10px] text-muted-foreground">@ ₹{item.unitCostSnapshot.toFixed(2)}/{item.unit}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="rounded-xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 p-3 text-xs text-blue-900 dark:text-blue-300">
+              <span className="font-bold">Ledger Preservation Policy: </span>
+              Historical movements are never altered or deleted. Compensating movements append traceable corrections that restore inventory on-hand balances and valuations without rewriting audit trails.
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShortageAuditOpen(false)}
+                className="rounded-full border border-border px-4 py-2 text-xs font-semibold"
+              >
+                Close
+              </button>
+              {auditData.uncorrectedCount > 0 && (
+                <button
+                  type="button"
+                  disabled={applyingCorrection}
+                  onClick={handleApplyCorrection}
+                  className="rounded-full bg-gradient-primary px-5 py-2 text-xs font-semibold text-primary-foreground shadow-glow"
+                >
+                  {applyingCorrection ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                  Apply Compensating Movements ({auditData.uncorrectedCount})
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

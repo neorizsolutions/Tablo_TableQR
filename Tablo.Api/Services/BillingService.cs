@@ -91,16 +91,20 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
 
     public async Task<BillDto> SettleAsync(Guid restaurantId, Guid billId, Guid actorId, SettleBillRequestDto request)
     {
-        var tableId = await db.TableBills.Where(b => b.Id == billId && b.RestaurantId == restaurantId)
-            .Select(b => (Guid?)b.TableId).SingleOrDefaultAsync() ?? throw new KeyNotFoundException("Bill not found.");
+        var billMeta = await db.TableBills.Where(b => b.Id == billId && b.RestaurantId == restaurantId)
+            .Select(b => new { b.TableId, b.OrderChannel }).SingleOrDefaultAsync() ?? throw new KeyNotFoundException("Bill not found.");
         await RequireActorAsync(db, restaurantId, actorId);
-        if (request.OperationId == Guid.Empty || string.IsNullOrWhiteSpace(request.ExpectedRevision) || request.PaymentMethod is not ("Cash" or "UPI" or "Card"))
+        if (request.OperationId == Guid.Empty || string.IsNullOrWhiteSpace(request.ExpectedRevision) || request.PaymentMethod is not ("Cash" or "UPI" or "Card" or "MarketplaceCollected" or "Marketplace"))
             throw new ArgumentException("A valid operation ID, reviewed bill and payment method are required.");
         await using var tx = await TableOrderTransaction.BeginAsync(db);
-        await TableOrderTransaction.LockAsync(db, restaurantId, tableId);
+        if (billMeta.TableId.HasValue)
+        {
+            await TableOrderTransaction.LockAsync(db, restaurantId, billMeta.TableId.Value);
+        }
+        await TableOrderTransaction.LockBillAsync(db, restaurantId, billId);
         var bill = await db.TableBills.Include(b => b.Orders).ThenInclude(o => o.OrderItems)
             .SingleAsync(b => b.Id == billId && b.RestaurantId == restaurantId);
-        if(bill.TableId!=tableId) throw new ServiceConflictException("This bill moved. Refresh before paying.");
+        if(bill.TableId != billMeta.TableId) throw new ServiceConflictException("This bill moved. Refresh before paying.");
         var hash = Hash(JsonSerializer.Serialize(new { billId, actorId, request.ExpectedRevision, ExpectedTotal = Amount(request.ExpectedTotal), request.PaymentMethod }));
         if (bill.SettledAtUtc.HasValue)
         {
@@ -113,12 +117,17 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
         if (bill.PaymentRevision != null || await db.BillPayments.AnyAsync(p=>p.RestaurantId==restaurantId && p.TableBillId==billId))
             throw new ServiceConflictException("This bill has recorded payments. Use its remaining balance instead of full settlement.");
         // Do not settle an incomplete legacy attachment or food still being prepared.
-        if (await db.Orders.AnyAsync(o => o.RestaurantId == restaurantId && o.TableId == tableId && o.DiningGroupId == bill.DiningGroupId && o.TableBillId == null
+        if (bill.TableId.HasValue && await db.Orders.AnyAsync(o => o.RestaurantId == restaurantId && o.TableId == bill.TableId.Value && o.DiningGroupId == bill.DiningGroupId && o.TableBillId == null
             && o.Status != "Served" && o.Status != "Cancelled" && o.Status != "Rejected"))
             throw new ServiceConflictException("Attach the table's active orders before settling.");
         if(bill.SplitAtUtc!=null) throw new ServiceConflictException("This bill has been split.");
         var reviewed = Project(bill);
-        if (!reviewed.CanSettle) throw new ServiceConflictException("All chargeable orders must be served before settlement.");
+        if (!reviewed.CanSettle)
+        {
+            bool hasHeld = bill.Orders.Where(Chargeable).Any(o => o.OrderItems.Any(i => !i.IsCancelled && (i.Quantity - i.CancelledQuantity) > 0 && i.ReleaseState == "Held"));
+            bool isParcelLike = bill.OrderChannel is "ParcelTakeaway" or "CarParking" or "Delivery" || bill.Orders.Any(o => o.OrderChannel is "ParcelTakeaway" or "CarParking" or "Delivery" || o.IsScheduled);
+            throw new ServiceConflictException(hasHeld ? "Cannot settle bill with unresolved held food items." : (isParcelLike ? "Parcel order cannot be settled in its current state." : "All chargeable orders must be ready or served before settlement."));
+        }
         if (reviewed.Revision != request.ExpectedRevision || reviewed.TotalAmount != request.ExpectedTotal)
             throw new ServiceConflictException("The bill changed. Review the latest items and total before settling.");
         bill.SettledAtUtc = DateTime.UtcNow;
@@ -126,6 +135,7 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
         bill.SettlementOperationId = request.OperationId;
         bill.SettlementHash = hash;
         bill.PaymentMethod = request.PaymentMethod;
+        bill.PackagingCharge = reviewed.PackagingCharge;
         bill.Subtotal = reviewed.Subtotal;
         bill.Tax = reviewed.Tax;
         bill.Discount = reviewed.Discount;
@@ -191,19 +201,56 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
         }
         var orders = bill.Orders.OrderBy(o => o.CreatedAt).ThenBy(o => o.Id).ToList();
         var chargeable = orders.Where(Chargeable).ToList();
+        bool isParcel = bill.OrderChannel == "ParcelTakeaway" || bill.OrderChannel == "CarParking" || bill.Orders.Any(o => o.OrderChannel == "ParcelTakeaway" || o.OrderChannel == "CarParking" || o.IsScheduled);
+        bool hasUnresolvedHeldFood = chargeable.Any(o => o.OrderItems.Any(i => !i.IsCancelled && (i.Quantity - i.CancelledQuantity) > 0 && i.ReleaseState == "Held"));
+        bool canSettle = orders.Count > 0 && !hasUnresolvedHeldFood && (isParcel 
+            ? chargeable.All(o => o.Status != "Cancelled" && o.Status != "Rejected")
+            : chargeable.All(o => o.Status == "Served"));
+
         return new BillDto
         {
             Id = bill.Id, DiningGroupId=bill.DiningGroupId, GroupLabel=bill.GroupLabelSnapshot, ParentBillId=bill.ParentBillId, TableNumber = bill.TableNumberSnapshot, CreatedAtUtc = bill.CreatedAtUtc,
             Status = bill.SettledAtUtc == null ? "Open" : "Settled", SettledAtUtc = bill.SettledAtUtc, PaymentMethod = bill.PaymentMethod,
+            OrderChannel = bill.OrderChannel ?? "DineIn",
+            DailyTokenNumber = bill.DailyTokenNumber,
+            BusinessDate = bill.BusinessDate,
+            PackagingCharge = bill.PackagingCharge,
+            LeftoverPackingCharge = bill.LeftoverPackingCharge,
+            VehiclePlate = bill.VehiclePlate,
+            ParkingBay = bill.ParkingBay,
+            PackagingChargeModeSnapshot = bill.PackagingChargeModeSnapshot,
+            PackagingRateSnapshot = bill.PackagingRateSnapshot,
+            PackagingWaiverReason = bill.PackagingWaiverReason,
+            PackagingWaivedBy = bill.PackagingWaivedBy,
+            IsPackagingWaived = bill.IsPackagingWaived,
             // PostgreSQL stores microseconds/numeric scale; canonicalize so tracked and reloaded values agree.
             Revision = Hash(JsonSerializer.Serialize(orders.Select(o => new { o.Id, o.Status, UpdatedAtMicroseconds = o.UpdatedAt.Ticks / 10,
-                Subtotal = Amount(o.Subtotal), Tax = Amount(o.Tax), Discount = Amount(o.Discount), Total = Amount(o.TotalAmount),
-                Items = o.OrderItems.OrderBy(i => i.Id).Select(i => new { i.Id, i.Quantity, UnitPrice = Amount(i.UnitPrice), i.ItemNameSnapshot }) }))),
-            Subtotal = chargeable.Sum(o => o.Subtotal), Tax = chargeable.Sum(o => o.Tax), Discount = chargeable.Sum(o => o.Discount),
-            TotalAmount = chargeable.Sum(o => o.TotalAmount), CanSettle = orders.Count > 0 && chargeable.All(o => o.Status == "Served"),
+                Subtotal = Amount(o.Subtotal), PackagingCharge = Amount(o.PackagingCharge), Tax = Amount(o.Tax), Discount = Amount(o.Discount), Total = Amount(o.TotalAmount),
+                Items = o.OrderItems.OrderBy(i => i.Id).Select(i => new { i.Id, i.Quantity, UnitPrice = Amount(i.UnitPrice), i.ItemNameSnapshot, i.ReleaseState, i.CancelledQuantity, i.IsCancelled, i.PackingIntent }) }))),
+            Subtotal = chargeable.Sum(o => o.Subtotal), 
+            Tax = chargeable.Sum(o => o.Tax), 
+            Discount = chargeable.Sum(o => o.Discount),
+            TotalAmount = chargeable.Sum(o => o.TotalAmount) + (bill.LeftoverPackingCharge), 
+            CanSettle = canSettle,
             Orders = orders.Select(o => new BillOrderDto { Id = o.Id, OrderNumber = o.OrderNumber, Status = o.Status, TotalAmount = o.TotalAmount,
-                Items = o.OrderItems.OrderBy(i => i.Id).Select(i => new OrderItemDto { Id = i.Id, MenuItemId = i.MenuItemId,
-                    Name = i.ItemNameSnapshot, ItemNameSnapshot = i.ItemNameSnapshot, Quantity = i.Quantity, UnitPrice = i.UnitPrice }).ToList() }).ToList()
+                Items = o.OrderItems.OrderBy(i => i.Id).Select(i => new OrderItemDto {
+                    Id = i.Id,
+                    MenuItemId = i.MenuItemId,
+                    Name = i.ItemNameSnapshot,
+                    ItemNameSnapshot = i.ItemNameSnapshot,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    SpecialInstructions = i.SpecialInstructions,
+                    ReleaseState = i.ReleaseState,
+                    CourseName = i.CourseName,
+                    FiredAtUtc = i.FiredAtUtc,
+                    ModifiersJson = i.ModifiersJson,
+                    IsRefill = i.IsRefill,
+                    OriginalOrderItemId = i.OriginalOrderItemId,
+                    RefillCount = i.RefillCount,
+                    CancelledQuantity = i.CancelledQuantity,
+                    IsCancelled = i.IsCancelled
+                }).ToList() }).ToList()
         };
     }
 }

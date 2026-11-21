@@ -91,7 +91,8 @@ public class SubscriptionService : ISubscriptionService
             Limits = new PlanLimitsDto
             {
                 MaxOutlets = plan?.MaxOutlets ?? 1,
-                MaxTables = plan?.MaxTables ?? 15
+                MaxTables = plan?.MaxTables ?? 15,
+                MaxKitchenStations = plan?.MaxKitchenStations ?? 1
             }
         };
     }
@@ -161,7 +162,12 @@ public class SubscriptionService : ISubscriptionService
         }
 
         var oldFeatures = plan.FeaturesJson;
+        var oldMaxStations = plan.MaxKitchenStations;
         plan.FeaturesJson = JsonSerializer.Serialize(request.Features);
+        if (request.MaxKitchenStations.HasValue && request.MaxKitchenStations.Value >= 1)
+        {
+            plan.MaxKitchenStations = request.MaxKitchenStations.Value;
+        }
         plan.UpdatedAtUtc = DateTime.UtcNow;
 
         _context.SubscriptionAuditLogs.Add(new SubscriptionAuditLog
@@ -172,7 +178,7 @@ public class SubscriptionService : ISubscriptionService
             Action = "FeaturesUpdated",
             ToPlanId = plan.Id,
             Reason = string.IsNullOrWhiteSpace(request.Reason) ? "Plan features updated by administrator" : request.Reason,
-            DetailsJson = JsonSerializer.Serialize(new { oldFeatures, newFeatures = request.Features }),
+            DetailsJson = JsonSerializer.Serialize(new { oldFeatures, newFeatures = request.Features, oldMaxStations, newMaxStations = plan.MaxKitchenStations }),
             TimestampUtc = DateTime.UtcNow
         });
 
@@ -465,6 +471,7 @@ public class SubscriptionService : ISubscriptionService
             MonthlyPriceInr = plan.MonthlyPriceInr,
             MaxOutlets = plan.MaxOutlets,
             MaxTables = plan.MaxTables,
+            MaxKitchenStations = plan.MaxKitchenStations,
             Features = features,
             IsActive = plan.IsActive,
             DisplayOrder = plan.DisplayOrder

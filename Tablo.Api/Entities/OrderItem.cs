@@ -21,5 +21,40 @@ namespace Tablo.Api.Entities
         
         [MaxLength(500)]
         public string? SpecialInstructions { get; set; }
+
+        [MaxLength(30)]
+        public string ReleaseState { get; set; } = "Fired"; // Fired, Held
+
+        [MaxLength(30)]
+        public string PackingIntent { get; set; } = "DineIn"; // DineIn, Takeaway
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PackagingFeeApplied { get; set; } = 0m;
+
+        public bool IsPackagingWaived { get; set; } = false;
+
+        [MaxLength(200)]
+        public string? PackagingWaiverReason { get; set; }
+
+        [MaxLength(100)]
+        public string? PackagingWaivedBy { get; set; }
+
+        [MaxLength(50)]
+        public string? CourseName { get; set; } // Starters, Mains, Desserts, Beverages
+
+        public DateTime? FiredAtUtc { get; set; }
+        public Guid? FiredByEmployeeId { get; set; }
+
+        [MaxLength(64)]
+        public string? FireOperationId { get; set; }
+
+        public string? ModifiersJson { get; set; }
+
+        public bool IsRefill { get; set; } = false;
+        public Guid? OriginalOrderItemId { get; set; }
+        public int RefillCount { get; set; } = 0;
+
+        public int CancelledQuantity { get; set; } = 0;
+        public bool IsCancelled { get; set; } = false;
     }
 }

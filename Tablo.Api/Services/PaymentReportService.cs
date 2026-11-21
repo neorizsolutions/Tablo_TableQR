@@ -19,8 +19,8 @@ public class PaymentReportService(ApplicationDbContext db)
             throw new ArgumentException("Use a valid page and a page size between 1 and 100.");
         if (filter.StartDate > filter.EndDate) throw new ArgumentException("Start date cannot be after end date.");
         if (filter.EndDate == DateOnly.MaxValue) throw new ArgumentException("End date is outside the supported range.");
-        if (!string.IsNullOrEmpty(filter.PaymentMethod) && filter.PaymentMethod is not ("Cash" or "UPI" or "Card"))
-            throw new ArgumentException("Payment method must be Cash, UPI or Card.");
+        if (!string.IsNullOrEmpty(filter.PaymentMethod) && filter.PaymentMethod is not ("Cash" or "UPI" or "Card" or "MarketplaceCollected" or "Marketplace"))
+            throw new ArgumentException("Payment method must be Cash, UPI, Card, or Marketplace.");
         var legacy=db.TableBills.AsNoTracking().Where(b=>b.RestaurantId==tenant && b.SettledAtUtc!=null && !db.BillPayments.Any(p=>p.RestaurantId==tenant && p.TableBillId==b.Id))
             .Select(b=>new PaymentReportRow { Id=b.Id, BillId=b.Id,TableId=b.TableId,TableNumber=b.TableNumberSnapshot,GroupLabel=b.GroupLabelSnapshot,SettledAtUtc=b.SettledAtUtc!.Value,SettledByEmployeeId=b.SettledByEmployeeId,PaymentMethod=b.PaymentMethod,TotalAmount=b.TotalAmount });
         var ledger=db.BillPayments.AsNoTracking().Where(p=>p.RestaurantId==tenant).Select(p=>new PaymentReportRow { Id=p.Id,BillId=p.TableBillId,TableId=p.TableIdSnapshot,TableNumber=p.TableNumberSnapshot,GroupLabel=p.GroupLabelSnapshot,SettledAtUtc=p.CollectedAtUtc,SettledByEmployeeId=p.ActorEmployeeId,PaymentMethod=p.Method,TotalAmount=p.Amount });
@@ -54,6 +54,7 @@ public class PaymentReportService(ApplicationDbContext db)
             TotalPages=(int)Math.Ceiling((double)count/filter.PageSize), TotalCollected=totals.Sum(t=>t.Amount),
             Cash=totals.Where(t=>t.Method=="Cash").Sum(t=>t.Amount), UPI=totals.Where(t=>t.Method=="UPI").Sum(t=>t.Amount),
             Card=totals.Where(t=>t.Method=="Card").Sum(t=>t.Amount),
+            Marketplace=totals.Where(t=>t.Method is "MarketplaceCollected" or "Marketplace").Sum(t=>t.Amount),
             Items=await Rows(query).Skip((filter.Page-1)*filter.PageSize).Take(filter.PageSize).ToListAsync() };
         result.SettledBillCount=await query.Select(p=>p.BillId).Distinct().CountAsync(id=>db.TableBills.Any(b=>b.Id==id && b.RestaurantId==tenant && b.SettledAtUtc!=null));
         result.OutstandingBalance=await db.TableBills.Where(b=>b.RestaurantId==tenant && b.SettledAtUtc==null && b.SplitAtUtc==null && (filter.TableId==null || b.TableId==filter.TableId))

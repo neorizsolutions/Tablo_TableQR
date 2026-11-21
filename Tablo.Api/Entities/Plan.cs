@@ -23,6 +23,8 @@ public class Plan
 
     public int MaxTables { get; set; } = 25;
 
+    public int MaxKitchenStations { get; set; } = 1;
+
     /// <summary>
     /// JSON array of enabled capability codes
     /// </summary>

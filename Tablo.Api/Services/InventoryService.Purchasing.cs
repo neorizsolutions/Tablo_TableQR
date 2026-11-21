@@ -1436,6 +1436,13 @@ public partial class InventoryService
             .SingleOrDefaultAsync(t => t.RestaurantId == restaurantId && t.Id == transferId);
 
         if (transfer == null) throw new KeyNotFoundException("Transfer not found.");
+        
+        // Exact retry / repeated receipt idempotency
+        if (transfer.Status == "Received")
+        {
+            return await GetTransferByIdAsync(restaurantId, transfer.Id);
+        }
+
         if (transfer.Status != "Dispatched")
             throw new ArgumentException($"Cannot receive transfer with status '{transfer.Status}'.");
 
@@ -1457,6 +1464,9 @@ public partial class InventoryService
             item.DiscrepancyReason = rec?.DiscrepancyReason?.Trim();
 
             // Add received stock to Destination Outlet
+            // Note: Source outlet was already deducted by DispatchedQuantity during dispatch (TransferOut).
+            // Adding ReceivedQuantity here leaves the net restaurant-wide stock change at exactly -DiscrepancyQuantity (e.g. -500g).
+            // We do NOT post an additional negative movement to SourceOutlet, which would double-deduct the shortage.
             db.StockMovements.Add(new StockMovement
             {
                 RestaurantId = restaurantId,
@@ -1473,31 +1483,120 @@ public partial class InventoryService
                 ReferenceId = transfer.Id.ToString(),
                 Notes = $"Received from outlet {transfer.SourceOutletId}"
             });
-
-            // If discrepancy loss occurred in transit, record discrepancy movement
-            if (item.DiscrepancyQuantity > 0)
-            {
-                db.StockMovements.Add(new StockMovement
-                {
-                    RestaurantId = restaurantId,
-                    IngredientId = item.IngredientId,
-                    OutletId = transfer.SourceOutletId,
-                    ActorEmployeeId = actorId != Guid.Empty ? actorId : null,
-                    TimestampUtc = now,
-                    QuantityChange = -item.DiscrepancyQuantity,
-                    UnitSnapshot = item.Ingredient?.BaseUnit ?? "g",
-                    Reason = "TransferDiscrepancyLoss",
-                    UnitCostSnapshot = item.UnitCostSnapshot,
-                    TotalCost = Math.Round(item.DiscrepancyQuantity * item.UnitCostSnapshot, 4),
-                    ReferenceType = "StockTransferDiscrepancy",
-                    ReferenceId = transfer.Id.ToString(),
-                    Notes = $"Transfer discrepancy loss: {item.DiscrepancyReason ?? "Damaged or lost in transit"}"
-                });
-            }
         }
 
         await db.SaveChangesAsync();
         return await GetTransferByIdAsync(restaurantId, transfer.Id);
+    }
+
+    public async Task<TransferDiscrepancyReportDto> GetTransferDiscrepancyDryRunAsync(Guid restaurantId)
+    {
+        var discrepancyMovements = await db.StockMovements.AsNoTracking()
+            .Where(m => m.RestaurantId == restaurantId && m.Reason == "TransferDiscrepancyLoss")
+            .ToListAsync();
+
+        var existingCorrections = await db.StockMovements.AsNoTracking()
+            .Where(m => m.RestaurantId == restaurantId && m.Reason == "TransferDiscrepancyCorrection")
+            .ToListAsync();
+
+        var correctionKeys = existingCorrections
+            .Select(c => $"{c.ReferenceId}_{c.IngredientId}")
+            .ToHashSet();
+
+        var ingredients = await db.Ingredients.AsNoTracking()
+            .Where(i => i.RestaurantId == restaurantId)
+            .ToDictionaryAsync(i => i.Id);
+
+        var transferIds = discrepancyMovements.Select(m => Guid.TryParse(m.ReferenceId, out var id) ? id : Guid.Empty).Distinct().ToList();
+        var transfers = await db.StockTransfers.AsNoTracking()
+            .Where(t => t.RestaurantId == restaurantId && transferIds.Contains(t.Id))
+            .ToDictionaryAsync(t => t.Id);
+
+        var list = new List<TransferDiscrepancyDryRunDto>();
+
+        foreach (var mvt in discrepancyMovements)
+        {
+            string key = $"{mvt.ReferenceId}_{mvt.IngredientId}";
+            if (correctionKeys.Contains(key)) continue; // Already corrected
+
+            Guid.TryParse(mvt.ReferenceId, out var transferId);
+            transfers.TryGetValue(transferId, out var tr);
+            ingredients.TryGetValue(mvt.IngredientId, out var ing);
+
+            decimal qtyToCorrect = Math.Abs(mvt.QuantityChange);
+            decimal unitCost = mvt.UnitCostSnapshot ?? (ing?.CurrentAverageCost ?? 0m);
+            decimal valToCorrect = Math.Round(qtyToCorrect * unitCost, 4);
+
+            list.Add(new TransferDiscrepancyDryRunDto(
+                TransferId: transferId,
+                TransferNumber: tr?.TransferNumber ?? "UNKNOWN",
+                IngredientId: mvt.IngredientId,
+                IngredientName: ing?.Name ?? "Unknown Ingredient",
+                OutletId: mvt.OutletId,
+                DoubleDeductedQuantity: qtyToCorrect,
+                ProposedCorrectionQuantity: qtyToCorrect,
+                UnitCostSnapshot: unitCost,
+                ProposedValuationCorrection: valToCorrect,
+                UnitSnapshot: mvt.UnitSnapshot,
+                OriginalMovementDateUtc: mvt.TimestampUtc
+            ));
+        }
+
+        return new TransferDiscrepancyReportDto(
+            AffectedTransferCount: list.Select(x => x.TransferId).Distinct().Count(),
+            TotalQuantityToCorrect: list.Sum(x => x.ProposedCorrectionQuantity),
+            TotalValuationToCorrect: list.Sum(x => x.ProposedValuationCorrection),
+            Discrepancies: list
+        );
+    }
+
+    public async Task<ApplyTransferCorrectionResponseDto> ApplyTransferDiscrepancyCorrectionAsync(Guid restaurantId, Guid actorId)
+    {
+        var dryRun = await GetTransferDiscrepancyDryRunAsync(restaurantId);
+        if (dryRun.Discrepancies.Count == 0)
+        {
+            return new ApplyTransferCorrectionResponseDto(0, 0m, 0m, DateTime.UtcNow, new());
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var item in dryRun.Discrepancies)
+        {
+            // Idempotent double check
+            bool alreadyDone = await db.StockMovements.AnyAsync(m =>
+                m.RestaurantId == restaurantId &&
+                m.Reason == "TransferDiscrepancyCorrection" &&
+                m.ReferenceId == item.TransferId.ToString() &&
+                m.IngredientId == item.IngredientId);
+
+            if (alreadyDone) continue;
+
+            db.StockMovements.Add(new StockMovement
+            {
+                RestaurantId = restaurantId,
+                IngredientId = item.IngredientId,
+                OutletId = item.OutletId,
+                ActorEmployeeId = actorId != Guid.Empty ? actorId : null,
+                TimestampUtc = now,
+                QuantityChange = item.ProposedCorrectionQuantity, // positive quantity to reverse double deduction
+                UnitSnapshot = item.UnitSnapshot,
+                Reason = "TransferDiscrepancyCorrection",
+                UnitCostSnapshot = item.UnitCostSnapshot,
+                TotalCost = item.ProposedValuationCorrection,
+                ReferenceType = "StockTransferDiscrepancyCorrection",
+                ReferenceId = item.TransferId.ToString(),
+                Notes = $"Traceable compensating correction for double-deducted transfer shortage on transfer {item.TransferNumber}"
+            });
+        }
+
+        await db.SaveChangesAsync();
+
+        return new ApplyTransferCorrectionResponseDto(
+            CorrectedTransferCount: dryRun.AffectedTransferCount,
+            TotalQuantityCorrected: dryRun.TotalQuantityToCorrect,
+            TotalValuationCorrected: dryRun.TotalValuationToCorrect,
+            CorrectedAtUtc: now,
+            AppliedCorrections: dryRun.Discrepancies
+        );
     }
 
     public async Task<StockTransferDto> GetTransferByIdAsync(Guid restaurantId, Guid id)

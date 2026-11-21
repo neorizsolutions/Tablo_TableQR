@@ -509,8 +509,8 @@ public partial class InventoryService(ApplicationDbContext db)
             .Where(o => o.TableBillId == billId && o.RestaurantId == restaurantId)
             .ToListAsync();
 
-        // Line items to settle: MenuItemId, NameSnapshot, UnitPrice, Quantity
-        var rawLineItems = new List<(Guid MenuItemId, string NameSnapshot, decimal UnitPrice, int Quantity)>();
+        // Line items to settle: MenuItemId, NameSnapshot, UnitPrice, Quantity, ModifiersJson, IsRefill
+        var rawLineItems = new List<(Guid MenuItemId, string NameSnapshot, decimal UnitPrice, int Quantity, string? ModifiersJson, bool IsRefill)>();
 
         if (bill.ParentBillId == null)
         {
@@ -519,7 +519,11 @@ public partial class InventoryService(ApplicationDbContext db)
             {
                 foreach (var item in order.OrderItems)
                 {
-                    rawLineItems.Add((item.MenuItemId, item.ItemNameSnapshot ?? item.MenuItem?.Name ?? "Item", item.UnitPrice, item.Quantity));
+                    int activeQty = item.Quantity - item.CancelledQuantity;
+                    if (!item.IsCancelled && activeQty > 0)
+                    {
+                        rawLineItems.Add((item.MenuItemId, item.ItemNameSnapshot ?? item.MenuItem?.Name ?? "Item", item.UnitPrice, activeQty, item.ModifiersJson, item.IsRefill));
+                    }
                 }
             }
         }
@@ -537,7 +541,7 @@ public partial class InventoryService(ApplicationDbContext db)
                     {
                         foreach (var itemDto in orderDto.Items)
                         {
-                            rawLineItems.Add((itemDto.MenuItemId, itemDto.Name ?? itemDto.ItemNameSnapshot ?? "Item", itemDto.UnitPrice, itemDto.Quantity));
+                            rawLineItems.Add((itemDto.MenuItemId, itemDto.Name ?? itemDto.ItemNameSnapshot ?? "Item", itemDto.UnitPrice, itemDto.Quantity, null, false));
                         }
                     }
                 }
@@ -577,7 +581,11 @@ public partial class InventoryService(ApplicationDbContext db)
                         {
                             foreach (var item in order.OrderItems)
                             {
-                                rawLineItems.Add((item.MenuItemId, item.ItemNameSnapshot ?? item.MenuItem?.Name ?? "Item", item.UnitPrice, item.Quantity));
+                                int activeQty = item.Quantity - item.CancelledQuantity;
+                                if (!item.IsCancelled && activeQty > 0)
+                                {
+                                    rawLineItems.Add((item.MenuItemId, item.ItemNameSnapshot ?? item.MenuItem?.Name ?? "Item", item.UnitPrice, activeQty, item.ModifiersJson, item.IsRefill));
+                                }
                             }
                         }
                     }
@@ -588,32 +596,17 @@ public partial class InventoryService(ApplicationDbContext db)
         if (rawLineItems.Count == 0)
             return;
 
-        // Group line items by MenuItem
-        var groupedItems = rawLineItems
-            .GroupBy(l => l.MenuItemId)
-            .Select(g => new
-            {
-                MenuItemId = g.Key,
-                NameSnapshot = g.First().NameSnapshot,
-                UnitPrice = g.First().UnitPrice,
-                Quantity = g.Sum(x => x.Quantity)
-            })
-            .ToList();
-
-        var menuItemIds = groupedItems.Select(g => g.MenuItemId).ToList();
+        var menuItemIds = rawLineItems.Select(g => g.MenuItemId).Distinct().ToList();
         var menuItems = await dbContext.MenuItems.Include(m => m.Category)
             .Where(m => menuItemIds.Contains(m.Id))
             .ToDictionaryAsync(m => m.Id);
 
-        var allRecipes = await dbContext.RecipeItems.Include(r => r.Ingredient)
-            .Where(r => r.RestaurantId == restaurantId && menuItemIds.Contains(r.MenuItemId))
-            .ToListAsync();
+        var resolver = new IngredientResolutionService(dbContext);
+        var resolvedItems = await resolver.ResolveItemIngredientsAsync(
+            restaurantId,
+            rawLineItems.Select(r => (r.MenuItemId, r.NameSnapshot, r.Quantity, r.ModifiersJson, r.IsRefill)));
 
-        var totalGrossRevenue = groupedItems.Sum(g =>
-        {
-            var unitPrice = menuItems.TryGetValue(g.MenuItemId, out var mi) ? mi.Price : g.UnitPrice;
-            return unitPrice * g.Quantity;
-        });
+        var totalGrossRevenue = rawLineItems.Sum(g => g.UnitPrice * g.Quantity);
 
         var billDiscount = bill.Discount;
         var billTax = bill.Tax;
@@ -634,13 +627,14 @@ public partial class InventoryService(ApplicationDbContext db)
 
         var settledAtUtc = DateTime.UtcNow;
 
-        for (int i = 0; i < groupedItems.Count; i++)
+        for (int i = 0; i < resolvedItems.Count; i++)
         {
-            var itemGroup = groupedItems[i];
-            var isLast = i == groupedItems.Count - 1;
+            var itemGroup = resolvedItems[i];
+            var rawItem = rawLineItems[i];
+            var isLast = i == resolvedItems.Count - 1;
 
             var menuItem = menuItems.GetValueOrDefault(itemGroup.MenuItemId);
-            var unitPrice = menuItem?.Price ?? itemGroup.UnitPrice;
+            var unitPrice = rawItem.UnitPrice;
             var gross = unitPrice * itemGroup.Quantity;
             decimal itemDiscount;
             decimal itemTax;
@@ -660,28 +654,26 @@ public partial class InventoryService(ApplicationDbContext db)
 
             var netRevenue = gross - itemDiscount;
 
-            var itemRecipes = allRecipes.Where(r => r.MenuItemId == itemGroup.MenuItemId).ToList();
-            bool isComplete = itemRecipes.Count > 0;
-            string? incompleteReason = itemRecipes.Count == 0 ? "No recipe configured" : null;
+            bool isComplete = itemGroup.Ingredients.Count > 0;
+            string? incompleteReason = itemGroup.Ingredients.Count == 0 ? "No recipe configured" : null;
 
             decimal itemTotalCogs = 0m;
             var itemIngredientCosts = new List<SettledBillItemIngredientCost>();
 
-            foreach (var recipe in itemRecipes)
+            foreach (var ingReq in itemGroup.Ingredients)
             {
-                var rawPerPortion = UnitConverter.CalculateRawQuantity(recipe.UsableQuantity, recipe.YieldPercent);
-                var totalRaw = rawPerPortion * itemGroup.Quantity;
+                var totalRaw = ingReq.RawQuantity;
                 decimal unitCost;
                 decimal extendedCost;
 
                 if (costingMethod == "WeightedAverage" || activeLots.Count == 0)
                 {
-                    unitCost = recipe.Ingredient.CurrentAverageCost;
+                    unitCost = ingReq.UnitCost;
                     extendedCost = Math.Round(totalRaw * unitCost, 4);
                 }
                 else
                 {
-                    var ingLots = activeLots.Where(l => l.IngredientId == recipe.IngredientId).ToList();
+                    var ingLots = activeLots.Where(l => l.IngredientId == ingReq.IngredientId).ToList();
                     ingLots = costingMethod == "FIFO"
                         ? ingLots.OrderBy(l => l.ReceivedOrProducedDateUtc).ThenBy(l => l.LotCode).ToList()
                         : ingLots.OrderByDescending(l => l.ReceivedOrProducedDateUtc).ThenByDescending(l => l.LotCode).ToList();
@@ -706,36 +698,36 @@ public partial class InventoryService(ApplicationDbContext db)
 
                     if (remainingRaw > 0)
                     {
-                        layerCost += remainingRaw * recipe.Ingredient.CurrentAverageCost;
+                        layerCost += remainingRaw * ingReq.UnitCost;
                     }
 
                     extendedCost = Math.Round(layerCost, 4);
-                    unitCost = totalRaw > 0 ? Math.Round(extendedCost / totalRaw, 6) : recipe.Ingredient.CurrentAverageCost;
+                    unitCost = totalRaw > 0 ? Math.Round(extendedCost / totalRaw, 6) : ingReq.UnitCost;
                 }
 
                 if (unitCost <= 0)
                 {
                     isComplete = false;
-                    incompleteReason = $"Missing cost basis for {recipe.Ingredient.Name}";
+                    incompleteReason = $"Missing cost basis for {ingReq.IngredientName}";
                 }
 
                 itemTotalCogs += extendedCost;
 
                 itemIngredientCosts.Add(new SettledBillItemIngredientCost
                 {
-                    IngredientId = recipe.IngredientId,
-                    IngredientNameSnapshot = recipe.Ingredient.Name,
-                    BaseUnitSnapshot = recipe.Ingredient.BaseUnit,
-                    RawQuantityPerPortion = rawPerPortion,
+                    IngredientId = ingReq.IngredientId,
+                    IngredientNameSnapshot = ingReq.IngredientName,
+                    BaseUnitSnapshot = ingReq.BaseUnit,
+                    RawQuantityPerPortion = itemGroup.Quantity > 0 ? totalRaw / itemGroup.Quantity : totalRaw,
                     TotalRawQuantity = totalRaw,
                     UnitCostSnapshot = unitCost,
                     TotalCost = extendedCost
                 });
 
                 // Accumulate to total bill deduction
-                if (ingredientDeductions.TryGetValue(recipe.IngredientId, out var existing))
+                if (ingredientDeductions.TryGetValue(ingReq.IngredientId, out var existing))
                 {
-                    ingredientDeductions[recipe.IngredientId] = (
+                    ingredientDeductions[ingReq.IngredientId] = (
                         existing.Ingredient,
                         existing.TotalRawQty + totalRaw,
                         existing.ExtendedCost + extendedCost
@@ -743,7 +735,11 @@ public partial class InventoryService(ApplicationDbContext db)
                 }
                 else
                 {
-                    ingredientDeductions[recipe.IngredientId] = (recipe.Ingredient, totalRaw, extendedCost);
+                    var ingEntity = await dbContext.Ingredients.FindAsync(ingReq.IngredientId);
+                    if (ingEntity != null)
+                    {
+                        ingredientDeductions[ingReq.IngredientId] = (ingEntity, totalRaw, extendedCost);
+                    }
                 }
             }
 
@@ -755,7 +751,7 @@ public partial class InventoryService(ApplicationDbContext db)
                 RestaurantId = restaurantId,
                 TableBillId = billId,
                 MenuItemId = itemGroup.MenuItemId,
-                MenuItemNameSnapshot = menuItem?.Name ?? itemGroup.NameSnapshot,
+                MenuItemNameSnapshot = menuItem?.Name ?? itemGroup.ItemName,
                 CategoryNameSnapshot = menuItem?.Category?.Name ?? "Uncategorized",
                 Quantity = itemGroup.Quantity,
                 UnitPriceSnapshot = unitPrice,

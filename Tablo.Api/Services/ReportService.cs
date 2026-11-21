@@ -100,8 +100,8 @@ namespace Tablo.Api.Services
                 {
                     OrderId = o.Id,
                     OrderNumber = o.OrderNumber,
-                    TableId = o.TableId,
-                    TableName = $"Table {o.Table.TableNumber}", // EF Core correctly navigates because we use .Select() projection
+                    TableId = o.TableId ?? Guid.Empty,
+                    TableName = o.Table != null ? $"Table {o.Table.TableNumber}" : (o.DailyTokenNumber.HasValue ? $"Parcel #{o.DailyTokenNumber.Value:D3}" : "Parcel Takeaway"),
                     CreatedAt = o.CreatedAt,
                     UpdatedAt = o.UpdatedAt,
                     Status = o.Status,

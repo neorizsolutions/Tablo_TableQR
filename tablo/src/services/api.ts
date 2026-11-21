@@ -79,9 +79,14 @@ export async function getMenu(restaurantId: string): Promise<MenuItem[]> {
             price: item.price,
             image: getFullImageUrl(item.imageUrl) || imageFor(item.name),
             category: cat.name,
-            available: true, // DB only returns available items in this endpoint per our repository logic
+            available: item.isAvailable ?? true,
             popular: false,
             special: false,
+            isRefillEligible: item.isRefillEligible,
+            refillMaxCount: item.refillMaxCount,
+            refillKitchenStationId: item.refillKitchenStationId,
+            kitchenStationId: item.kitchenStationId,
+            modifierGroups: item.modifierGroups || []
           });
         }
       }
@@ -117,7 +122,14 @@ export async function getActiveOrders(restaurantId: string): Promise<Order[]> {
         menu_item_id: item.menuItemId,
         name: item.name,
         qty: item.quantity,
-        price: item.unitPrice
+        price: item.unitPrice,
+        release_state: item.releaseState,
+        course_name: item.courseName,
+        modifiers_json: item.modifiersJson,
+        is_refill: item.isRefill,
+        refill_count: item.refillCount,
+        cancelled_quantity: item.cancelledQuantity,
+        is_cancelled: item.isCancelled
       })),
       exception_reason: dto.exceptionReason
     }))
@@ -142,10 +154,30 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, re
   });
 }
 
-export async function placeOrder(qrToken: string, items: { item: MenuItem; qty: number }[], diningGroupId?: string): Promise<{ orderId: string }> {
+export async function placeOrder(
+  qrToken: string,
+  items: {
+    item: MenuItem;
+    qty: number;
+    selectedModifiers?: { modifierGroupId: string; modifierOptionId: string; optionName?: string; priceDelta?: number }[];
+    specialInstructions?: string;
+  }[],
+  diningGroupId?: string
+): Promise<{ orderId: string }> {
   const payload = {
-    qrToken, diningGroupId,
-    items: items.map((i) => ({ menuItemId: i.item.id, quantity: i.qty })),
+    qrToken,
+    diningGroupId,
+    items: items.map((i) => ({
+      menuItemId: i.item.id,
+      quantity: i.qty,
+      specialInstructions: i.specialInstructions || undefined,
+      selectedModifiers: i.selectedModifiers && i.selectedModifiers.length > 0
+        ? i.selectedModifiers.map((m) => ({
+            modifierGroupId: m.modifierGroupId,
+            modifierOptionId: m.modifierOptionId,
+          }))
+        : undefined,
+    })),
   };
   return apiClient<{ orderId: string }>(`/orders`, {
     method: "POST",
@@ -211,8 +243,10 @@ export async function getAdminMenu(restaurantId: string): Promise<{categories: a
             price: item.price,
             image: getFullImageUrl(item.imageUrl) || imageFor(item.name),
             category: cat.name,
+            categoryName: cat.name,
             categoryId: cat.id, // we should pass categoryId for edits!
             available: item.isAvailable,
+            packagingFee: item.packagingFee ?? 0,
             popular: false,
             special: false,
           } as any);
@@ -310,6 +344,10 @@ export async function createMenuItemApi(restaurantId: string, categoryId: string
   if (item.description) formData.append('description', item.description);
   if (item.price !== undefined) formData.append('price', item.price.toString());
   formData.append('isAvailable', (item.available ?? true).toString());
+  if (item.isRefillEligible !== undefined) formData.append('isRefillEligible', item.isRefillEligible.toString());
+  if (item.refillMaxCount !== undefined) formData.append('refillMaxCount', item.refillMaxCount.toString());
+  if (item.refillKitchenStationId) formData.append('refillKitchenStationId', item.refillKitchenStationId);
+  if (item.kitchenStationId) formData.append('kitchenStationId', item.kitchenStationId);
   if (item.imageFile) {
     formData.append('imageFile', item.imageFile);
   } else if (item.image) {
@@ -328,6 +366,10 @@ export async function updateMenuItemApi(itemId: string, categoryId: string, item
   if (item.name) formData.append('name', item.name);
   if (item.description) formData.append('description', item.description);
   if (item.price !== undefined) formData.append('price', item.price.toString());
+  if (item.isRefillEligible !== undefined) formData.append('isRefillEligible', item.isRefillEligible.toString());
+  if (item.refillMaxCount !== undefined) formData.append('refillMaxCount', item.refillMaxCount.toString());
+  if (item.refillKitchenStationId) formData.append('refillKitchenStationId', item.refillKitchenStationId);
+  if (item.kitchenStationId) formData.append('kitchenStationId', item.kitchenStationId);
   if (item.imageFile) {
     formData.append('imageFile', item.imageFile);
   } else if (item.image) {
@@ -604,6 +646,189 @@ export async function completeServiceRequest(id: string): Promise<ServiceRequest
     method: 'PATCH'
   });
 }
+
+// Production Controls API (Hold/Fire, Modifiers, Refills, Cancellation)
+
+export interface FireOrderItemsRequest {
+  operationId: string;
+  orderItemIds?: string[];
+  courseName?: string;
+  firedByEmployeeId?: string;
+}
+
+export interface FiredItemsResponse {
+  orderId: string;
+  firedItemCount: number;
+  firedOrderItemIds: string[];
+  generatedKotTicketsCount: number;
+  kotTicketNumbers: string[];
+  message: string;
+}
+
+export async function fireOrderItems(orderId: string, data: FireOrderItemsRequest, restaurantId?: string): Promise<FiredItemsResponse> {
+  const url = restaurantId
+    ? `/restaurants/${restaurantId}/orders/${orderId}/fire-items`
+    : `/orders/${orderId}/fire-items`;
+  return apiClient<FiredItemsResponse>(url, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export interface CreateRefillRequest {
+  operationId: string;
+  quantity: number;
+  notes?: string;
+  actorEmployeeId?: string;
+}
+
+export interface RefillResponse {
+  orderId: string;
+  refillOrderItemId: string;
+  originalOrderItemId: string;
+  itemName: string;
+  quantity: number;
+  refillCount: number;
+  priceCharged: number;
+  kotTicketNumber: string;
+  message: string;
+}
+
+export async function createRefill(orderId: string, orderItemId: string, data: CreateRefillRequest, restaurantId?: string): Promise<RefillResponse> {
+  const url = restaurantId
+    ? `/restaurants/${restaurantId}/orders/${orderId}/items/${orderItemId}/refill`
+    : `/orders/${orderId}/items/${orderItemId}/refill`;
+  return apiClient<RefillResponse>(url, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export interface CancelOrderItemRequest {
+  operationId: string;
+  quantity: number;
+  outcome: "NotCooked" | "KitchenWaste";
+  reason: string;
+  managerPin?: string;
+  requestedByEmployeeId?: string;
+  approvedByEmployeeId?: string;
+}
+
+export interface ItemCancellationResponse {
+  cancellationLogId: string;
+  orderId: string;
+  orderItemId: string;
+  itemName: string;
+  quantityCancelled: number;
+  remainingQuantity: number;
+  productionOutcome: string;
+  newOrderTotal: number;
+  wastedCost?: number;
+  cancellationKotNoticeNumber?: string;
+  message: string;
+}
+
+export async function cancelOrderItem(orderId: string, orderItemId: string, data: CancelOrderItemRequest, restaurantId?: string): Promise<ItemCancellationResponse> {
+  const url = restaurantId
+    ? `/restaurants/${restaurantId}/orders/${orderId}/items/${orderItemId}/cancel`
+    : `/orders/${orderId}/items/${orderItemId}/cancel`;
+  return apiClient<ItemCancellationResponse>(url, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function verifyManagerPin(pin: string): Promise<{ id: string; name: string; role: string }> {
+  return apiClient<{ id: string; name: string; role: string }>('/employees/verify-pin', {
+    method: 'POST',
+    body: JSON.stringify({ pin })
+  });
+}
+
+export async function setManagerPin(employeeId: string, pin: string): Promise<{ message: string }> {
+  return apiClient<{ message: string }>(`/employees/${employeeId}/pin`, {
+    method: 'POST',
+    body: JSON.stringify({ pin })
+  });
+}
+
+export interface ModifierOption {
+  id: string;
+  modifierGroupId: string;
+  name: string;
+  priceDelta: number;
+  displayOrder: number;
+  isAvailable: boolean;
+  ingredientAdjustmentType: string;
+  ingredientId?: string;
+  ingredientName?: string;
+  ingredientQuantity: number;
+  originalIngredientId?: string;
+  originalIngredientName?: string;
+}
+
+export interface ModifierGroup {
+  id: string;
+  name: string;
+  minSelections: number;
+  maxSelections: number;
+  isRequired: boolean;
+  displayOrder: number;
+  isActive: boolean;
+  options: ModifierOption[];
+}
+
+export async function getModifierGroups(restaurantId: string): Promise<ModifierGroup[]> {
+  return apiClient<ModifierGroup[]>(`/restaurants/${restaurantId}/modifiers`);
+}
+
+export async function createModifierGroup(restaurantId: string, data: Partial<ModifierGroup>): Promise<ModifierGroup> {
+  return apiClient<ModifierGroup>(`/restaurants/${restaurantId}/modifiers`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function updateModifierGroup(groupId: string, data: Partial<ModifierGroup>): Promise<ModifierGroup> {
+  return apiClient<ModifierGroup>(`/modifiers/${groupId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function deleteModifierGroup(groupId: string): Promise<void> {
+  return apiClient<void>(`/modifiers/${groupId}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function createModifierOption(groupId: string, data: Partial<ModifierOption>): Promise<ModifierOption> {
+  return apiClient<ModifierOption>(`/modifiers/${groupId}/options`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function updateModifierOption(optionId: string, data: Partial<ModifierOption>): Promise<ModifierOption> {
+  return apiClient<ModifierOption>(`/modifiers/options/${optionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function deleteModifierOption(optionId: string): Promise<void> {
+  return apiClient<void>(`/modifiers/options/${optionId}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function assignModifierGroupsToItem(menuItemId: string, modifierGroupIds: string[]): Promise<void> {
+  return apiClient<void>(`/menu-items/${menuItemId}/modifier-groups`, {
+    method: 'POST',
+    body: JSON.stringify({ modifierGroupIds })
+  });
+}
+
 
 
 

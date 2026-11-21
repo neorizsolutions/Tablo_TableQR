@@ -15,13 +15,18 @@ public class BillPaymentService(ApplicationDbContext db)
     public async Task<PaymentAcknowledgement> RecordAsync(Guid tenant,Guid actor,Guid billId,RecordBillPayment request)
     {
         await BillingService.RequireActorAsync(db,tenant,actor);
-        if(request.OperationId==Guid.Empty || request.Method is not ("Cash" or "UPI" or "Card") || request.Amount<=0 || request.Amount!=decimal.Round(request.Amount,2) || request.Amount>9999999999999999.99m)
+        if(request.OperationId==Guid.Empty || request.Method is not ("Cash" or "UPI" or "Card" or "MarketplaceCollected" or "Marketplace") || request.Amount<=0 || request.Amount!=decimal.Round(request.Amount,2) || request.Amount>9999999999999999.99m)
             throw new ArgumentException("Enter a positive payment amount with up to two decimal places, a supported method and an operation ID.");
         var hash=BillingService.Hash(JsonSerializer.Serialize(new{actor,billId,request.Method,Amount=request.Amount.ToString("G29",CultureInfo.InvariantCulture)}));
-        var tableId=await db.TableBills.Where(b=>b.Id==billId && b.RestaurantId==tenant).Select(b=>(Guid?)b.TableId).SingleOrDefaultAsync()
+        var billSummary=await db.TableBills.Where(b=>b.Id==billId && b.RestaurantId==tenant)
+            .Select(b=>new{b.TableId,b.OrderChannel,b.DiningGroupId}).SingleOrDefaultAsync()
             ??throw new KeyNotFoundException("Bill not found.");
         await using var tx=await TableOrderTransaction.BeginAsync(db);
-        await TableOrderTransaction.LockAsync(db,tenant,tableId);
+        if(billSummary.TableId.HasValue)
+        {
+            await TableOrderTransaction.LockAsync(db,tenant,billSummary.TableId.Value);
+        }
+        await TableOrderTransaction.LockBillAsync(db,tenant,billId);
         var replay=await db.BillPayments.AsNoTracking().SingleOrDefaultAsync(p=>p.RestaurantId==tenant && p.OperationId==request.OperationId);
         if(replay!=null)
         {
@@ -29,12 +34,20 @@ public class BillPaymentService(ApplicationDbContext db)
             return JsonSerializer.Deserialize<PaymentAcknowledgement>(replay.AcknowledgementJson)!;
         }
         var bill=await db.TableBills.Include(b=>b.Orders).ThenInclude(o=>o.OrderItems).SingleAsync(b=>b.RestaurantId==tenant && b.Id==billId);
-        if(bill.TableId!=tableId) throw new ServiceConflictException("This bill moved. Refresh before paying.");
+        if(bill.TableId!=billSummary.TableId) throw new ServiceConflictException("This bill moved. Refresh before paying.");
         if(bill.SettledAtUtc!=null || bill.SplitAtUtc!=null) throw new ServiceConflictException("This bill is already settled.");
         var review=BillingService.Project(bill);
-        if(!review.CanSettle) throw new ServiceConflictException("Serve all chargeable food before recording payment.");
-        if(await db.Orders.AnyAsync(o=>o.RestaurantId==tenant && o.TableId==tableId && o.DiningGroupId==bill.DiningGroupId && o.TableBillId==null && o.Status!="Served" && o.Status!="Cancelled" && o.Status!="Rejected"))
-            throw new ServiceConflictException("Attach the table's active legacy orders before recording payment.");
+        bool isParcelOrCar = bill.OrderChannel is "ParcelTakeaway" or "CarParking" or "Delivery" || bill.Orders.Any(o => o.OrderChannel is "ParcelTakeaway" or "CarParking" or "Delivery" || o.IsScheduled);
+        if(!isParcelOrCar)
+        {
+            if(!review.CanSettle) throw new ServiceConflictException("Serve all chargeable food before recording payment.");
+            if(bill.TableId.HasValue && await db.Orders.AnyAsync(o=>o.RestaurantId==tenant && o.TableId==bill.TableId.Value && o.DiningGroupId==bill.DiningGroupId && o.TableBillId==null && o.Status!="Served" && o.Status!="Cancelled" && o.Status!="Rejected"))
+                throw new ServiceConflictException("Attach the table's active legacy orders before recording payment.");
+        }
+        else
+        {
+            if(!review.CanSettle) throw new ServiceConflictException("Parcel order cannot be settled in its current state.");
+        }
         var payments=await db.BillPayments.Where(p=>p.RestaurantId==tenant && p.TableBillId==billId).OrderBy(p=>p.CollectedAtUtc).ThenBy(p=>p.Id).ToListAsync();
         if(bill.PaymentRevision!=null && bill.PaymentRevision!=review.Revision) throw new ServiceConflictException("Bill contents changed after payments began.");
         var remaining=review.TotalAmount-payments.Sum(p=>p.Amount);
@@ -50,15 +63,18 @@ public class BillPaymentService(ApplicationDbContext db)
         {
             bill.SettledAtUtc=payment.CollectedAtUtc;bill.SettledByEmployeeId=actor;
             bill.SettlementOperationId=request.OperationId;bill.SettlementHash=hash;
-            bill.Subtotal=review.Subtotal;bill.Tax=review.Tax;bill.Discount=review.Discount;bill.TotalAmount=review.TotalAmount;
+            bill.Subtotal=review.Subtotal;bill.Tax=review.Tax;bill.Discount=review.Discount;bill.PackagingCharge=review.PackagingCharge;bill.TotalAmount=review.TotalAmount;
             bill.PaymentMethod=payments.Select(p=>p.Method).Distinct().Count()==1?request.Method:"Mixed";
             review.Status="Settled";review.CanSettle=false;review.SettledAtUtc=bill.SettledAtUtc;review.PaymentMethod=bill.PaymentMethod;
             review.RestaurantName=await db.Restaurants.Where(r=>r.Id==tenant).Select(r=>r.Name).SingleAsync();review.SettledByEmployeeId=actor;
             review.PaidAmount=review.TotalAmount;review.RemainingAmount=0;
             review.Payments=payments.Select(p=>new BillPaymentDto(p.Id,p.Method,p.Amount,p.CollectedAtUtc,p.ActorEmployeeId)).ToList();
             bill.ReceiptJson=JsonSerializer.Serialize(review);
-            var requests=await BillingService.OutstandingBillRequestsAsync(db,bill);
-            foreach(var sr in requests){sr.Status="Completed";sr.UpdatedAt=payment.CollectedAtUtc;}
+            if(bill.TableId.HasValue)
+            {
+                var requests=await BillingService.OutstandingBillRequestsAsync(db,bill);
+                foreach(var sr in requests){sr.Status="Completed";sr.UpdatedAt=payment.CollectedAtUtc;}
+            }
             await new InventoryService(db).DeductForSettlementAsync(db, tenant, billId, actor, request.OperationId);
         }
         await db.SaveChangesAsync();if(tx!=null) await tx.CommitAsync();return acknowledgement;

@@ -4,6 +4,7 @@ using Tablo.Api.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Tablo.Api.Extensions;
 using Microsoft.AspNetCore.RateLimiting;
+using Tablo.Api.Services;
 
 namespace Tablo.Api.Controllers
 {
@@ -129,6 +130,136 @@ namespace Tablo.Api.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "An error occurred updating the order status.", details = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "Admin,Kitchen,Waiter")]
+        [HttpPost("{orderId}/fire-items")]
+        [HttpPost("/api/restaurants/{restaurantId}/orders/{orderId}/fire-items")]
+        public async Task<ActionResult<FiredItemsResponseDto>> FireOrderItems(Guid orderId, [FromBody] FireOrderItemsRequestDto request, Guid? restaurantId = null)
+        {
+            var resId = restaurantId ?? User.GetRestaurantId();
+            if (User.GetRestaurantId() != resId) return Forbid();
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var callerId = User.GetUserId();
+                if (request.FiredByEmployeeId.HasValue && request.FiredByEmployeeId.Value != callerId)
+                {
+                    return BadRequest(new { message = "Cannot act on behalf of another employee." });
+                }
+                request.FiredByEmployeeId = callerId;
+                var result = await _orderService.FireOrderItemsAsync(resId, orderId, request);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ServiceConflictException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred firing items.", details = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "Admin,Waiter")]
+        [HttpPost("{orderId}/items/{orderItemId}/refill")]
+        [HttpPost("/api/restaurants/{restaurantId}/orders/{orderId}/items/{orderItemId}/refill")]
+        public async Task<ActionResult<RefillResponseDto>> CreateRefill(Guid orderId, Guid orderItemId, [FromBody] CreateRefillRequestDto request, Guid? restaurantId = null)
+        {
+            var resId = restaurantId ?? User.GetRestaurantId();
+            if (User.GetRestaurantId() != resId) return Forbid();
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var callerId = User.GetUserId();
+                if (request.ActorEmployeeId.HasValue && request.ActorEmployeeId.Value != callerId)
+                {
+                    return BadRequest(new { message = "Cannot act on behalf of another employee." });
+                }
+                request.ActorEmployeeId = callerId;
+                var result = await _orderService.CreateRefillAsync(resId, orderId, orderItemId, request);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ServiceConflictException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred creating refill.", details = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "Admin,Kitchen,Waiter")]
+        [HttpPost("{orderId}/items/{orderItemId}/cancel")]
+        [HttpPost("/api/restaurants/{restaurantId}/orders/{orderId}/items/{orderItemId}/cancel")]
+        public async Task<ActionResult<ItemCancellationResponseDto>> CancelOrderItem(Guid orderId, Guid orderItemId, [FromBody] CancelOrderItemRequestDto request, Guid? restaurantId = null)
+        {
+            var resId = restaurantId ?? User.GetRestaurantId();
+            if (User.GetRestaurantId() != resId) return Forbid();
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var callerId = User.GetUserId();
+                if (request.RequestedByEmployeeId.HasValue && request.RequestedByEmployeeId.Value != callerId)
+                {
+                    return BadRequest(new { message = "Cannot act on behalf of another employee." });
+                }
+                request.RequestedByEmployeeId = callerId;
+                var result = await _orderService.CancelOrderItemAsync(resId, orderId, orderItemId, request);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(401, new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ServiceConflictException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred cancelling item.", details = ex.Message });
             }
         }
     }

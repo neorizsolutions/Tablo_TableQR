@@ -604,10 +604,21 @@ public class AdvancedPurchasingAndInventoryPostgresTests
             Assert.Equal(9500m, received.Items[0].ReceivedQuantity);
             Assert.Equal(500m, received.Items[0].DiscrepancyQuantity);
 
-            // Verify destination outlet movement (+9,500 g) and discrepancy loss (-500 g)
+            // Verify destination outlet movement (+9,500 g) and restaurant-wide net loss of exactly 500 g (no double deduction)
             var allMovements = await inv.GetMovementsAsync(s.Restaurant, mutton.Id);
             Assert.Contains(allMovements, m => m.Reason == "TransferIn" && m.QuantityChange == 9500m);
-            Assert.Contains(allMovements, m => m.Reason == "TransferDiscrepancyLoss" && m.QuantityChange == -500m);
+            Assert.Contains(allMovements, m => m.Reason == "TransferOut" && m.QuantityChange == -10000m);
+            Assert.DoesNotContain(allMovements, m => m.Reason == "TransferDiscrepancyLoss");
+            Assert.Equal(-500m, allMovements.Sum(m => m.QuantityChange));
+
+            // Test repeated receipt idempotency
+            var repeatReceived = await inv.ReceiveTransferAsync(s.Restaurant, s.Actor, transfer.Id, new ReceiveStockTransferDto(
+                OperationId: Guid.NewGuid(),
+                Items: [new ReceiveTransferItemDto(transfer.Items[0].Id, 9500m, "500 g pack torn")]
+            ));
+            Assert.Equal("Received", repeatReceived.Status);
+            var movementsAfterRepeat = await inv.GetMovementsAsync(s.Restaurant, mutton.Id);
+            Assert.Equal(-500m, movementsAfterRepeat.Sum(m => m.QuantityChange));
         });
     }
 

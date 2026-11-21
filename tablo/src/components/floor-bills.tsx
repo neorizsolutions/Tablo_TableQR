@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import { parcelApi, type UpiQrResponseDto } from "@/services/parcel";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFloorOperation } from "@/hooks/use-floor-operation";
 import {
@@ -8,6 +10,7 @@ import {
   type ServiceTable,
 } from "@/services/service-desk";
 import { PaymentReceipt } from "./payment-receipt";
+import { UnpaidBillPreview } from "./unpaid-bill-preview";
 import { formatINR } from "@/lib/mock-data";
 const input = "rounded-xl border bg-background px-3 py-2 text-sm";
 const button = "rounded-full border px-4 py-2 text-sm font-semibold disabled:opacity-40";
@@ -208,6 +211,10 @@ function BillCard({
   const [splitRequest, setSplitRequest] = useState<Record<string, unknown> | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [previewBusy, setPreviewBusy] = useState(false);
+  const [upiRequest, setUpiQr] = useState<UpiQrResponseDto | null>(null);
+  const [upiBusy, setUpiBusy] = useState(false);
+  const [upiError, setUpiError] = useState("");
+  const [leftoverBusy, setLeftoverBusy] = useState(false);
   const op = useFloorOperation(restaurantId, employeeId, `bill_${bill.id}`, refresh);
   const remaining = Math.max(0, bill.remainingAmount);
   const paying = Number(amount || remaining);
@@ -216,6 +223,9 @@ function BillCard({
     paying > 0 &&
     paying <= remaining &&
     (!amount || /^\d+(\.\d{1,2})?$/.test(amount));
+  const upiQr = method === "UPI" && valid && !op.pending && !bill.settledAtUtc &&
+    upiRequest?.billId === bill.id && upiRequest.amount === paying &&
+    upiRequest.remainingBalance === remaining ? upiRequest : null;
   const items = bill.orders
     .filter((o) => !["Cancelled", "Rejected"].includes(o.status))
     .flatMap((o) => o.items);
@@ -249,8 +259,48 @@ function BillCard({
       setPreviewBusy(false);
     }
   }
+
+  async function handleAddLeftoverContainer() {
+    if (leftoverBusy || bill.settledAtUtc) return;
+    setLeftoverBusy(true);
+    try {
+      await serviceDeskRequest(restaurantId, `parcel/bills/${bill.id}/leftover-packing`, {
+        operationId: crypto.randomUUID(),
+        containerCount: 1,
+        containerCharge: 10
+      });
+      await refresh();
+    } catch (e) {
+      console.error("Failed to add leftover container charge:", e);
+    } finally {
+      setLeftoverBusy(false);
+    }
+  }
+
+  async function handleFetchUpiQr() {
+    setUpiQr(null);
+    setUpiError("");
+    setUpiBusy(true);
+    try {
+      const qr = await parcelApi.getBillUpiQr(restaurantId, bill.id, paying);
+      if (qr.remainingBalance !== remaining || qr.amount !== paying) {
+        await refresh();
+        setUpiError("The bill balance changed. Review the amount and generate a new QR.");
+        return;
+      }
+      setUpiQr(qr);
+    } catch (e) {
+      setUpiError(e instanceof Error ? e.message : "Could not generate the UPI QR.");
+    } finally {
+      setUpiBusy(false);
+    }
+  }
+
   return (
     <article className="rounded-2xl border p-4">
+      {remaining > 0 && !bill.settledAtUtc && (
+        <UnpaidBillPreview restaurantId={restaurantId} bill={bill} />
+      )}
       <h4 className="font-semibold">
         Table {bill.tableNumber}
         {bill.groupLabel} · {bill.shareDescription || "Open bill"}
@@ -270,23 +320,52 @@ function BillCard({
           </li>
         ))}
       </ul>
-      <p>
-        Subtotal {formatINR(bill.subtotal)} · Tax {formatINR(bill.tax)} · Discount{" "}
-        {formatINR(bill.discount)}
-      </p>
-      <p className="mt-2 font-semibold">
-        Total {formatINR(bill.totalAmount)} · Paid {formatINR(bill.paidAmount)} · Remaining{" "}
-        {formatINR(remaining)}
-      </p>
+      <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-secondary/40 p-3 text-center border border-border/60">
+        <div className="p-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Total Bill</p>
+          <p className="mt-1 font-display text-lg font-bold">{formatINR(bill.totalAmount)}</p>
+          <p className="text-[10px] text-muted-foreground">Sub {formatINR(bill.subtotal)} + Tax {formatINR(bill.tax)}</p>
+        </div>
+        <div className="p-2 border-x border-border/60">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Paid Received</p>
+          <p className="mt-1 font-display text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatINR(bill.paidAmount)}</p>
+          <p className="text-[10px] text-muted-foreground">{bill.payments?.length || 0} payment(s)</p>
+        </div>
+        <div className="p-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Balance Due</p>
+          <p className={`mt-1 font-display text-lg font-black ${remaining > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600"}`}>
+            {formatINR(remaining)}
+          </p>
+          <p className="text-[10px] text-muted-foreground">{remaining > 0 ? "Pending collection" : "Fully Settled ✓"}</p>
+        </div>
+      </div>
+      {!!bill.packagingCharge && bill.packagingCharge > 0 && (
+        <p className="text-xs text-muted-foreground mt-2">Packaging charge: {formatINR(bill.packagingCharge)}</p>
+      )}
+      {!!bill.leftoverPackingCharge && bill.leftoverPackingCharge > 0 && (
+        <p className="text-xs text-muted-foreground mt-1">Leftover containers: {formatINR(bill.leftoverPackingCharge)}</p>
+      )}
+      {!bill.settledAtUtc && (
+        <div className="mt-2">
+          <button
+            type="button"
+            className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/20"
+            disabled={leftoverBusy || op.busy || !!op.pending}
+            onClick={handleAddLeftoverContainer}
+          >
+            {leftoverBusy ? "Adding..." : "+ Leftover Container (₹10)"}
+          </button>
+        </div>
+      )}
       {bill.payments?.map((p) => (
-        <p key={p.id} className="text-sm">
+        <p key={p.id} className="text-sm mt-1">
           {p.method} {formatINR(p.amount)} · {new Date(p.collectedAtUtc).toLocaleString()}
         </p>
       ))}
       {!bill.canSettle && (
-        <p className="mt-2 text-sm">Serve all chargeable food before payment or splitting.</p>
+        <p className="mt-2 text-sm text-amber-700 dark:text-amber-400 font-medium">Serve all chargeable food before payment or splitting.</p>
       )}
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2 items-end">
         <label className="grid text-sm">
           Collected by
           <select
@@ -318,6 +397,18 @@ function BillCard({
             }}
           />
         </label>
+        {remaining > 0 && !amount && (
+          <button
+            type="button"
+            className="rounded-full border border-border bg-card px-3 py-2 text-xs font-semibold hover:bg-secondary"
+            onClick={() => {
+              setAmount(remaining.toFixed(2));
+              setConfirm(false);
+            }}
+          >
+            Fill Full ({formatINR(remaining)})
+          </button>
+        )}
         <button
           className={button}
           disabled={
@@ -327,7 +418,60 @@ function BillCard({
         >
           Review payment
         </button>
+        {method === "UPI" && remaining > 0 && (
+          <button
+            type="button"
+            className="rounded-full border border-purple-400 bg-purple-50 text-purple-700 px-3 py-2 text-sm font-semibold hover:bg-purple-100"
+            disabled={upiBusy || !valid || !!op.pending}
+            onClick={handleFetchUpiQr}
+          >
+            {upiBusy ? "Loading QR..." : "Dynamic UPI QR"}
+          </button>
+        )}
       </div>
+      {method === "UPI" && upiError && <p role="alert" className="mt-2 text-sm text-destructive">{upiError}</p>}
+      {upiQr && (
+        <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50/50 p-4 space-y-2">
+          <div className="flex justify-between items-center">
+            <h5 className="font-bold text-sm text-purple-900">Dynamic UPI QR Payment</h5>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground font-bold"
+              onClick={() => setUpiQr(null)}
+            >
+              ✕ Close
+            </button>
+          </div>
+          <div className="text-xs space-y-1">
+            <p><strong>Payee:</strong> {upiQr.payeeName} ({upiQr.payeeVpa})</p>
+            <p><strong>Amount:</strong> {formatINR(upiQr.amount)}</p>
+            <p><strong>Reference:</strong> {upiQr.reference}</p>
+          </div>
+          <div className="w-fit rounded-lg border bg-white">
+            <QRCodeSVG value={upiQr.upiUri} size={160} marginSize={4} title="Scan to pay with UPI" />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <a
+              href={upiQr.upiUri}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full bg-purple-600 text-white px-4 py-1.5 text-xs font-bold hover:bg-purple-700"
+            >
+              Open UPI App
+            </a>
+            <button
+              type="button"
+              className="rounded-full border px-4 py-1.5 text-xs font-semibold"
+              onClick={() => {
+                setUpiQr(null);
+                setConfirm(true);
+              }}
+            >
+              Confirm Received
+            </button>
+          </div>
+        </div>
+      )}
       {confirm && (
         <div className="mt-3 rounded-xl bg-secondary p-3">
           <p>

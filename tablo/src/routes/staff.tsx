@@ -279,6 +279,19 @@ function EmployeeModal({ employee, onClose }: { employee: Employee | null; onClo
               <option value="Waiter">Waiter</option>
             </select>
           </label>
+
+          <div className="rounded-xl bg-secondary/40 p-3 text-xs space-y-1 border border-border/60">
+            <span className="font-semibold text-foreground">
+              {roleName === "Admin" ? "Full Admin Access" : roleName === "Waiter" ? "Floor Waiter Permissions" : "Kitchen Display Permissions"}
+            </span>
+            <p className="text-muted-foreground text-[11px]">
+              {roleName === "Admin"
+                ? "Full access to menu items, categories, pricing, table QRs, inventory, purchase orders, financial reports, staff administration, and floor billing."
+                : roleName === "Waiter"
+                ? "Fast staff order taking, table selection, multi-draft orders, hold/fire, refills, dining groups, bill reviews, and collections."
+                : "Live KDS kitchen ticket display, preparation status progression, fire course management, and manager-approved item cancellations."}
+            </p>
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

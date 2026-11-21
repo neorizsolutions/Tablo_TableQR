@@ -41,6 +41,18 @@ public class BillDto
     public DateTime? SettledAtUtc { get; set; }
     public string? PaymentMethod { get; set; }
     public decimal Subtotal { get; set; }
+    public decimal PackagingCharge { get; set; }
+    public decimal? LeftoverPackingCharge { get; set; }
+    public string? VehiclePlate { get; set; }
+    public string? ParkingBay { get; set; }
+    public string? PackagingChargeModeSnapshot { get; set; }
+    public decimal PackagingRateSnapshot { get; set; }
+    public string? PackagingWaiverReason { get; set; }
+    public string? PackagingWaivedBy { get; set; }
+    public bool IsPackagingWaived { get; set; }
+    public string OrderChannel { get; set; } = "DineIn";
+    public int? DailyTokenNumber { get; set; }
+    public string? BusinessDate { get; set; }
     public decimal Tax { get; set; }
     public decimal Discount { get; set; }
     public decimal TotalAmount { get; set; }

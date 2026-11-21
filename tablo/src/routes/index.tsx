@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   Bell,
@@ -18,10 +19,28 @@ import {
   Layers,
   Receipt,
   Users,
+  Flame,
+  PackageCheck,
+  AlertCircle,
+  ShoppingCart,
+  Clock,
+  Plus,
+  RotateCw,
+  TrendingUp,
+  UtensilsCrossed,
+  ArrowUpRight,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
+import { AppLayout } from "@/components/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { publicPricingPlans } from "@/config/public-pricing";
+import { useOrders } from "@/hooks/use-orders";
+import { useActiveServiceRequests } from "@/hooks/use-service-requests";
+import { getServiceTables, type ServiceTable } from "@/services/service-desk";
+import { getIngredients, type Ingredient } from "@/services/inventory";
+import { formatINR, relativeTime } from "@/lib/mock-data";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import heroImg from "@/assets/hero.jpg";
 
 export const Route = createFileRoute("/")({
@@ -40,8 +59,339 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  component: LandingPage,
+  component: RootIndexPage,
 });
+
+function RootIndexPage() {
+  const { user, isStaff, loading } = useAuth();
+
+  if (loading) return null;
+
+  // If user is authenticated as restaurant staff/admin/owner, show Executive Operational Overview
+  if (user && isStaff) {
+    return <OperationalOverview />;
+  }
+
+  // Otherwise, show public landing page
+  return <LandingPage />;
+}
+
+/* ==========================================================================
+   AUTHENTICATED RESTAURANT OPERATIONAL OVERVIEW
+   Surfaces active orders, kitchen delays, bill requests, and low stock
+   ========================================================================== */
+function OperationalOverview() {
+  const { user } = useAuth();
+  const restaurantId = user?.restaurantId || "22222222-0000-0000-0000-000000000001";
+
+  const { data: orders = [], refetch: refetchOrders } = useOrders(restaurantId);
+  const { data: serviceRequests = [] } = useActiveServiceRequests(restaurantId);
+
+  const tablesQuery = useQuery({
+    queryKey: ["serviceTables", restaurantId],
+    queryFn: () => getServiceTables(restaurantId),
+    refetchInterval: 15000,
+  });
+
+  const ingredientsQuery = useQuery({
+    queryKey: ["ingredients", restaurantId],
+    queryFn: () => getIngredients(restaurantId),
+    refetchInterval: 30000,
+  });
+
+  const tables = tablesQuery.data || [];
+  const ingredients = ingredientsQuery.data || [];
+
+  // Metrics Calculations
+  const activeOrders = useMemo(
+    () => orders.filter((o) => o.status !== "served" && o.status !== "cancelled" && o.status !== "rejected"),
+    [orders]
+  );
+
+  const preparingOrders = useMemo(
+    () => orders.filter((o) => o.status === "preparing"),
+    [orders]
+  );
+
+  // Delayed orders (>15 minutes since placed)
+  const delayedOrders = useMemo(() => {
+    const now = Date.now();
+    return preparingOrders.filter((o) => {
+      const placedTime = new Date(o.placed_at).getTime();
+      return now - placedTime > 15 * 60 * 1000;
+    });
+  }, [preparingOrders]);
+
+  const billRequests = useMemo(
+    () => serviceRequests.filter((r) => r.type === "RequestBill"),
+    [serviceRequests]
+  );
+
+  const lowStockIngredients = useMemo(
+    () => ingredients.filter((ing) => ing.isLowStock || (ing.lowStockThreshold != null && ing.onHandQuantity <= ing.lowStockThreshold)),
+    [ingredients]
+  );
+
+  const totalFloorBalance = useMemo(
+    () => tables.reduce((acc, t) => acc + (t.openBillTotal || 0), 0),
+    [tables]
+  );
+
+  return (
+    <AppLayout>
+      <div className="min-h-screen bg-secondary/40">
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-border/60">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                  Operations Overview
+                </span>
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                <span className="text-[11px] font-semibold text-muted-foreground">Live Shift · IST</span>
+              </div>
+              <h1 className="mt-1 font-display text-2xl sm:text-3xl font-bold">
+                Tablo Heritage Restaurant
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Executive dashboard tracking active table orders, kitchen delays, guest requests, and ingredient safety stock.
+              </p>
+            </div>
+
+            {/* Quick Action Toolbar */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                to="/dashboard"
+                search={{ tab: "order" }}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/95 transition"
+              >
+                <Plus className="h-3.5 w-3.5" /> Take Staff Order
+              </Link>
+              <Link
+                to="/dashboard"
+                search={{ tab: "kitchen" }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft hover:bg-secondary transition"
+              >
+                <ChefHat className="h-3.5 w-3.5 text-primary" /> Kitchen Queue
+              </Link>
+              <Link
+                to="/inventory"
+                search={{ tab: "ingredients" }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft hover:bg-secondary transition"
+              >
+                <Package className="h-3.5 w-3.5 text-primary" /> Stock & Recipes
+              </Link>
+              <Link
+                to="/reports"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft hover:bg-secondary transition"
+              >
+                <Receipt className="h-3.5 w-3.5 text-primary" /> Payment Reports
+              </Link>
+            </div>
+          </div>
+
+          {/* 4 Primary Operational Metric Cards with Direct Filtered Links */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* 1. Active Floor Orders */}
+            <Link
+              to="/dashboard"
+              search={{ tab: "floor" }}
+              className="group rounded-2xl border border-border bg-card p-5 shadow-xs hover:border-primary/50 hover:shadow-soft transition flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Active Floor Orders
+                  </span>
+                  <span className="p-2 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition">
+                    <UtensilsCrossed className="h-4 w-4" />
+                  </span>
+                </div>
+                <div className="mt-3 text-3xl font-black font-display text-foreground">
+                  {activeOrders.length}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Open floor balance: <strong className="text-foreground">{formatINR(totalFloorBalance)}</strong>
+                </p>
+              </div>
+              <div className="mt-4 pt-2 border-t border-border/50 flex items-center justify-between text-[11px] font-semibold text-primary">
+                <span>View Floor & Billing</span>
+                <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+              </div>
+            </Link>
+
+            {/* 2. Kitchen Delays & Queue */}
+            <Link
+              to="/dashboard"
+              search={{ tab: "kitchen" }}
+              className={`group rounded-2xl border p-5 shadow-xs transition flex flex-col justify-between ${
+                delayedOrders.length > 0
+                  ? "border-destructive/40 bg-destructive/5 hover:border-destructive"
+                  : "border-border bg-card hover:border-primary/50 hover:shadow-soft"
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Kitchen Queue & Delays
+                  </span>
+                  <span
+                    className={`p-2 rounded-xl transition ${
+                      delayedOrders.length > 0
+                        ? "bg-destructive text-destructive-foreground"
+                        : "bg-amber-500/10 text-amber-700"
+                    }`}
+                  >
+                    <Flame className="h-4 w-4" />
+                  </span>
+                </div>
+                <div className="mt-3 text-3xl font-black font-display text-foreground">
+                  {preparingOrders.length}
+                </div>
+                <div className="mt-1 text-xs">
+                  {delayedOrders.length > 0 ? (
+                    <span className="font-bold text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> {delayedOrders.length} ticket(s) &gt;15 min delay
+                    </span>
+                  ) : (
+                    <span className="text-success font-medium">All tickets on schedule</span>
+                  )}
+                </div>
+              </div>
+              <div className="mt-4 pt-2 border-t border-border/50 flex items-center justify-between text-[11px] font-semibold text-primary">
+                <span>Open Kitchen Queue</span>
+                <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+              </div>
+            </Link>
+
+            {/* 3. Service Calls & Bill Requests */}
+            <Link
+              to="/dashboard"
+              search={{ tab: "floor" }}
+              className={`group rounded-2xl border p-5 shadow-xs transition flex flex-col justify-between ${
+                serviceRequests.length > 0
+                  ? "border-amber-400 bg-amber-500/5 hover:border-amber-500"
+                  : "border-border bg-card hover:border-primary/50 hover:shadow-soft"
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Guest Calls & Bills
+                  </span>
+                  <span className="p-2 rounded-xl bg-amber-500/10 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition">
+                    <Bell className="h-4 w-4" />
+                  </span>
+                </div>
+                <div className="mt-3 text-3xl font-black font-display text-foreground">
+                  {serviceRequests.length}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {billRequests.length > 0 ? (
+                    <span className="font-semibold text-amber-700">
+                      {billRequests.length} guest(s) requested check
+                    </span>
+                  ) : (
+                    <span>No unhandled table requests</span>
+                  )}
+                </div>
+              </div>
+              <div className="mt-4 pt-2 border-t border-border/50 flex items-center justify-between text-[11px] font-semibold text-primary">
+                <span>Manage Table Requests</span>
+                <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+              </div>
+            </Link>
+
+            {/* 4. Low Stock Ingredients Alert */}
+            <Link
+              to="/inventory"
+              search={{ tab: "ingredients" }}
+              className={`group rounded-2xl border p-5 shadow-xs transition flex flex-col justify-between ${
+                lowStockIngredients.length > 0
+                  ? "border-warning/40 bg-warning/5 hover:border-warning"
+                  : "border-border bg-card hover:border-primary/50 hover:shadow-soft"
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Low Stock Alerts
+                  </span>
+                  <span className="p-2 rounded-xl bg-destructive/10 text-destructive group-hover:bg-destructive group-hover:text-white transition">
+                    <Package className="h-4 w-4" />
+                  </span>
+                </div>
+                <div className="mt-3 text-3xl font-black font-display text-foreground">
+                  {lowStockIngredients.length}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {lowStockIngredients.length > 0 ? (
+                    <span className="font-bold text-destructive">
+                      Requires reorder / PO issue
+                    </span>
+                  ) : (
+                    <span className="text-success font-medium">All ingredients in stock</span>
+                  )}
+                </div>
+              </div>
+              <div className="mt-4 pt-2 border-t border-border/50 flex items-center justify-between text-[11px] font-semibold text-primary">
+                <span>Review Stock & POs</span>
+                <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+              </div>
+            </Link>
+          </div>
+
+          {/* Quick Floor Status Glance (10 Tables) */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-foreground">Live Floor Status Glance</h2>
+                <p className="text-xs text-muted-foreground">
+                  Tap any table to start taking an order or manage dining groups.
+                </p>
+              </div>
+              <Link
+                to="/dashboard"
+                search={{ tab: "order" }}
+                className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+              >
+                Go to Staff Order Taking <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-10 gap-2.5">
+              {tables.map((t) => {
+                const isOccupied = t.status === "Occupied" || (t.activeOrdersCount && t.activeOrdersCount > 0);
+                const isBillReq = t.status === "Bill Requested";
+
+                return (
+                  <Link
+                    key={t.id}
+                    to="/dashboard"
+                    search={{ tab: "order", table: t.id }}
+                    className={`p-3 rounded-xl border text-center transition hover:scale-[1.03] shadow-2xs ${
+                      isBillReq
+                        ? "border-amber-400 bg-amber-500/10 text-amber-900"
+                        : isOccupied
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border bg-secondary/30 text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    <div className="font-display font-black text-lg">#{t.tableNumber}</div>
+                    <div className="text-[10px] font-bold uppercase mt-0.5">
+                      {isBillReq ? "Bill" : isOccupied ? "Active" : "Open"}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </main>
+      </div>
+    </AppLayout>
+  );
+}
 
 const features = [
   {

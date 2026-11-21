@@ -242,6 +242,16 @@ public class InventoryController(InventoryService inventory, InventoryReportServ
     public Task<IActionResult> ReceiveTransfer(Guid restaurantId, Guid id, ReceiveStockTransferDto dto) =>
         Execute(restaurantId, async () => (object)await inventory.ReceiveTransferAsync(restaurantId, User.GetUserId(), id, dto));
 
+    [HttpGet("transfers/shortage-dry-run")]
+    [RequireCapability(Capabilities.OutletTransfers)]
+    public Task<IActionResult> GetTransferShortageDryRun(Guid restaurantId) =>
+        Execute(restaurantId, async () => (object)await inventory.GetTransferDiscrepancyDryRunAsync(restaurantId));
+
+    [HttpPost("transfers/shortage-correction")]
+    [RequireCapability(Capabilities.OutletTransfers)]
+    public Task<IActionResult> ApplyTransferShortageCorrection(Guid restaurantId) =>
+        Execute(restaurantId, async () => (object)await inventory.ApplyTransferDiscrepancyCorrectionAsync(restaurantId, User.GetUserId()));
+
     // --- 8. MENU AVAILABILITY ---
 
     [HttpGet("menu-availability")]

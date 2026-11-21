@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as StaffRouteImport } from './routes/staff'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as OrderRouteImport } from './routes/order'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -33,6 +34,11 @@ const StaffRoute = StaffRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderRoute = OrderRouteImport.update({
+  id: '/order',
+  path: '/order',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InventoryRoute = InventoryRouteImport.update({
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/inventory': typeof InventoryRoute
+  '/order': typeof OrderRoute
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/super-admin': typeof SuperAdminRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/inventory': typeof InventoryRoute
+  '/order': typeof OrderRoute
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/super-admin': typeof SuperAdminRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/inventory': typeof InventoryRoute
+  '/order': typeof OrderRoute
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/super-admin': typeof SuperAdminRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/forgot-password'
     | '/inventory'
+    | '/order'
     | '/reports'
     | '/staff'
     | '/super-admin'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/forgot-password'
     | '/inventory'
+    | '/order'
     | '/reports'
     | '/staff'
     | '/super-admin'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/forgot-password'
     | '/inventory'
+    | '/order'
     | '/reports'
     | '/staff'
     | '/super-admin'
@@ -154,6 +166,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   InventoryRoute: typeof InventoryRoute
+  OrderRoute: typeof OrderRoute
   ReportsRoute: typeof ReportsRoute
   StaffRoute: typeof StaffRoute
   SuperAdminRoute: typeof SuperAdminRoute
@@ -181,6 +194,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order': {
+      id: '/order'
+      path: '/order'
+      fullPath: '/order'
+      preLoaderRoute: typeof OrderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inventory': {
@@ -242,6 +262,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   InventoryRoute: InventoryRoute,
+  OrderRoute: OrderRoute,
   ReportsRoute: ReportsRoute,
   StaffRoute: StaffRoute,
   SuperAdminRoute: SuperAdminRoute,

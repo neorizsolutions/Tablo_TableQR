@@ -1,9 +1,23 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5166/api";
+import { handleLocalModuleFallback } from "./localModuleFallback.ts";
+
+export const API_BASE_URL =
+  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) ||
+  (typeof process !== "undefined" && process.env?.VITE_API_URL) ||
+  "http://localhost:5166/api";
+
+export class ApiError extends Error {
+  public status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
 
 export async function apiClient<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const token = localStorage.getItem("tablo_token");
+  const token = typeof localStorage !== "undefined" ? localStorage.getItem("tablo_token") : null;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...options?.headers as Record<string, string>,
@@ -17,27 +31,32 @@ export async function apiClient<T>(endpoint: string, options?: RequestInit): Pro
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (networkError) {
+    // Only in development offline mode allow fallback
+    if (typeof import.meta !== "undefined" && import.meta.env?.DEV) {
+      const fallback = handleLocalModuleFallback(endpoint, { ...options, headers });
+      if (fallback !== null) {
+        return fallback as T;
+      }
+    }
+    throw networkError;
+  }
 
   if (!response.ok) {
-    if ((response.status === 401 || response.status === 403) && !url.includes("/auth/login") && !url.includes("/sysadmin/login")) {
-      // Remove redirect so we can debug which URL is failing
-      // localStorage.removeItem("tablo_token");
-      // window.location.href = "/auth";
-      throw new Error(`Unauthorized (401/403) when fetching ${url}`);
-    }
-
-    let errorMessage = "An error occurred while fetching data.";
+    let errorMessage = `Request failed with status ${response.status}.`;
     try {
       const errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
+      errorMessage = errorData.message || errorData.title || errorMessage;
     } catch {
       // Ignored
     }
-    throw new Error(errorMessage);
+    throw new ApiError(errorMessage, response.status);
   }
 
   // Handle empty responses (like 204 No Content)
@@ -50,7 +69,7 @@ export async function apiClient<T>(endpoint: string, options?: RequestInit): Pro
 
 export async function apiDownloadBlob(endpoint: string, options?: RequestInit): Promise<Blob> {
   const url = `${API_BASE_URL}${endpoint}`;
-  const token = localStorage.getItem("tablo_token");
+  const token = typeof localStorage !== "undefined" ? localStorage.getItem("tablo_token") : null;
   const headers: Record<string, string> = {
     ...options?.headers as Record<string, string>,
   };

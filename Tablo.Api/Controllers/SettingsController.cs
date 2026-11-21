@@ -58,5 +58,98 @@ namespace Tablo.Api.Controllers
             var settings = await _settingsService.UpdateAcceptingOrdersAsync(restaurantId, request.IsAcceptingOrders);
             return Ok(settings);
         }
+
+        [HttpPut("kitchen-printing")]
+        [ProducesResponseType(typeof(RestaurantSettingsDto), StatusCodes.Status200OK)]
+        public async Task<ActionResult<RestaurantSettingsDto>> UpdateKitchenPrinting(Guid restaurantId, [FromBody] UpdateKitchenPrintingSettingsDto request)
+        {
+            var userRestaurantId = GetUserRestaurantId();
+            if (userRestaurantId != restaurantId && !User.IsInRole("SuperAdmin"))
+            {
+                return Forbid();
+            }
+
+            try
+            {
+                var settings = await _settingsService.UpdateKitchenPrintingSettingsAsync(restaurantId, request);
+                return Ok(settings);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("upi-qr")]
+        [ProducesResponseType(typeof(RestaurantSettingsDto), StatusCodes.Status200OK)]
+        public async Task<ActionResult<RestaurantSettingsDto>> UpdateUpiQrSettings(Guid restaurantId, [FromBody] UpdateUpiQrSettingsDto request)
+        {
+            var userRestaurantId = GetUserRestaurantId();
+            if (userRestaurantId != restaurantId) return Forbid();
+
+            try
+            {
+                var settings = await _settingsService.UpdateUpiQrSettingsAsync(restaurantId, request);
+                return Ok(settings);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("scheduled-pickup")]
+        [ProducesResponseType(typeof(RestaurantSettingsDto), StatusCodes.Status200OK)]
+        public async Task<ActionResult<RestaurantSettingsDto>> UpdateScheduledPickupSettings(Guid restaurantId, [FromBody] UpdateScheduledPickupSettingsDto request)
+        {
+            var userRestaurantId = GetUserRestaurantId();
+            if (userRestaurantId != restaurantId) return Forbid();
+
+            try
+            {
+                var settings = await _settingsService.UpdateScheduledPickupSettingsAsync(restaurantId, request);
+                return Ok(settings);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("car-side")]
+        [ProducesResponseType(typeof(RestaurantSettingsDto), StatusCodes.Status200OK)]
+        public async Task<ActionResult<RestaurantSettingsDto>> UpdateCarSideSettings(Guid restaurantId, [FromBody] UpdateCarSideSettingsDto request)
+        {
+            var userRestaurantId = GetUserRestaurantId();
+            if (userRestaurantId != restaurantId) return Forbid();
+
+            try
+            {
+                var settings = await _settingsService.UpdateCarSideSettingsAsync(restaurantId, request);
+                return Ok(settings);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("hybrid-packaging")]
+        [ProducesResponseType(typeof(RestaurantSettingsDto), StatusCodes.Status200OK)]
+        public async Task<ActionResult<RestaurantSettingsDto>> UpdateHybridPackagingSettings(Guid restaurantId, [FromBody] UpdateHybridPackagingSettingsDto request)
+        {
+            var userRestaurantId = GetUserRestaurantId();
+            if (userRestaurantId != restaurantId) return Forbid();
+
+            try
+            {
+                var settings = await _settingsService.UpdateHybridPackagingSettingsAsync(restaurantId, request);
+                return Ok(settings);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

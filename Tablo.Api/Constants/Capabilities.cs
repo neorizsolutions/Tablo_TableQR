@@ -17,6 +17,17 @@ public static class Capabilities
     public const string MixedPayments = "mixed_payments";
     public const string TableTransfers = "table_transfers";
     public const string AdvancedPaymentReports = "advanced_payment_reports";
+    public const string ThermalPrinting = "thermal_printing";
+    public const string MultipleKitchenStations = "multiple_stations";
+    public const string ParcelCounter = "parcel_counter";
+    public const string HoldFireCourses = "hold_fire_courses";
+    public const string ItemModifiers = "item_modifiers";
+    public const string FreeRefills = "free_refills";
+    public const string ManagerWasteCancellation = "waste_cancellation";
+    public const string ScheduledPickup = "scheduled_pickup";
+    public const string HybridDineInParcel = "hybrid_dinein_parcel";
+    public const string CarSideOrdering = "carside_ordering";
+    public const string DynamicUpiQr = "dynamic_upi_qr";
 
     // Premium Features
     public const string InventoryCore = "inventory_core";
@@ -46,11 +57,14 @@ public static class Capabilities
         SplitBilling,
         MixedPayments,
         TableTransfers,
-        AdvancedPaymentReports
+        AdvancedPaymentReports,
+        ThermalPrinting,
+        ParcelCounter
     }).ToArray();
 
     public static readonly string[] PremiumDefaults = PlusDefaults.Concat(new[]
     {
+        MultipleKitchenStations,
         InventoryCore,
         RecipesCosting,
         Stocktakes,
@@ -73,6 +87,17 @@ public static class Capabilities
         { MixedPayments, new[] { StandardBilling } },
         { TableTransfers, new[] { DiningGroups } },
         { AdvancedPaymentReports, new[] { StandardBilling } },
+        { ThermalPrinting, new[] { KitchenDisplay } },
+        { MultipleKitchenStations, new[] { ThermalPrinting } },
+        { ParcelCounter, new[] { StandardBilling } },
+        { HoldFireCourses, new[] { KitchenDisplay } },
+        { ItemModifiers, new[] { MenuManagement } },
+        { FreeRefills, new[] { StandardBilling } },
+        { ManagerWasteCancellation, new[] { StandardBilling } },
+        { ScheduledPickup, new[] { ParcelCounter } },
+        { HybridDineInParcel, new[] { ParcelCounter } },
+        { CarSideOrdering, new[] { StandardBilling } },
+        { DynamicUpiQr, new[] { StandardBilling } },
         { RecipesCosting, new[] { InventoryCore } },
         { Stocktakes, new[] { InventoryCore } },
         { Purchasing, new[] { InventoryCore } },
