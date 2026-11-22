@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Languages, Loader2, Pencil, Plus, QrCode, Receipt, Search, Sparkles, X, Trash2, FolderPlus, LogIn, ShieldAlert, LogOut, Package, Printer, Settings, ShoppingBag, Sliders, Users } from "lucide-react";
 import { Eye, Languages, Loader2, Pencil, Plus, QrCode, Receipt, Search, Sparkles, X, Trash2, FolderPlus, LogIn, ShieldAlert, LogOut, Package, Printer, Settings, ShoppingBag, Sliders, Users, Store } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
@@ -223,7 +222,9 @@ function AdminInner() {
                     ? "Customer CRM & Loyalty"
                     : isMarketplaceTab
                       ? "Online Marketplace Orders"
-                      : "Menu & Categories"}
+                      : isStorefrontTab
+                        ? "Direct Storefront & Outlets"
+                        : "Menu & Categories"}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {isTablesTab
@@ -232,7 +233,9 @@ function AdminInner() {
                     ? "Diner profiles, retry-safe loyalty points ledger, and receipt-linked guest feedback."
                     : isMarketplaceTab
                       ? "Swiggy & Zomato inbound order ingestion, catalog mapping, and outbound status sync."
-                      : "Manage menu items, prices, availability, categories, and modifiers live."}
+                      : isStorefrontTab
+                        ? "Configure operating hours, delivery rules, lead times, and instant emergency closure for customer ordering."
+                        : "Manage menu items, prices, availability, categories, and modifiers live."}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -278,34 +281,9 @@ function AdminInner() {
                 </div>
               )}
             </div>
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-primary">Manager workspace</p>
-                <h1 className="mt-1 font-display text-3xl font-bold">
-                  {isTablesTab
-                    ? "Tables & QR Codes"
-                    : isCrmTab
-                      ? "Customer CRM & Loyalty"
-                      : isMarketplaceTab
-                        ? "Online Marketplace Orders"
-                        : isStorefrontTab
-                          ? "Direct Storefront & Outlets"
-                          : "Menu & Categories"}
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {isTablesTab
-                    ? "Configure dining tables, manage table status, and generate printable customer QR codes."
-                    : isCrmTab
-                      ? "Diner profiles, retry-safe loyalty points ledger, and receipt-linked guest feedback."
-                      : isMarketplaceTab
-                        ? "Swiggy & Zomato inbound order ingestion, catalog mapping, and outbound status sync."
-                        : isStorefrontTab
-                          ? "Configure operating hours, delivery rules, lead times, and instant emergency closure for customer ordering."
-                          : "Manage menu items, prices, availability, categories, and modifiers live."}
-                </p>
-              </div>
+          </div>
 
-              {/* Admin Navigation Tabs */}
+          {/* Admin Navigation Tabs */}
               <div className="mt-6 flex flex-wrap gap-2 border-b border-border/60 pb-3">
                 <Link
                   to="/admin"
@@ -350,10 +328,6 @@ function AdminInner() {
                 >
                   <ShoppingBag className="h-4 w-4" /> Marketplace Automation
                 </Link>
-            }`}
-          >
-                <ShoppingBag className="h-4 w-4" /> Marketplace Automation
-              </Link>
 
               <Link
                 to="/admin"
@@ -413,47 +387,7 @@ function AdminInner() {
                     </div>
                   </div>
 
-                  {isTablesTab ? (
-                    <div className="mt-6">
-                      <TablesWorkspaceView
-                        restaurantId={user!.restaurantId!}
-                        tables={tables}
-                      />
-                    </div>
-                  ) : isCrmTab ? (
-                    <div className="mt-6">
-                      <CrmLoyaltyManager
-                        restaurantId={user!.restaurantId!}
-                        userRole={user!.role}
-                      />
-                    </div>
-                  ) : isMarketplaceTab ? (
-                    <div className="mt-6">
-                      <MarketplaceAutomationManager
-                        restaurantId={user!.restaurantId!}
-                      />
-                    </div>
-                  ) : (
-                    <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
-                      <div className="space-y-4">
-                        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-soft">
-                          <div className="relative flex-1 min-w-[200px]">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search dishes…" className="w-full rounded-full border border-border bg-background py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            <button onClick={() => setCat("All")} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${cat === "All" ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
-                              All
-                            </button>
-                            {categoriesList.map((c: any) => (
-                              <button key={c.id} onClick={() => setCat(c.name)} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${cat === c.name ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
-                                {c.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
+                  <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
                           <table className="w-full text-sm">
                             <thead className="hidden border-b border-border bg-secondary/50 text-left text-xs uppercase tracking-wider text-muted-foreground md:table-header-group">
                               <tr>
