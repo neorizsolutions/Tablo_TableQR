@@ -272,7 +272,11 @@ graph TD
     Docker --> S3[AWS S3]
 ```
 
-## 40. Quick Deployment Reference
+## 40. Alternative Frontend Hosting: Vercel Deployment
+For deploying the frontend on Vercel as a Vite Single Page Application, refer to the dedicated guide:
+- See [VERCEL_DEPLOYMENT_GUIDE.md](VERCEL_DEPLOYMENT_GUIDE.md) for full configuration, `vercel.json` rewrites, and post-deployment CORS setup.
+
+## 41. Quick Deployment Reference
 **Frontend:** Push to `production` branch on GitHub.
 **Backend:**
 ```bash
