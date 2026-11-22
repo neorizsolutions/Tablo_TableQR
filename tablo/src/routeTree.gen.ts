@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as StaffRouteImport } from './routes/staff'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as OrderRouteImport } from './routes/order'
+import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -32,6 +34,16 @@ const StaffRoute = StaffRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderRoute = OrderRouteImport.update({
+  id: '/order',
+  path: '/order',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InventoryRoute = InventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -71,6 +83,8 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/inventory': typeof InventoryRoute
+  '/order': typeof OrderRoute
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/super-admin': typeof SuperAdminRoute
@@ -82,6 +96,8 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/inventory': typeof InventoryRoute
+  '/order': typeof OrderRoute
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/super-admin': typeof SuperAdminRoute
@@ -94,6 +110,8 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/inventory': typeof InventoryRoute
+  '/order': typeof OrderRoute
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/super-admin': typeof SuperAdminRoute
@@ -107,6 +125,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/forgot-password'
+    | '/inventory'
+    | '/order'
     | '/reports'
     | '/staff'
     | '/super-admin'
@@ -118,6 +138,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/forgot-password'
+    | '/inventory'
+    | '/order'
     | '/reports'
     | '/staff'
     | '/super-admin'
@@ -129,6 +151,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/forgot-password'
+    | '/inventory'
+    | '/order'
     | '/reports'
     | '/staff'
     | '/super-admin'
@@ -141,6 +165,8 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  InventoryRoute: typeof InventoryRoute
+  OrderRoute: typeof OrderRoute
   ReportsRoute: typeof ReportsRoute
   StaffRoute: typeof StaffRoute
   SuperAdminRoute: typeof SuperAdminRoute
@@ -168,6 +194,20 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order': {
+      id: '/order'
+      path: '/order'
+      fullPath: '/order'
+      preLoaderRoute: typeof OrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inventory': {
+      id: '/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof InventoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -221,6 +261,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  InventoryRoute: InventoryRoute,
+  OrderRoute: OrderRoute,
   ReportsRoute: ReportsRoute,
   StaffRoute: StaffRoute,
   SuperAdminRoute: SuperAdminRoute,

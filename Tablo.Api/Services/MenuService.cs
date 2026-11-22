@@ -40,6 +40,8 @@ namespace Tablo.Api.Services
                     Id = c.Id,
                     Name = c.Name,
                     DisplayOrder = c.DisplayOrder,
+                    KitchenStationId = c.KitchenStationId,
+                    KitchenStationName = c.KitchenStation?.Name,
                     MenuItems = c.MenuItems.Select(m => new MenuItemDto
                     {
                         Id = m.Id,
@@ -47,7 +49,40 @@ namespace Tablo.Api.Services
                         Description = m.Description,
                         Price = m.Price,
                         IsAvailable = m.IsAvailable,
-                        ImageUrl = _imageStorageService.GetImageUrl(m.ImageUrl)
+                        ImageUrl = _imageStorageService.GetImageUrl(m.ImageUrl),
+                        KitchenStationId = m.KitchenStationId,
+                        KitchenStationName = m.KitchenStation?.Name,
+                        IsRefillEligible = m.IsRefillEligible,
+                        RefillMaxCount = m.RefillMaxCount,
+                        RefillKitchenStationId = m.RefillKitchenStationId,
+                        ModifierGroups = m.ModifierGroups?
+                            .Where(mmg => mmg.ModifierGroup != null && mmg.ModifierGroup.IsActive)
+                            .OrderBy(mmg => mmg.ModifierGroup.DisplayOrder)
+                            .Select(mmg => new ModifierGroupDto
+                            {
+                                Id = mmg.ModifierGroup.Id,
+                                Name = mmg.ModifierGroup.Name,
+                                MinSelections = mmg.ModifierGroup.MinSelections,
+                                MaxSelections = mmg.ModifierGroup.MaxSelections,
+                                DisplayOrder = mmg.ModifierGroup.DisplayOrder,
+                                IsActive = mmg.ModifierGroup.IsActive,
+                                Options = mmg.ModifierGroup.Options?
+                                    .Where(o => o.IsAvailable)
+                                    .OrderBy(o => o.DisplayOrder)
+                                    .Select(o => new ModifierOptionDto
+                                    {
+                                        Id = o.Id,
+                                        ModifierGroupId = o.ModifierGroupId,
+                                        Name = o.Name,
+                                        PriceDelta = o.PriceDelta,
+                                        DisplayOrder = o.DisplayOrder,
+                                        IsAvailable = o.IsAvailable,
+                                        IngredientAdjustmentType = o.IngredientAdjustmentType,
+                                        IngredientId = o.IngredientId,
+                                        IngredientQuantity = o.IngredientQuantity,
+                                        OriginalIngredientId = o.OriginalIngredientId
+                                    }).ToList() ?? new()
+                            }).ToList() ?? new()
                     }).ToList()
                 }).ToList()
             };
@@ -73,6 +108,8 @@ namespace Tablo.Api.Services
                     Id = c.Id,
                     Name = c.Name,
                     DisplayOrder = c.DisplayOrder,
+                    KitchenStationId = c.KitchenStationId,
+                    KitchenStationName = c.KitchenStation?.Name,
                     MenuItems = c.MenuItems.Select(m => new MenuItemDto
                     {
                         Id = m.Id,
@@ -80,7 +117,40 @@ namespace Tablo.Api.Services
                         Description = m.Description,
                         Price = m.Price,
                         IsAvailable = m.IsAvailable,
-                        ImageUrl = _imageStorageService.GetImageUrl(m.ImageUrl)
+                        ImageUrl = _imageStorageService.GetImageUrl(m.ImageUrl),
+                        KitchenStationId = m.KitchenStationId,
+                        KitchenStationName = m.KitchenStation?.Name,
+                        IsRefillEligible = m.IsRefillEligible,
+                        RefillMaxCount = m.RefillMaxCount,
+                        RefillKitchenStationId = m.RefillKitchenStationId,
+                        ModifierGroups = m.ModifierGroups?
+                            .Where(mmg => mmg.ModifierGroup != null && mmg.ModifierGroup.IsActive)
+                            .OrderBy(mmg => mmg.ModifierGroup.DisplayOrder)
+                            .Select(mmg => new ModifierGroupDto
+                            {
+                                Id = mmg.ModifierGroup.Id,
+                                Name = mmg.ModifierGroup.Name,
+                                MinSelections = mmg.ModifierGroup.MinSelections,
+                                MaxSelections = mmg.ModifierGroup.MaxSelections,
+                                DisplayOrder = mmg.ModifierGroup.DisplayOrder,
+                                IsActive = mmg.ModifierGroup.IsActive,
+                                Options = mmg.ModifierGroup.Options?
+                                    .Where(o => o.IsAvailable)
+                                    .OrderBy(o => o.DisplayOrder)
+                                    .Select(o => new ModifierOptionDto
+                                    {
+                                        Id = o.Id,
+                                        ModifierGroupId = o.ModifierGroupId,
+                                        Name = o.Name,
+                                        PriceDelta = o.PriceDelta,
+                                        DisplayOrder = o.DisplayOrder,
+                                        IsAvailable = o.IsAvailable,
+                                        IngredientAdjustmentType = o.IngredientAdjustmentType,
+                                        IngredientId = o.IngredientId,
+                                        IngredientQuantity = o.IngredientQuantity,
+                                        OriginalIngredientId = o.OriginalIngredientId
+                                    }).ToList() ?? new()
+                            }).ToList() ?? new()
                     }).ToList()
                 }).ToList()
             };
@@ -107,7 +177,8 @@ namespace Tablo.Api.Services
             {
                 RestaurantId = restaurantId,
                 Name = request.Name,
-                DisplayOrder = maxOrder + 1
+                DisplayOrder = maxOrder + 1,
+                KitchenStationId = request.KitchenStationId
             };
 
             var created = await _menuRepository.CreateCategoryAsync(newCategory, cancellationToken);
@@ -119,6 +190,8 @@ namespace Tablo.Api.Services
                 Id = created.Id,
                 Name = created.Name,
                 DisplayOrder = created.DisplayOrder,
+                KitchenStationId = created.KitchenStationId,
+                KitchenStationName = created.KitchenStation?.Name,
                 MenuItems = new System.Collections.Generic.List<MenuItemDto>()
             };
         }
@@ -135,6 +208,7 @@ namespace Tablo.Api.Services
             }
 
             category.Name = request.Name;
+            category.KitchenStationId = request.KitchenStationId;
             var updated = await _menuRepository.UpdateCategoryAsync(category, cancellationToken);
             await _hubContext.Clients.Group($"restaurant_{category.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
             await _hubContext.Clients.Group($"menu_{category.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
@@ -144,6 +218,8 @@ namespace Tablo.Api.Services
                 Id = updated.Id,
                 Name = updated.Name,
                 DisplayOrder = updated.DisplayOrder,
+                KitchenStationId = updated.KitchenStationId,
+                KitchenStationName = updated.KitchenStation?.Name,
                 MenuItems = updated.MenuItems?.Select(m => new MenuItemDto
                 {
                     Id = m.Id,
@@ -151,7 +227,9 @@ namespace Tablo.Api.Services
                     Description = m.Description,
                     Price = m.Price,
                     IsAvailable = m.IsAvailable,
-                    ImageUrl = _imageStorageService.GetImageUrl(m.ImageUrl)
+                    ImageUrl = _imageStorageService.GetImageUrl(m.ImageUrl),
+                    KitchenStationId = m.KitchenStationId,
+                    KitchenStationName = m.KitchenStation?.Name
                 }).ToList() ?? new System.Collections.Generic.List<MenuItemDto>()
             };
         }
@@ -182,7 +260,8 @@ namespace Tablo.Api.Services
                 Description = request.Description,
                 Price = request.Price,
                 IsAvailable = request.IsAvailable,
-                ImageUrl = request.ImageUrl
+                ImageUrl = request.ImageUrl,
+                KitchenStationId = request.KitchenStationId
             };
 
             var created = await _menuRepository.CreateMenuItemAsync(newItem, cancellationToken);
@@ -196,7 +275,9 @@ namespace Tablo.Api.Services
                 Description = created.Description,
                 Price = created.Price,
                 IsAvailable = created.IsAvailable,
-                ImageUrl = _imageStorageService.GetImageUrl(created.ImageUrl)
+                ImageUrl = _imageStorageService.GetImageUrl(created.ImageUrl),
+                KitchenStationId = created.KitchenStationId,
+                KitchenStationName = created.KitchenStation?.Name
             };
         }
 
@@ -219,6 +300,7 @@ namespace Tablo.Api.Services
             menuItem.Description = request.Description;
             menuItem.Price = request.Price;
             menuItem.ImageUrl = request.ImageUrl;
+            menuItem.KitchenStationId = request.KitchenStationId;
 
             var updated = await _menuRepository.UpdateMenuItemAsync(menuItem, cancellationToken);
             await _hubContext.Clients.Group($"restaurant_{menuItem.RestaurantId}").SendAsync("MenuUpdated", cancellationToken: cancellationToken);
@@ -231,7 +313,9 @@ namespace Tablo.Api.Services
                 Description = updated.Description,
                 Price = updated.Price,
                 IsAvailable = updated.IsAvailable,
-                ImageUrl = _imageStorageService.GetImageUrl(updated.ImageUrl)
+                ImageUrl = _imageStorageService.GetImageUrl(updated.ImageUrl),
+                KitchenStationId = updated.KitchenStationId,
+                KitchenStationName = updated.KitchenStation?.Name
             };
         }
 

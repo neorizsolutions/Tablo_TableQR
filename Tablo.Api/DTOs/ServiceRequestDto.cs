@@ -4,6 +4,7 @@ namespace Tablo.Api.DTOs
 {
     public class ServiceRequestDto
     {
+        public Guid? DiningGroupId { get; set; }
         public Guid Id { get; set; }
         public Guid RestaurantId { get; set; }
         public Guid TableId { get; set; }

@@ -30,6 +30,19 @@ namespace Tablo.Api.Entities
         [MaxLength(2000)]
         public string? ImageUrl { get; set; }
 
+        public Guid? KitchenStationId { get; set; }
+        public KitchenStation? KitchenStation { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? PackagingFee { get; set; } = 0m;
+
+        public bool IsRefillEligible { get; set; } = false;
+        public int? RefillMaxCount { get; set; }
+        public Guid? RefillKitchenStationId { get; set; }
+        public KitchenStation? RefillKitchenStation { get; set; }
+
+        public ICollection<MenuItemModifierGroup> ModifierGroups { get; set; } = new List<MenuItemModifierGroup>();
+
         // Navigation Properties
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }

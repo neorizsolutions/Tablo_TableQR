@@ -1,0 +1,188 @@
+[
+  {
+    "id": "PUB-001",
+    "module": "Auth",
+    "status": "Pass",
+    "notes": "Login form rendered with email/password"
+  },
+  {
+    "id": "PUB-002",
+    "module": "Auth",
+    "status": "Pass",
+    "notes": "Password reset request form rendered"
+  },
+  {
+    "id": "CUST-001",
+    "module": "Customer QR",
+    "status": "Pass",
+    "notes": "Table 1 menu rendered with categories and dishes"
+  },
+  {
+    "id": "CUST-002",
+    "module": "Customer QR",
+    "status": "Pass",
+    "notes": "Responsive mobile layout for QR ordering"
+  },
+  {
+    "id": "CUST-003",
+    "module": "Customer QR",
+    "status": "Pass",
+    "notes": "Proper error banner shown for invalid QR token"
+  },
+  {
+    "id": "SA-001",
+    "module": "Super Admin",
+    "status": "Pass",
+    "notes": "Platform tenant overview and subscription KPI metrics"
+  },
+  {
+    "id": "SA-002",
+    "module": "Super Admin",
+    "status": "Pass",
+    "notes": "Lists Tablo Heritage Restaurant and Tablo Coastal Cafe"
+  },
+  {
+    "id": "SA-003",
+    "module": "Super Admin",
+    "status": "Pass",
+    "notes": "Displays Basic, Plus, and Premium plans with capability badges"
+  },
+  {
+    "id": "SA-004",
+    "module": "Super Admin",
+    "status": "Pass",
+    "notes": "Active subscription status and plan switching controls"
+  },
+  {
+    "id": "SA-005",
+    "module": "Super Admin",
+    "status": "Pass",
+    "notes": "Audit history of tier changes and capability updates"
+  },
+  {
+    "id": "ADM-001",
+    "module": "Overview",
+    "status": "Pass",
+    "notes": "Live metrics, active orders, kitchen delays, floor balance"
+  },
+  {
+    "id": "ADM-002",
+    "module": "Floor & Orders",
+    "status": "Pass",
+    "notes": "Active table order tracking, dining group transfers, service desk"
+  },
+  {
+    "id": "ADM-003",
+    "module": "Staff Order Taking",
+    "status": "Pass",
+    "notes": "Order taking workspace loaded with table selector and menu"
+  },
+  {
+    "id": "ADM-004",
+    "module": "Kitchen Queue",
+    "status": "Pass",
+    "notes": "Ticket queue, station indicators, hold/fire status, print options"
+  },
+  {
+    "id": "ADM-005",
+    "module": "Menu & Categories",
+    "status": "Pass",
+    "notes": "Category list, dish cards, pricing, station assignments, availability toggles"
+  },
+  {
+    "id": "ADM-006",
+    "module": "Tables & QR",
+    "status": "Pass",
+    "notes": "Tables 1-10 with high-res QR codes, download links, active status"
+  },
+  {
+    "id": "INV-001",
+    "module": "Inventory",
+    "status": "Pass",
+    "notes": "21 biryani ingredients, on-hand stock, formula cost, low-stock warnings"
+  },
+  {
+    "id": "INV-002",
+    "module": "Purchasing",
+    "status": "Pass",
+    "notes": "Purchase orders, approved deliveries, partial receipt KADAL-DEMO-001"
+  },
+  {
+    "id": "INV-003",
+    "module": "Lots & Expiry",
+    "status": "Pass",
+    "notes": "Batch lots, expiry dates, quarantined lot WEST-HOLD"
+  },
+  {
+    "id": "INV-004",
+    "module": "Outlet Transfers",
+    "status": "Pass",
+    "notes": "Central Kitchen to MG Road Counter transfers, dispatched vs received loss"
+  },
+  {
+    "id": "INV-005",
+    "module": "Inventory Movements",
+    "status": "Pass",
+    "notes": "Complete ledger of opening stock, settled consumption, restock events"
+  },
+  {
+    "id": "INV-006",
+    "module": "Suppliers",
+    "status": "Pass",
+    "notes": "Kadal Produce Cooperative and West Coast Growers vendor records"
+  },
+  {
+    "id": "INV-007",
+    "module": "Preparations",
+    "status": "Pass",
+    "notes": "Lime cordial recipe, batch production yield 450ml, loss tracking"
+  },
+  {
+    "id": "INV-008",
+    "module": "Stocktakes",
+    "status": "Pass",
+    "notes": "Closing count in progress stocktake session"
+  },
+  {
+    "id": "REP-001",
+    "module": "Reports",
+    "status": "Pass",
+    "notes": "Total ₹722 collected across Cash, UPI, Card with transaction ledger"
+  },
+  {
+    "id": "STF-001",
+    "module": "Staff Management",
+    "status": "Pass",
+    "notes": "Active employees: Admin, Waiter, Kitchen, Cashier with credentials"
+  },
+  {
+    "id": "WTR-001",
+    "module": "Staff Order Taking",
+    "status": "Pass",
+    "notes": "Table dropdown/grid loaded with tables 1-10, no 404 error"
+  },
+  {
+    "id": "WTR-002",
+    "module": "Staff Order Taking",
+    "status": "Pass",
+    "notes": "Touch-friendly mobile table order taking"
+  },
+  {
+    "id": "WTR-003",
+    "module": "Floor & Orders",
+    "status": "Pass",
+    "notes": "Active table cards, service requests, bill collections"
+  },
+  {
+    "id": "KIT-001",
+    "module": "Kitchen Queue",
+    "status": "Pass",
+    "notes": "Kitchen tickets, station filters, delayed ticket warnings"
+  },
+  {
+    "id": "ISO-001",
+    "module": "Isolation",
+    "status": "Pass",
+    "notes": "Isolated from Tablo Heritage data, displays Basic plan limitations"
+  }
+]

@@ -84,11 +84,22 @@ builder.Services.AddScoped<Tablo.Api.Interfaces.ITableService, Tablo.Api.Service
 builder.Services.AddScoped<Tablo.Api.Interfaces.IQRService, Tablo.Api.Services.QRService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IOrderRepository, Tablo.Api.Repositories.OrderRepository>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IOrderService, Tablo.Api.Services.OrderService>();
+builder.Services.AddScoped<Tablo.Api.Services.BillingService>();
+builder.Services.AddScoped<Tablo.Api.Services.PaymentReportService>();
+builder.Services.AddScoped<Tablo.Api.Services.InventoryService>();
+builder.Services.AddScoped<Tablo.Api.Services.InventoryReportService>();
+builder.Services.AddScoped<Tablo.Api.Services.StaffOrderingService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IAuthService, Tablo.Api.Services.AuthService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IEmailService, Tablo.Api.Services.EmailService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IReportService, Tablo.Api.Services.ReportService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IServiceRequestService, Tablo.Api.Services.ServiceRequestService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.ISettingsService, Tablo.Api.Services.SettingsService>();
+builder.Services.AddScoped<Tablo.Api.Interfaces.ISubscriptionService, Tablo.Api.Services.SubscriptionService>();
+builder.Services.AddScoped<Tablo.Api.Services.Printing.IKotRoutingService, Tablo.Api.Services.Printing.KotRoutingService>();
+builder.Services.AddScoped<Tablo.Api.Interfaces.IParcelOrderService, Tablo.Api.Services.ParcelOrderService>();
+builder.Services.AddScoped<Tablo.Api.Services.ModifierService>();
+builder.Services.AddScoped<Tablo.Api.Services.ManagerAuthService>();
+builder.Services.AddHostedService<Tablo.Api.Services.ScheduledOrderReleaseWorker>();
 
 var imageStorageOptions = builder.Configuration.GetSection(Tablo.Api.Configurations.ImageStorageOptions.ImageStorage).Get<Tablo.Api.Configurations.ImageStorageOptions>() ?? new Tablo.Api.Configurations.ImageStorageOptions();
 builder.Services.Configure<Tablo.Api.Configurations.ImageStorageOptions>(builder.Configuration.GetSection(Tablo.Api.Configurations.ImageStorageOptions.ImageStorage));
@@ -181,10 +192,19 @@ using (var scope = app.Services.CreateScope())
         }
         
         var context = services.GetRequiredService<Tablo.Api.Data.ApplicationDbContext>();
-        // Migrations must be run explicitly via: dotnet ef database update
-        // context.Database.Migrate(); 
+        bool autoMigrate = configuration.GetValue<bool>("AutoMigrate", true) || env.IsDevelopment();
+        if (autoMigrate)
+        {
+            context.Database.Migrate();
+        }
         
         Tablo.Api.Data.DbSeeder.Seed(context, seedDummyData);
+
+        bool seedRealisticDemo = configuration.GetValue<bool>("SeedRealisticDemo", false) || args.Contains("--seed-demo");
+        if (seedRealisticDemo && !env.IsProduction())
+        {
+            Tablo.Api.Data.LocalDemoSeeder.SeedRealisticDemoAsync(services).GetAwaiter().GetResult();
+        }
 
 
     }

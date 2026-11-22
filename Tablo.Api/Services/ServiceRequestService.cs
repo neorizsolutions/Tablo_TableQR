@@ -39,9 +39,12 @@ namespace Tablo.Api.Services
                 throw new Exception("Invalid service request type.");
             }
 
+            await using var transaction=await TableOrderTransaction.BeginAsync(_context);
+            await TableOrderTransaction.LockAsync(_context,table.RestaurantId,table.Id);
+            var group = await DiningGroupService.ResolveAsync(_context,table.RestaurantId,table.Id,requestDto.DiningGroupId);
             // Check if there's already a pending request of this type for this table
             var existingPending = await _context.ServiceRequests
-                .FirstOrDefaultAsync(sr => sr.TableId == table.Id && sr.Type == requestDto.Type && sr.Status == "Pending");
+                .FirstOrDefaultAsync(sr => sr.TableId == table.Id && sr.DiningGroupId==requestDto.DiningGroupId && sr.Type == requestDto.Type && sr.Status == "Pending");
 
             if (existingPending != null)
             {
@@ -52,7 +55,7 @@ namespace Tablo.Api.Services
             {
                 Id = Guid.NewGuid(),
                 RestaurantId = table.RestaurantId,
-                TableId = table.Id,
+                TableId = table.Id, DiningGroupId=requestDto.DiningGroupId,
                 Type = requestDto.Type,
                 Status = "Pending",
                 CreatedAt = DateTime.UtcNow,
@@ -62,7 +65,9 @@ namespace Tablo.Api.Services
             _context.ServiceRequests.Add(serviceRequest);
             await _context.SaveChangesAsync();
 
+            if(transaction!=null) await transaction.CommitAsync();
             var dto = MapToDto(serviceRequest, table);
+            dto.TableName += group.Label;
 
             // Broadcast to the restaurant staff group
             await _hubContext.Clients.Group($"restaurant_{table.RestaurantId}").SendAsync("NewServiceRequest", dto);
@@ -76,6 +81,7 @@ namespace Tablo.Api.Services
 
             var requests = await _context.ServiceRequests
                 .Include(sr => sr.Table)
+                .Include(sr => sr.DiningGroup)
                 .Where(sr => sr.RestaurantId == restaurantId && activeStatuses.Contains(sr.Status))
                 .OrderBy(sr => sr.CreatedAt)
                 .ToListAsync();
@@ -97,6 +103,7 @@ namespace Tablo.Api.Services
         {
             var serviceRequest = await _context.ServiceRequests
                 .Include(sr => sr.Table)
+                .Include(sr => sr.DiningGroup)
                 .FirstOrDefaultAsync(sr => sr.Id == requestId && sr.RestaurantId == restaurantId);
 
             if (serviceRequest == null)
@@ -127,10 +134,10 @@ namespace Tablo.Api.Services
         {
             return new ServiceRequestDto
             {
-                Id = sr.Id,
+                Id = sr.Id, DiningGroupId=sr.DiningGroupId,
                 RestaurantId = sr.RestaurantId,
                 TableId = sr.TableId,
-                TableName = table != null ? $"Table {table.TableNumber}" : string.Empty,
+                TableName = table != null ? $"Table {table.TableNumber}{sr.DiningGroup?.Label}" : string.Empty,
                 Type = sr.Type,
                 Status = sr.Status,
                 CreatedAt = sr.CreatedAt,

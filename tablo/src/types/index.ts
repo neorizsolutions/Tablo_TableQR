@@ -7,9 +7,16 @@ export interface MenuItem {
   price: number;
   image: string; // Used to hold local image import or URL
   category: Category;
+  categoryName?: string;
+  packagingFee?: number | null;
   available: boolean;
   popular: boolean;
   special: boolean;
+  isRefillEligible?: boolean;
+  refillMaxCount?: number;
+  refillKitchenStationId?: string | null;
+  kitchenStationId?: string | null;
+  modifierGroups?: any[];
 }
 
 export type OrderStatus = "placed" | "accepted" | "preparing" | "ready" | "served" | "cancelled" | "rejected";
@@ -20,9 +27,21 @@ export interface OrderItem {
   name: string;
   qty: number;
   price: number;
+  release_state?: string;
+  course_name?: string;
+  modifiers_json?: string;
+  is_refill?: boolean;
+  refill_count?: number;
+  cancelled_quantity?: number;
+  is_cancelled?: boolean;
+  packing_intent?: "DineIn" | "Takeaway" | string;
+  notes?: string;
+  special_instructions?: string;
 }
 
 export interface Order {
+  group_label?: string;
+  dining_group_id?: string;
   id: string;
   order_number: number;
   table_number: number;
@@ -35,6 +54,11 @@ export interface Order {
   placed_at: string;
   items: OrderItem[];
   exception_reason?: string | null;
+  channel?: string;
+  order_channel?: string;
+  delivery_provider?: string;
+  external_order_reference?: string;
+  daily_token_number?: number;
 }
 
 export interface Restaurant {

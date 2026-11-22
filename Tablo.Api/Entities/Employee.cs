@@ -19,6 +19,8 @@ namespace Tablo.Api.Entities
         [Required]
         [MaxLength(100)]
         public string LastName { get; set; } = string.Empty;
+
+        public string FullName => $"{FirstName} {LastName}".Trim();
         
         [Required]
         [MaxLength(255)]
@@ -35,5 +37,10 @@ namespace Tablo.Api.Entities
         public DateTime? ResetOtpExpiration { get; set; }
         public int ResetOtpAttempts { get; set; }
         public string? ResetTokenHash { get; set; }
+
+        [MaxLength(255)]
+        public string? ManagerPinHash { get; set; }
+        public int FailedPinAttempts { get; set; } = 0;
+        public DateTime? PinLockedUntilUtc { get; set; }
     }
 }
