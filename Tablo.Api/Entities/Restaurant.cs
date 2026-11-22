@@ -35,5 +35,8 @@ namespace Tablo.Api.Entities
         public ICollection<Employee> Employees { get; set; } = new List<Employee>();
         public ICollection<ServiceRequest> ServiceRequests { get; set; } = new List<ServiceRequest>();
         public RestaurantSettings? Settings { get; set; }
+        public Subscription? Subscription { get; set; }
+        public ICollection<SubscriptionAuditLog> SubscriptionAuditLogs { get; set; } = new List<SubscriptionAuditLog>();
+        public ICollection<Outlet> Outlets { get; set; } = new List<Outlet>();
     }
 }

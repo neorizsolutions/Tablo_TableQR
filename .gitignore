@@ -55,3 +55,8 @@ tablo/test_fetch.js
 policy.json
 amplify-rules.json
 nginx-default.conf
+tablo-api-release.tar.gz
+check-hash.cjs
+tablo/.tablo-printer-sim/
+tablo/tsconfig.tsbuildinfo
+

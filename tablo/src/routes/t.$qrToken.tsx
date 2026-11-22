@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, ChefHat, CircleDot, Flame, Languages, Loader2, Minus, PackageCheck, Plus, Search, ShoppingBag, Sparkles, Utensils, X, Bell, Receipt, HandPlatter } from "lucide-react";
 import { toast } from "sonner";
 import { formatINR } from "@/lib/mock-data";
-import { Category, OrderStatus } from "@/types";
+import type { Category, MenuItem, Order, OrderStatus } from "@/types";
 import { useMenu } from "@/hooks/use-menu";
-import { useCart } from "@/hooks/use-cart";
+import { useCart, type SelectedModifier } from "@/hooks/use-cart";
 import { useOrderTracking } from "@/hooks/use-orders";
 import { useQRResolution } from "@/hooks/use-qr";
 import { placeOrder, getActiveOrderForTable } from "@/services/api";
@@ -35,6 +35,7 @@ export const Route = createFileRoute("/t/$qrToken")({
 
 const stages: { key: OrderStatus; label: string; icon: typeof CircleDot }[] = [
   { key: "placed", label: "Order placed", icon: CircleDot },
+  { key: "accepted", label: "Accepted by staff", icon: Check },
   { key: "preparing", label: "Preparing", icon: Flame },
   { key: "ready", label: "Ready to serve", icon: PackageCheck },
   { key: "served", label: "Served", icon: Check },
@@ -45,6 +46,8 @@ type Stage = "menu" | "confirmed";
 function CustomerPage() {
   const { qrToken } = Route.useParams();
   const queryClient = useQueryClient();
+  const [groupId,setGroupId]=useState("");
+  const orderStorageKey=`activeOrderId_${qrToken}${groupId?`_${groupId}`:""}`;
   
   const [stage, setStage] = useState<Stage>("menu");
   const [selectedCat, setSelectedCat] = useState<Category | null>(null);
@@ -56,20 +59,19 @@ function CustomerPage() {
 
   const { data: qrData, isLoading: loadingQR, error: qrError } = useQRResolution(qrToken);
   const { data: menu = [], isLoading: loadingMenu } = useMenu(qrData?.restaurantId || null);
-  const { cart, cartCount, cartTotal, updateQty, qtyOf, clearCart } = useCart();
+  const { cart, cartCount, cartTotal, addOrUpdateItem, updateLineQty, removeLine, updateQty, qtyOf, clearCart } = useCart();
+  const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
 
   useEffect(() => {
-    const savedOrderId = localStorage.getItem(`activeOrderId_${qrToken}`);
-    if (savedOrderId) {
-      setOrderId(savedOrderId);
-    }
-  }, [qrToken]);
+    const savedOrderId = localStorage.getItem(orderStorageKey);
+    setOrderId(savedOrderId||null);setStage("menu");
+  }, [orderStorageKey]);
 
   // Auto-recover active order from backend for this table if not in localStorage
   const { data: activeOrder, error: activeOrderError } = useQuery({
-    queryKey: ["activeOrder", qrToken],
-    queryFn: () => getActiveOrderForTable(qrToken),
-    enabled: !!qrData && !orderId,
+    queryKey: ["activeOrder", qrToken,groupId],
+    queryFn: () => getActiveOrderForTable(qrToken,groupId||undefined),
+    enabled: !!qrData && !orderId && (!qrData.diningGroups?.length||!!groupId),
     retry: false, // Don't retry on 404
     staleTime: 0,
   });
@@ -77,22 +79,22 @@ function CustomerPage() {
   useEffect(() => {
     if (activeOrder && !orderId) {
       setOrderId(activeOrder.id);
-      localStorage.setItem(`activeOrderId_${qrToken}`, activeOrder.id);
+      localStorage.setItem(orderStorageKey, activeOrder.id);
     }
-  }, [activeOrder, orderId, qrToken]);
+  }, [activeOrder, orderId, orderStorageKey]);
 
   const { data: currentOrder } = useOrderTracking(qrData?.restaurantId || null, orderId);
 
   useEffect(() => {
     if (currentOrder?.status === "served") {
-      localStorage.removeItem(`activeOrderId_${qrToken}`);
+      localStorage.removeItem(orderStorageKey);
       // Keep orderId in state so they can see the "Served" screen until they click "Order something else"
       // But we removed it from localStorage so it won't persist on refresh.
     }
-  }, [currentOrder?.status, qrToken]);
+  }, [currentOrder?.status, orderStorageKey]);
 
-  const { data: serviceRequests = [] } = useTableActiveServiceRequests(qrToken);
-  const { mutate: createServiceReq, isPending: isServicePending } = useCreateServiceRequest(qrToken);
+  const { data: serviceRequests = [] } = useTableActiveServiceRequests(qrToken,groupId||undefined);
+  const { mutate: createServiceReq, isPending: isServicePending } = useCreateServiceRequest(qrToken,groupId||undefined);
 
   const hasPendingWaiter = serviceRequests.some(sr => sr.type === "CallWaiter" && sr.status === "Pending");
   const hasPendingBill = serviceRequests.some(sr => sr.type === "RequestBill" && sr.status === "Pending");
@@ -113,11 +115,12 @@ function CustomerPage() {
 
   const handlePlaceOrder = async () => {
     if (!qrData || cart.length === 0) return;
+    if(qrData.diningGroups?.length&&!qrData.diningGroups.some(g=>g.id===groupId)){toast.error("Select your dining group first.");return;}
     setSubmitting(true);
     try {
-      const { orderId: newOrderId } = await placeOrder(qrToken, cart);
+      const { orderId: newOrderId } = await placeOrder(qrToken, cart,groupId||undefined);
       setOrderId(newOrderId);
-      localStorage.setItem(`activeOrderId_${qrToken}`, newOrderId);
+      localStorage.setItem(orderStorageKey, newOrderId);
       queryClient.invalidateQueries({ queryKey: ["order", newOrderId] });
       setDrawerOpen(false);
       setStage("confirmed");
@@ -148,6 +151,8 @@ function CustomerPage() {
       </div>
     );
   }
+
+  if(stage!=="confirmed" && qrData.diningGroups?.length && !qrData.diningGroups.some(g=>g.id===groupId)) return <div className="mx-auto max-w-md p-6"><h1 className="text-2xl font-bold">Choose your dining group</h1><p className="my-3">{qrData.restaurantName} · {qrData.tableNameOrNumber}. Ask your waiter which group to select.</p>{qrData.diningGroups.map(g=><button key={g.id} className="m-2 rounded-xl border px-5 py-3" onClick={()=>{clearCart();setGroupId(g.id);}}>Group {g.label}</button>)}</div>;
 
   if (stage === "confirmed") {
     const displayStatus = currentOrder?.status || "placed";
@@ -180,7 +185,7 @@ function CustomerPage() {
               <p className="text-xs uppercase tracking-wider opacity-80">{qrData.restaurantTagline}</p>
               <h1 className="font-display text-2xl font-bold">{qrData.restaurantName}</h1>
             </div>
-            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">{qrData.tableNameOrNumber}</span>
+            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">{qrData.tableNameOrNumber}{qrData.diningGroups?.find(g=>g.id===groupId)?.label}</span>
           </div>
           <div className="mt-3 flex items-center gap-3 text-xs opacity-90">
             <span className="inline-flex items-center gap-1"><Languages className="h-3.5 w-3.5" /> EN · മലയാളം</span>
@@ -237,10 +242,29 @@ function CustomerPage() {
                       {m.popular && <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-semibold text-primary">Popular</span>}
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{m.description}</p>
+                    {m.modifierGroups && m.modifierGroups.length > 0 && (
+                      <p className="mt-1 text-[10px] font-medium text-primary">Customizable options</p>
+                    )}
                     <div className="mt-2 flex items-center justify-between">
                       <p className="font-display text-sm font-bold">{formatINR(m.price)}</p>
                       {!m.available ? (
                         <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">Sold out</span>
+                      ) : m.modifierGroups && m.modifierGroups.length > 0 ? (
+                        qtyOf(m.id) === 0 ? (
+                          <button onClick={() => setCustomizingItem(m)} className="inline-flex items-center gap-1 rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-transform active:scale-95">
+                            <Plus className="h-3 w-3" /> Customize
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => updateQty(m, -1)} className="grid h-7 w-7 place-items-center rounded-full bg-secondary text-foreground hover:bg-secondary/80">
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="min-w-[1ch] text-center text-xs font-bold text-primary">{qtyOf(m.id)}</span>
+                            <button onClick={() => setCustomizingItem(m)} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-semibold text-primary transition-transform active:scale-95">
+                              <Plus className="h-3 w-3" /> Add another
+                            </button>
+                          </div>
+                        )
                       ) : qtyOf(m.id) === 0 ? (
                         <button onClick={() => updateQty(m, +1)} className="inline-flex items-center gap-1 rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-transform active:scale-95">
                           <Plus className="h-3 w-3" /> Add
@@ -360,20 +384,37 @@ function CustomerPage() {
               <button onClick={() => setDrawerOpen(false)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
             </div>
             <ul className="mt-4 max-h-[40vh] divide-y divide-border overflow-y-auto">
-              {cart.map((l) => (
-                <li key={l.item.id} className="flex items-center gap-3 py-3">
-                  <img src={l.item.image} alt="" className="h-12 w-12 rounded-xl object-cover" loading="lazy" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{l.item.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatINR(l.item.price)}</p>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-full bg-secondary p-0.5">
-                    <button onClick={() => updateQty(l.item, -1)} className="grid h-7 w-7 place-items-center rounded-full bg-card"><Minus className="h-3 w-3" /></button>
-                    <span className="min-w-[1ch] text-center text-xs font-bold">{l.qty}</span>
-                    <button onClick={() => updateQty(l.item, +1)} className="grid h-7 w-7 place-items-center rounded-full bg-gradient-primary text-primary-foreground"><Plus className="h-3 w-3" /></button>
-                  </div>
-                </li>
-              ))}
+              {cart.map((l) => {
+                const modDelta = l.selectedModifiers?.reduce((s, m) => s + m.priceDelta, 0) || 0;
+                const unitPrice = l.item.price + modDelta;
+
+                return (
+                  <li key={l.lineId} className="flex items-center gap-3 py-3">
+                    <img src={l.item.image} alt="" className="h-12 w-12 rounded-xl object-cover shrink-0" loading="lazy" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{l.item.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatINR(unitPrice)} each</p>
+                      {l.selectedModifiers && l.selectedModifiers.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {l.selectedModifiers.map((m, idx) => (
+                            <span key={idx} className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                              {m.optionName}{m.priceDelta > 0 ? ` (+${formatINR(m.priceDelta)})` : ""}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {l.specialInstructions && (
+                        <p className="mt-0.5 text-[11px] italic text-muted-foreground">Note: “{l.specialInstructions}”</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 rounded-full bg-secondary p-0.5 shrink-0">
+                      <button onClick={() => updateLineQty(l.lineId, -1)} className="grid h-7 w-7 place-items-center rounded-full bg-card"><Minus className="h-3 w-3" /></button>
+                      <span className="min-w-[1ch] text-center text-xs font-bold">{l.qty}</span>
+                      <button onClick={() => updateLineQty(l.lineId, +1)} className="grid h-7 w-7 place-items-center rounded-full bg-gradient-primary text-primary-foreground"><Plus className="h-3 w-3" /></button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
             <div className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
               <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>{formatINR(cartTotal)}</span></div>
@@ -391,6 +432,17 @@ function CustomerPage() {
           </div>
         </div>
       )}
+
+      {customizingItem && (
+        <CustomizationModal
+          item={customizingItem}
+          onClose={() => setCustomizingItem(null)}
+          onAdd={(item, qty, modifiers, instructions) => {
+            addOrUpdateItem(item, qty, modifiers, instructions);
+            toast.success(`Added ${qty}x ${item.name} to order`);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -406,24 +458,30 @@ function EmptyState() {
 }
 
 function Confirmation({ cart, total, stage, exceptionReason, currentOrder, onDone }: { cart: { item: any, qty: number }[]; total: number; stage: OrderStatus; exceptionReason?: string | null; currentOrder?: Order; onDone: () => void }) {
-  const displayStage = stage === "accepted" ? "placed" : stage === "ready_to_serve" ? "ready" : stage;
+  const displayStage = stage;
   const idx = stages.findIndex((s) => s.key === displayStage);
   const isException = stage === "cancelled" || stage === "rejected";
 
   let title = "Order placed!";
-  let subtitle = "Your kitchen ticket is live. Sit back, we'll bring it over.";
+  let subtitle = "Waiting for staff to accept your order. Sit back, we'll notify you.";
   let MainIcon = ChefHat;
 
   if (isException) {
     title = stage === "rejected" ? "Order Not Accepted" : "Order Cancelled";
     subtitle = "We couldn't fulfill this order. Please see details below.";
     MainIcon = X;
+  } else if (displayStage === "accepted") {
+    title = "Order accepted!";
+    subtitle = "Staff accepted your order. Getting ready for the kitchen!";
+    MainIcon = Check;
   } else if (displayStage === "preparing") {
     title = "Preparing your food!";
     subtitle = "The chefs are working their magic on your meal.";
+    MainIcon = Flame;
   } else if (displayStage === "ready") {
     title = "Ready to serve!";
     subtitle = "Your food is ready and on its way to your table.";
+    MainIcon = PackageCheck;
   } else if (displayStage === "served") {
     title = "Order Served!";
     subtitle = "Enjoy your meal!";
@@ -471,32 +529,244 @@ function Confirmation({ cart, total, stage, exceptionReason, currentOrder, onDon
           )}
 
           <div className="mt-6 rounded-2xl border border-border bg-card p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Order summary</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Order summary · Table {currentOrder?.table_number}{currentOrder?.group_label}</p>
             <ul className="mt-2 divide-y divide-border text-sm">
-              {cart.map((l) => (
-                <li key={l.item.id} className="flex justify-between py-2">
-                  <span>{l.qty} × {l.item.name}</span>
-                  <span className={`font-semibold ${isException ? "line-through text-muted-foreground" : ""}`}>{formatINR(l.qty * l.item.price)}</span>
-                </li>
-              ))}
+              {cart.map((l: any, idx: number) => {
+                const modDelta = l.selectedModifiers?.reduce((s: number, m: any) => s + (m.priceDelta || 0), 0) || 0;
+                const unitPrice = (l.item?.price || 0) + modDelta;
+                const lineTotal = l.qty * unitPrice;
+
+                return (
+                  <li key={l.lineId || idx} className="py-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">{l.qty} × {l.item?.name}</span>
+                      <span className={`font-semibold ${isException ? "line-through text-muted-foreground" : ""}`}>{formatINR(lineTotal)}</span>
+                    </div>
+                    {l.selectedModifiers && l.selectedModifiers.length > 0 && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {l.selectedModifiers.map((m: any) => m.optionName).join(", ")}
+                      </p>
+                    )}
+                    {l.specialInstructions && (
+                      <p className="text-[11px] italic text-muted-foreground">“{l.specialInstructions}”</p>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
             <div className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
-                <span className={isException ? "line-through" : ""}>{formatINR(currentOrder ? currentOrder.subtotal : cart.reduce((s, l) => s + l.qty * l.item.price, 0))}</span>
+                <span className={isException ? "line-through" : ""}>{formatINR(currentOrder ? currentOrder.subtotal : cart.reduce((s, l: any) => s + l.qty * ((l.item?.price || 0) + (l.selectedModifiers?.reduce((acc: number, m: any) => acc + (m.priceDelta || 0), 0) || 0)), 0))}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>GST (5%)</span>
-                <span className={isException ? "line-through" : ""}>{formatINR(currentOrder ? currentOrder.tax : Math.round(cart.reduce((s, l) => s + l.qty * l.item.price, 0) * 0.05))}</span>
+                <span className={isException ? "line-through" : ""}>{formatINR(currentOrder ? currentOrder.tax : Math.round(cart.reduce((s, l: any) => s + l.qty * ((l.item?.price || 0) + (l.selectedModifiers?.reduce((acc: number, m: any) => acc + (m.priceDelta || 0), 0) || 0)), 0) * 0.05))}</span>
               </div>
               <div className="flex justify-between pt-1 font-display text-base font-bold">
                 <span>Total</span>
-                <span className={isException ? "line-through text-muted-foreground" : ""}>{formatINR(currentOrder ? currentOrder.total : cart.reduce((s, l) => s + l.qty * l.item.price, 0) + Math.round(cart.reduce((s, l) => s + l.qty * l.item.price, 0) * 0.05))}</span>
+                <span className={isException ? "line-through text-muted-foreground" : ""}>{formatINR(currentOrder ? currentOrder.total : cart.reduce((s, l: any) => s + l.qty * ((l.item?.price || 0) + (l.selectedModifiers?.reduce((acc: number, m: any) => acc + (m.priceDelta || 0), 0) || 0)), 0) + Math.round(cart.reduce((s, l: any) => s + l.qty * ((l.item?.price || 0) + (l.selectedModifiers?.reduce((acc: number, m: any) => acc + (m.priceDelta || 0), 0) || 0)), 0) * 0.05))}</span>
               </div>
             </div>
           </div>
           <button onClick={onDone} className="mt-5 w-full rounded-full border border-border bg-card py-3 text-sm font-semibold hover:bg-secondary">
             Order something else
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CustomizationModal({
+  item,
+  onClose,
+  onAdd,
+}: {
+  item: MenuItem;
+  onClose: () => void;
+  onAdd: (
+    item: MenuItem,
+    qty: number,
+    modifiers: SelectedModifier[],
+    instructions: string
+  ) => void;
+}) {
+  const [qty, setQty] = useState(1);
+  const [instructions, setInstructions] = useState("");
+  const [selectedOptionIds, setSelectedOptionIds] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    const initial: Record<string, string[]> = {};
+    for (const group of item.modifierGroups || []) {
+      if (group.minSelections > 0 && group.options?.length > 0 && group.maxSelections === 1) {
+        initial[group.id] = [group.options[0].id];
+      }
+    }
+    setSelectedOptionIds(initial);
+  }, [item]);
+
+  const toggleOption = (groupId: string, optionId: string, maxSelections: number) => {
+    setSelectedOptionIds((prev) => {
+      const current = prev[groupId] || [];
+      if (maxSelections === 1) {
+        return { ...prev, [groupId]: [optionId] };
+      }
+      if (current.includes(optionId)) {
+        return { ...prev, [groupId]: current.filter((id) => id !== optionId) };
+      }
+      if (current.length < maxSelections) {
+        return { ...prev, [groupId]: [...current, optionId] };
+      }
+      return prev;
+    });
+  };
+
+  const isValid = useMemo(() => {
+    for (const group of item.modifierGroups || []) {
+      const count = (selectedOptionIds[group.id] || []).length;
+      if (count < (group.minSelections || 0)) return false;
+      if (count > (group.maxSelections || 1)) return false;
+    }
+    return true;
+  }, [item, selectedOptionIds]);
+
+  const selectedModifiersList = useMemo(() => {
+    const list: SelectedModifier[] = [];
+    for (const group of item.modifierGroups || []) {
+      const chosenIds = selectedOptionIds[group.id] || [];
+      for (const optId of chosenIds) {
+        const opt = group.options?.find((o: any) => o.id === optId);
+        if (opt) {
+          list.push({
+            modifierGroupId: group.id,
+            modifierOptionId: opt.id,
+            optionName: opt.name,
+            priceDelta: Number(opt.priceDelta || 0),
+          });
+        }
+      }
+    }
+    return list;
+  }, [item, selectedOptionIds]);
+
+  const unitModifierDelta = selectedModifiersList.reduce((s, m) => s + m.priceDelta, 0);
+  const lineUnitPrice = item.price + unitModifierDelta;
+  const lineTotal = lineUnitPrice * qty;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      <div className="absolute inset-0 bg-foreground/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-lg max-h-[85vh] overflow-hidden rounded-t-[2rem] bg-card p-6 shadow-glow flex flex-col sm:rounded-[2rem]">
+        <div className="flex items-start justify-between pb-3 border-b border-border">
+          <div>
+            <h2 className="font-display text-lg font-bold">{item.name}</h2>
+            <p className="text-xs text-muted-foreground">{item.description}</p>
+            <p className="mt-1 font-display text-sm font-semibold text-primary">{formatINR(item.price)} base</p>
+          </div>
+          <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-secondary">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto py-4 space-y-5">
+          {item.modifierGroups?.map((group: any) => {
+            const isSingle = group.maxSelections === 1;
+            const chosen = selectedOptionIds[group.id] || [];
+            const isMet = chosen.length >= group.minSelections;
+
+            return (
+              <div key={group.id} className="rounded-2xl border border-border bg-secondary/30 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="font-semibold text-sm">{group.name}</h3>
+                    <p className="text-[11px] text-muted-foreground">
+                      {group.minSelections > 0
+                        ? `Required · Choose ${group.minSelections === group.maxSelections ? group.minSelections : `${group.minSelections} to ${group.maxSelections}`}`
+                        : `Optional · Up to ${group.maxSelections}`}
+                    </p>
+                  </div>
+                  {group.minSelections > 0 && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isMet ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                      {isMet ? "Done" : "Required"}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-2 mt-3">
+                  {group.options?.map((opt: any) => {
+                    const isSelected = chosen.includes(opt.id);
+                    const delta = Number(opt.priceDelta || 0);
+
+                    return (
+                      <label
+                        key={opt.id}
+                        onClick={() => toggleOption(group.id, opt.id, group.maxSelections)}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
+                          isSelected ? "border-primary bg-primary-soft/50 font-semibold" : "border-border bg-card hover:bg-secondary/60"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type={isSingle ? "radio" : "checkbox"}
+                            name={group.id}
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="text-primary rounded"
+                          />
+                          <span>{opt.name}</span>
+                        </div>
+                        <span className="text-muted-foreground">
+                          {delta > 0 ? `+${formatINR(delta)}` : delta < 0 ? `-${formatINR(Math.abs(delta))}` : "Free"}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="rounded-2xl border border-border p-4 bg-secondary/20">
+            <label className="block text-xs font-semibold mb-1">Special Cooking Instructions</label>
+            <input
+              type="text"
+              placeholder="e.g. Extra crispy, less spicy, no onions"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs"
+              maxLength={200}
+            />
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-border flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 rounded-full bg-secondary p-1">
+            <button
+              onClick={() => setQty(Math.max(1, qty - 1))}
+              disabled={qty <= 1}
+              className="grid h-8 w-8 place-items-center rounded-full bg-card disabled:opacity-40"
+            >
+              <Minus className="h-3 w-3" />
+            </button>
+            <span className="min-w-[2ch] text-center text-sm font-bold">{qty}</span>
+            <button
+              onClick={() => setQty(qty + 1)}
+              className="grid h-8 w-8 place-items-center rounded-full bg-card"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
+
+          <button
+            disabled={!isValid}
+            onClick={() => {
+              onAdd(item, qty, selectedModifiersList, instructions);
+              onClose();
+            }}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-primary py-3 text-sm font-semibold text-primary-foreground shadow-glow disabled:opacity-50"
+          >
+            <span>Add to Order · {formatINR(lineTotal)}</span>
           </button>
         </div>
       </div>

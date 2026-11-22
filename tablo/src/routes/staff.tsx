@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Loader2, ShieldAlert, LogIn, LogOut, Plus, Pencil, Power, PowerOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
+import { AppLayout } from "@/components/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useStaff, useCreateEmployee, useUpdateEmployee, useUpdateEmployeeStatus } from "@/hooks/use-staff";
 import { Employee } from "@/services/api";
@@ -114,9 +115,9 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
   };
 
   return (
-    <div className="min-h-screen bg-secondary/40">
-      <SiteHeader />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <AppLayout>
+      <div className="min-h-screen bg-secondary/40">
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-primary">Manager workspace</p>
@@ -197,7 +198,8 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
           onClose={() => { setCreating(false); setEditing(null); }} 
         />
       )}
-    </div>
+      </div>
+    </AppLayout>
   );
 }
 
@@ -277,6 +279,19 @@ function EmployeeModal({ employee, onClose }: { employee: Employee | null; onClo
               <option value="Waiter">Waiter</option>
             </select>
           </label>
+
+          <div className="rounded-xl bg-secondary/40 p-3 text-xs space-y-1 border border-border/60">
+            <span className="font-semibold text-foreground">
+              {roleName === "Admin" ? "Full Admin Access" : roleName === "Waiter" ? "Floor Waiter Permissions" : "Kitchen Display Permissions"}
+            </span>
+            <p className="text-muted-foreground text-[11px]">
+              {roleName === "Admin"
+                ? "Full access to menu items, categories, pricing, table QRs, inventory, purchase orders, financial reports, staff administration, and floor billing."
+                : roleName === "Waiter"
+                ? "Fast staff order taking, table selection, multi-draft orders, hold/fire, refills, dining groups, bill reviews, and collections."
+                : "Live KDS kitchen ticket display, preparation status progression, fire course management, and manager-approved item cancellations."}
+            </p>
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

@@ -8,10 +8,12 @@ namespace Tablo.Api.Services
     public class QRService : IQRService
     {
         private readonly ITableRepository _tableRepository;
+        private readonly Tablo.Api.Data.ApplicationDbContext? _db;
 
-        public QRService(ITableRepository tableRepository)
+        public QRService(ITableRepository tableRepository, Tablo.Api.Data.ApplicationDbContext? db=null)
         {
             _tableRepository = tableRepository;
+            _db=db;
         }
 
         public async Task<QRResolutionDto?> ResolveQRTokenAsync(string qrToken)
@@ -25,6 +27,7 @@ namespace Tablo.Api.Services
             return new QRResolutionDto
             {
                 RestaurantId = table.RestaurantId,
+                DiningGroups=_db==null?new(): (await new DiningGroupService(_db).ListAsync(table.RestaurantId,table.Id)).ToList(),
                 RestaurantName = table.Restaurant.Name,
                 RestaurantTagline = table.Restaurant.Description ?? string.Empty,
                 TableId = table.Id,

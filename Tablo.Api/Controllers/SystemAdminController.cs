@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,12 +16,18 @@ namespace Tablo.Api.Controllers
         private readonly IAuthService _authService;
         private readonly IConfiguration _configuration;
         private readonly ApplicationDbContext _context;
+        private readonly ISubscriptionService _subscriptionService;
 
-        public SystemAdminController(IAuthService authService, IConfiguration configuration, ApplicationDbContext context)
+        public SystemAdminController(
+            IAuthService authService,
+            IConfiguration configuration,
+            ApplicationDbContext context,
+            ISubscriptionService subscriptionService)
         {
             _authService = authService;
             _configuration = configuration;
             _context = context;
+            _subscriptionService = subscriptionService;
         }
 
         [HttpPost("login")]
@@ -45,7 +52,7 @@ namespace Tablo.Api.Controllers
                         Id = Guid.Empty,
                         FirstName = "Super",
                         LastName = "Admin",
-                        Email = "superadmin",
+                        Email = "superadmin@tablo.local",
                         Role = "SuperAdmin",
                         RestaurantId = Guid.Empty
                     }
@@ -53,6 +60,14 @@ namespace Tablo.Api.Controllers
             }
 
             return Unauthorized(new { message = "Invalid Super Admin credentials." });
+        }
+
+        [Authorize(Roles = "SuperAdmin")]
+        [HttpGet("overview")]
+        public async Task<IActionResult> GetOverview()
+        {
+            var stats = await _subscriptionService.GetSuperAdminOverviewAsync();
+            return Ok(stats);
         }
 
         [Authorize(Roles = "SuperAdmin")]
@@ -71,6 +86,9 @@ namespace Tablo.Api.Controllers
             {
                 return StatusCode(500, new { message = "System Error: Admin role not found." });
             }
+
+            var plan = await _context.Plans.FirstOrDefaultAsync(p => p.Code == "basic")
+                       ?? await _context.Plans.FirstOrDefaultAsync();
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -100,6 +118,36 @@ namespace Tablo.Api.Controllers
                     IsActive = true
                 };
                 _context.Employees.Add(adminEmployee);
+
+                // 5. Create Default Subscription
+                if (plan != null)
+                {
+                    var subscription = new Subscription
+                    {
+                        Id = Guid.NewGuid(),
+                        RestaurantId = restaurant.Id,
+                        PlanId = plan.Id,
+                        Status = SubscriptionStatus.Active,
+                        StartDateUtc = DateTime.UtcNow,
+                        EndDateUtc = DateTime.UtcNow.AddYears(1),
+                        AutoRenew = true,
+                        Notes = "Onboarded by Super Admin"
+                    };
+                    _context.Subscriptions.Add(subscription);
+
+                    _context.SubscriptionAuditLogs.Add(new SubscriptionAuditLog
+                    {
+                        Id = Guid.NewGuid(),
+                        RestaurantId = restaurant.Id,
+                        SubscriptionId = subscription.Id,
+                        ActorEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "superadmin@tablo.local",
+                        Action = "Created",
+                        ToPlanId = plan.Id,
+                        ToStatus = SubscriptionStatus.Active,
+                        Reason = "New tenant onboarding",
+                        TimestampUtc = DateTime.UtcNow
+                    });
+                }
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -136,6 +184,10 @@ namespace Tablo.Api.Controllers
                         .Where(e => e.RestaurantId == r.Id && e.RoleId == adminRole.Id)
                         .Select(e => (bool?)e.IsActive)
                         .FirstOrDefault() ?? false,
+                    PlanCode = r.Subscription != null ? r.Subscription.Plan.Code : "none",
+                    PlanName = r.Subscription != null ? r.Subscription.Plan.Name : "No Plan",
+                    SubscriptionStatus = r.Subscription != null ? r.Subscription.Status.ToString() : "None",
+                    OutletsCount = r.Outlets.Count(),
                     ActiveUsers = _context.Employees
                         .Where(e => e.RestaurantId == r.Id && e.IsActive)
                         .Select(e => new {
@@ -175,6 +227,104 @@ namespace Tablo.Api.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = $"Tenant status updated to {(newState ? "Active" : "Disabled")}.", isActive = newState });
+        }
+
+        [Authorize(Roles = "SuperAdmin")]
+        [HttpGet("plans")]
+        public async Task<IActionResult> GetPlans()
+        {
+            var plans = await _subscriptionService.GetPlansAsync();
+            return Ok(plans);
+        }
+
+        [Authorize(Roles = "SuperAdmin")]
+        [HttpPut("plans/{planId}")]
+        public async Task<IActionResult> UpdatePlanFeatures(Guid planId, [FromBody] UpdatePlanFeaturesRequestDto request)
+        {
+            var actor = User.FindFirst(ClaimTypes.Email)?.Value ?? "superadmin@tablo.local";
+            try
+            {
+                var updated = await _subscriptionService.UpdatePlanFeaturesAsync(planId, request, actor);
+                return Ok(updated);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "SuperAdmin")]
+        [HttpGet("subscriptions")]
+        public async Task<IActionResult> GetSubscriptions()
+        {
+            var list = await _context.Subscriptions
+                .Include(s => s.Plan)
+                .Include(s => s.Restaurant)
+                .OrderByDescending(s => s.UpdatedAtUtc)
+                .Select(s => new SubscriptionDto
+                {
+                    Id = s.Id,
+                    RestaurantId = s.RestaurantId,
+                    RestaurantName = s.Restaurant.Name,
+                    PlanId = s.PlanId,
+                    PlanCode = s.Plan.Code,
+                    PlanName = s.Plan.Name,
+                    Status = s.Status.ToString(),
+                    StartDateUtc = s.StartDateUtc,
+                    EndDateUtc = s.EndDateUtc,
+                    AutoRenew = s.AutoRenew,
+                    Notes = s.Notes
+                })
+                .ToListAsync();
+
+            return Ok(list);
+        }
+
+        [Authorize(Roles = "SuperAdmin")]
+        [HttpPost("subscriptions/{restaurantId}/change-plan")]
+        public async Task<IActionResult> ChangeSubscription(Guid restaurantId, [FromBody] ChangeSubscriptionRequestDto request)
+        {
+            var actor = User.FindFirst(ClaimTypes.Email)?.Value ?? "superadmin@tablo.local";
+            try
+            {
+                var result = await _subscriptionService.ChangeSubscriptionAsync(restaurantId, request, actor);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "SuperAdmin")]
+        [HttpGet("subscriptions/{restaurantId}/preview")]
+        public async Task<IActionResult> PreviewPlanChange(Guid restaurantId, [FromQuery] string targetPlanCode)
+        {
+            try
+            {
+                var preview = await _subscriptionService.PreviewPlanChangeAsync(restaurantId, targetPlanCode);
+                return Ok(preview);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "SuperAdmin")]
+        [HttpGet("audit-logs")]
+        public async Task<IActionResult> GetAuditLogs([FromQuery] Guid? restaurantId = null, [FromQuery] int limit = 100)
+        {
+            var logs = await _subscriptionService.GetAuditLogsAsync(restaurantId, limit);
+            return Ok(logs);
         }
     }
 }

@@ -4,6 +4,7 @@ namespace Tablo.Api.DTOs
 {
     public class CreateOrderRequestDto
     {
+        public Guid? DiningGroupId { get; set; }
         [Required]
         public string QRToken { get; set; } = string.Empty;
 

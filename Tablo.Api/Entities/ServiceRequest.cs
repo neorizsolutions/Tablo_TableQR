@@ -10,6 +10,8 @@ namespace Tablo.Api.Entities
         public Guid RestaurantId { get; set; }
         public Restaurant Restaurant { get; set; } = null!;
         
+        public Guid? DiningGroupId { get; set; }
+        public DiningGroup? DiningGroup { get; set; }
         public Guid TableId { get; set; }
         public RestaurantTable Table { get; set; } = null!;
         

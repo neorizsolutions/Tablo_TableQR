@@ -249,5 +249,41 @@ namespace Tablo.Api.Controllers
 
             return Ok(new { message = "Password reset successfully." });
         }
+
+        [HttpPost("{id}/pin")]
+        public async Task<IActionResult> SetManagerPin(Guid id, [FromBody] SetManagerPinRequestDto request, [FromServices] Services.ManagerAuthService managerAuth)
+        {
+            var restaurantId = User.GetRestaurantId();
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var success = await managerAuth.SetPinAsync(restaurantId, id, request.Pin);
+            if (!success)
+            {
+                return NotFound(new { message = "Employee not found or not eligible for manager PIN." });
+            }
+
+            return Ok(new { message = "Manager PIN set successfully." });
+        }
+
+        [Authorize(Roles = "Admin,Waiter,Kitchen")]
+        [HttpPost("verify-pin")]
+        public async Task<IActionResult> VerifyManagerPin([FromBody] VerifyManagerPinRequestDto request, [FromServices] Services.ManagerAuthService managerAuth)
+        {
+            var restaurantId = User.GetRestaurantId();
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var (success, employee, errorMessage) = await managerAuth.VerifyAndRecordManagerPinAsync(restaurantId, request.Pin, null);
+            if (!success || employee == null)
+            {
+                return Unauthorized(new { message = errorMessage ?? "Invalid or locked manager PIN." });
+            }
+
+            return Ok(new
+            {
+                id = employee.Id,
+                name = employee.FullName,
+                role = employee.Role?.Name ?? "Admin"
+            });
+        }
     }
 }

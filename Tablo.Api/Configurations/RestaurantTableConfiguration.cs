@@ -10,6 +10,7 @@ namespace Tablo.Api.Configurations
         {
             builder.ToTable("RestaurantTables");
             builder.HasKey(t => t.Id);
+            builder.HasAlternateKey(t => new { t.RestaurantId, t.Id });
 
             builder.Property(t => t.TableNumber).IsRequired();
             builder.HasIndex(t => new { t.RestaurantId, t.TableNumber }).IsUnique();

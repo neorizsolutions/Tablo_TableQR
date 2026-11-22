@@ -40,7 +40,7 @@ export const menu: MenuItem[] = [
   { id: "m8", name: "Molten Chocolate Cake", description: "Warm chocolate, vanilla bean ice cream", price: 260, image: cake, category: "Desserts", available: true, popular: true },
 ];
 
-export type OrderStatus = "placed" | "preparing" | "ready" | "served";
+export type OrderStatus = "placed" | "accepted" | "preparing" | "ready" | "served" | "cancelled" | "rejected";
 
 export interface OrderItem {
   itemId: string;

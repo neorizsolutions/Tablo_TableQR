@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Tablo.Api.Constants;
 using Tablo.Api.Entities;
 
 namespace Tablo.Api.Data
@@ -15,6 +17,8 @@ namespace Tablo.Api.Data
             {
                 throw new InvalidOperationException("Database schema is missing or invalid. Please ensure all migrations are applied before starting the API.", ex);
             }
+
+            EnsurePlansAndSubscriptions(context);
 
             if (rolesExist)
             {
@@ -182,6 +186,117 @@ namespace Tablo.Api.Data
 
             context.SaveChanges();
             Console.WriteLine("Database seeded successfully with 1 restaurant, 3 roles, 3 employees, 10 tables, 4 categories, and 20 menu items.");
+
+            EnsurePlansAndSubscriptions(context);
+        }
+
+        public static void EnsurePlansAndSubscriptions(ApplicationDbContext context)
+        {
+            bool changesMade = false;
+
+            // 1. Seed Plans if not present
+            if (!context.Plans.Any())
+            {
+                var basicPlan = new Plan
+                {
+                    Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                    Code = "basic",
+                    Name = "Basic Plan",
+                    Description = "QR menu and ordering, kitchen display, standard billing, and basic sales reports.",
+                    MonthlyPriceInr = 999m,
+                    MaxOutlets = 1,
+                    MaxTables = 15,
+                    MaxKitchenStations = 1,
+                    FeaturesJson = JsonSerializer.Serialize(Capabilities.BasicDefaults),
+                    DisplayOrder = 1,
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    UpdatedAtUtc = DateTime.UtcNow
+                };
+
+                var plusPlan = new Plan
+                {
+                    Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                    Code = "plus",
+                    Name = "Plus Plan",
+                    Description = "Basic features plus staff ordering, dining groups, split bills, mixed payments, table transfers, and advanced payment reports.",
+                    MonthlyPriceInr = 2499m,
+                    MaxOutlets = 3,
+                    MaxTables = 40,
+                    MaxKitchenStations = 2,
+                    FeaturesJson = JsonSerializer.Serialize(Capabilities.PlusDefaults),
+                    DisplayOrder = 2,
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    UpdatedAtUtc = DateTime.UtcNow
+                };
+
+                var premiumPlan = new Plan
+                {
+                    Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                    Code = "premium",
+                    Name = "Premium Plan",
+                    Description = "Plus features plus inventory, recipe costing, stocktakes, purchasing, batch and expiry tracking, advanced stock and profit reports, and outlet stock transfers.",
+                    MonthlyPriceInr = 4999m,
+                    MaxOutlets = 10,
+                    MaxTables = 100,
+                    MaxKitchenStations = 5,
+                    FeaturesJson = JsonSerializer.Serialize(Capabilities.PremiumDefaults),
+                    DisplayOrder = 3,
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    UpdatedAtUtc = DateTime.UtcNow
+                };
+
+                context.Plans.AddRange(basicPlan, plusPlan, premiumPlan);
+                context.SaveChanges();
+                changesMade = true;
+            }
+
+            // 2. Ensure each restaurant has an active subscription (backfill with Premium to preserve existing access)
+            var premium = context.Plans.FirstOrDefault(p => p.Code == "premium");
+            if (premium != null)
+            {
+                var restaurants = context.Restaurants.ToList();
+                foreach (var rest in restaurants)
+                {
+                    var sub = context.Subscriptions.FirstOrDefault(s => s.RestaurantId == rest.Id);
+                    if (sub == null)
+                    {
+                        var newSub = new Subscription
+                        {
+                            Id = Guid.NewGuid(),
+                            RestaurantId = rest.Id,
+                            PlanId = premium.Id,
+                            Status = SubscriptionStatus.Active,
+                            StartDateUtc = DateTime.UtcNow.AddMonths(-1),
+                            EndDateUtc = DateTime.UtcNow.AddYears(1),
+                            AutoRenew = true,
+                            Notes = "Initial provision / Migration backfill to preserve all existing capabilities."
+                        };
+                        context.Subscriptions.Add(newSub);
+
+                        context.SubscriptionAuditLogs.Add(new SubscriptionAuditLog
+                        {
+                            Id = Guid.NewGuid(),
+                            RestaurantId = rest.Id,
+                            SubscriptionId = newSub.Id,
+                            ActorEmail = "system@tablo.local",
+                            Action = "Created",
+                            ToPlanId = premium.Id,
+                            ToStatus = SubscriptionStatus.Active,
+                            Reason = "Automatic backfill to preserve full restaurant capabilities on subscription rollout.",
+                            TimestampUtc = DateTime.UtcNow
+                        });
+                        changesMade = true;
+                    }
+                }
+
+                if (changesMade)
+                {
+                    context.SaveChanges();
+                }
+            }
         }
     }
 }

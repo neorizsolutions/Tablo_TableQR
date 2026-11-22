@@ -25,6 +25,13 @@ namespace Tablo.Api.DTOs
         public string? ImageUrl { get; set; }
         
         public IFormFile? ImageFile { get; set; }
+
+        public Guid? KitchenStationId { get; set; }
+
+        public bool IsRefillEligible { get; set; } = false;
+        public int? RefillMaxCount { get; set; }
+        public Guid? RefillKitchenStationId { get; set; }
+        public List<Guid>? ModifierGroupIds { get; set; }
     }
 }
 

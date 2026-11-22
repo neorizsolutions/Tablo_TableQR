@@ -35,6 +35,7 @@ export function useActiveServiceRequests(restaurantId: string | null) {
       .withAutomaticReconnect()
       .build();
 
+    connection.on("BillUpdated", () => { void queryClient.invalidateQueries({ queryKey: ["serviceRequests", restaurantId] }); });
     connection.on("NewServiceRequest", (sr: ServiceRequest) => {
       queryClient.setQueryData(queryKey, (oldData: ServiceRequest[] | undefined) => {
         if (!oldData) return [sr];
@@ -83,11 +84,11 @@ export function useManageServiceRequest() {
   });
 }
 
-export function useCreateServiceRequest(qrToken: string | null) {
+export function useCreateServiceRequest(qrToken: string | null,diningGroupId?:string) {
   return useMutation({
     mutationFn: async (type: string) => {
       if (!qrToken) throw new Error("No QR token provided");
-      return createServiceRequest(qrToken, type);
+      return createServiceRequest(qrToken, type,diningGroupId);
     },
     onSuccess: () => {
       toast.success("Request sent to staff!");
@@ -98,10 +99,10 @@ export function useCreateServiceRequest(qrToken: string | null) {
   });
 }
 
-export function useTableActiveServiceRequests(qrToken: string | null) {
+export function useTableActiveServiceRequests(qrToken: string | null,diningGroupId?:string) {
   return useQuery({
-    queryKey: ["serviceRequests", "table", qrToken],
-    queryFn: () => getTableActiveServiceRequests(qrToken!),
+    queryKey: ["serviceRequests", "table", qrToken,diningGroupId],
+    queryFn: () => getTableActiveServiceRequests(qrToken!,diningGroupId),
     enabled: !!qrToken,
     refetchInterval: 15000, // Poll every 15 seconds
   });

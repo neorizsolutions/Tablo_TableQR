@@ -28,7 +28,13 @@ namespace Tablo.Api.Repositories
         public async Task<List<Category>> GetMenuCategoriesAsync(Guid restaurantId, CancellationToken cancellationToken = default)
         {
             return await _context.Categories
+                .Include(c => c.KitchenStation)
                 .Include(c => c.MenuItems.Where(m => m.IsAvailable && !m.IsDeleted))
+                    .ThenInclude(m => m.KitchenStation)
+                .Include(c => c.MenuItems.Where(m => m.IsAvailable && !m.IsDeleted))
+                    .ThenInclude(m => m.ModifierGroups)
+                        .ThenInclude(mmg => mmg.ModifierGroup)
+                            .ThenInclude(mg => mg.Options)
                 .Where(c => c.RestaurantId == restaurantId && c.MenuItems.Any(m => m.IsAvailable && !m.IsDeleted))
                 .OrderBy(c => c.DisplayOrder)
                 .ToListAsync(cancellationToken);
@@ -37,7 +43,13 @@ namespace Tablo.Api.Repositories
         public async Task<List<Category>> GetAdminMenuCategoriesAsync(Guid restaurantId, CancellationToken cancellationToken = default)
         {
             return await _context.Categories
+                .Include(c => c.KitchenStation)
                 .Include(c => c.MenuItems.Where(m => !m.IsDeleted))
+                    .ThenInclude(m => m.KitchenStation)
+                .Include(c => c.MenuItems.Where(m => !m.IsDeleted))
+                    .ThenInclude(m => m.ModifierGroups)
+                        .ThenInclude(mmg => mmg.ModifierGroup)
+                            .ThenInclude(mg => mg.Options)
                 .Where(c => c.RestaurantId == restaurantId)
                 .OrderBy(c => c.DisplayOrder)
                 .ToListAsync(cancellationToken);

@@ -10,11 +10,14 @@ namespace Tablo.Api.Configurations
         {
             builder.ToTable("Employees");
             builder.HasKey(e => e.Id);
+            builder.HasAlternateKey(e => new { e.RestaurantId, e.Id });
 
             builder.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
             builder.Property(e => e.LastName).IsRequired().HasMaxLength(100);
             builder.Property(e => e.Email).IsRequired().HasMaxLength(255);
             builder.Property(e => e.PasswordHash).IsRequired().HasMaxLength(500);
+            builder.Property(e => e.ManagerPinHash).HasMaxLength(255);
+            builder.Property(e => e.FailedPinAttempts).HasDefaultValue(0);
 
             builder.HasIndex(e => e.Email).IsUnique();
             builder.HasIndex(e => e.RestaurantId);

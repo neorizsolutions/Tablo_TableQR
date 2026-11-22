@@ -25,7 +25,7 @@ let mockOrders: Order[] = [
       { id: "item1", menu_item_id: "m4", name: "Grilled Atlantic Salmon", qty: 2, price: 580 },
       { id: "item2", menu_item_id: "m6", name: "Mint Lemonade", qty: 2, price: 150 },
     ],
-    total: 1460,
+    subtotal: 1460, tax: 73, discount: 0, total: 1533,
     status: "preparing",
     placed_at: new Date(Date.now() - 6 * 60_000).toISOString(),
   },
@@ -38,7 +38,7 @@ let mockOrders: Order[] = [
       { id: "item3", menu_item_id: "m3", name: "Wild Mushroom Risotto", qty: 1, price: 420 },
       { id: "item4", menu_item_id: "m8", name: "Molten Chocolate Cake", qty: 1, price: 260 },
     ],
-    total: 680,
+    subtotal: 680, tax: 34, discount: 0, total: 714,
     status: "placed",
     placed_at: new Date(Date.now() - 2 * 60_000).toISOString(),
   },
@@ -79,9 +79,14 @@ export async function getMenu(restaurantId: string): Promise<MenuItem[]> {
             price: item.price,
             image: getFullImageUrl(item.imageUrl) || imageFor(item.name),
             category: cat.name,
-            available: true, // DB only returns available items in this endpoint per our repository logic
+            available: item.isAvailable ?? true,
             popular: false,
             special: false,
+            isRefillEligible: item.isRefillEligible,
+            refillMaxCount: item.refillMaxCount,
+            refillKitchenStationId: item.refillKitchenStationId,
+            kitchenStationId: item.kitchenStationId,
+            modifierGroups: item.modifierGroups || []
           });
         }
       }
@@ -103,7 +108,8 @@ export async function getActiveOrders(restaurantId: string): Promise<Order[]> {
     .map(dto => ({
       id: dto.id,
       order_number: dto.orderNumber,
-      table_number: dto.tableNumber,
+      group_label: dto.groupLabel, dining_group_id:dto.diningGroupId,
+    table_number: dto.tableNumber,
       table_id: dto.tableId,
       status: dto.status.toLowerCase() as OrderStatus,
       subtotal: dto.subtotal,
@@ -116,7 +122,14 @@ export async function getActiveOrders(restaurantId: string): Promise<Order[]> {
         menu_item_id: item.menuItemId,
         name: item.name,
         qty: item.quantity,
-        price: item.unitPrice
+        price: item.unitPrice,
+        release_state: item.releaseState,
+        course_name: item.courseName,
+        modifiers_json: item.modifiersJson,
+        is_refill: item.isRefill,
+        refill_count: item.refillCount,
+        cancelled_quantity: item.cancelledQuantity,
+        is_cancelled: item.isCancelled
       })),
       exception_reason: dto.exceptionReason
     }))
@@ -141,10 +154,30 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, re
   });
 }
 
-export async function placeOrder(qrToken: string, items: { item: MenuItem; qty: number }[]): Promise<{ orderId: string }> {
+export async function placeOrder(
+  qrToken: string,
+  items: {
+    item: MenuItem;
+    qty: number;
+    selectedModifiers?: { modifierGroupId: string; modifierOptionId: string; optionName?: string; priceDelta?: number }[];
+    specialInstructions?: string;
+  }[],
+  diningGroupId?: string
+): Promise<{ orderId: string }> {
   const payload = {
     qrToken,
-    items: items.map((i) => ({ menuItemId: i.item.id, quantity: i.qty })),
+    diningGroupId,
+    items: items.map((i) => ({
+      menuItemId: i.item.id,
+      quantity: i.qty,
+      specialInstructions: i.specialInstructions || undefined,
+      selectedModifiers: i.selectedModifiers && i.selectedModifiers.length > 0
+        ? i.selectedModifiers.map((m) => ({
+            modifierGroupId: m.modifierGroupId,
+            modifierOptionId: m.modifierOptionId,
+          }))
+        : undefined,
+    })),
   };
   return apiClient<{ orderId: string }>(`/orders`, {
     method: "POST",
@@ -159,6 +192,7 @@ export async function getOrderById(restaurantId: string, orderId: string): Promi
   return {
     id: res.id,
     order_number: res.orderNumber,
+    group_label: res.groupLabel, dining_group_id:res.diningGroupId,
     table_number: res.tableNumber,
     table_id: res.tableId,
     status: res.status.toLowerCase() as OrderStatus,
@@ -209,8 +243,10 @@ export async function getAdminMenu(restaurantId: string): Promise<{categories: a
             price: item.price,
             image: getFullImageUrl(item.imageUrl) || imageFor(item.name),
             category: cat.name,
+            categoryName: cat.name,
             categoryId: cat.id, // we should pass categoryId for edits!
             available: item.isAvailable,
+            packagingFee: item.packagingFee ?? 0,
             popular: false,
             special: false,
           } as any);
@@ -251,6 +287,7 @@ export interface QRResolution {
   restaurantName: string;
   restaurantTagline: string;
   tableId: string;
+  diningGroups: {id:string;label:string;tableId:string}[];
   tableNameOrNumber: string;
   isAcceptingOrders: boolean;
 }
@@ -259,8 +296,8 @@ export async function resolveQRToken(qrToken: string): Promise<QRResolution> {
   return apiClient<QRResolution>(`/qr/${qrToken}`);
 }
 
-export async function getActiveOrderForTable(qrToken: string): Promise<any> {
-  return await apiClient<any>(`/qr/${qrToken}/active-order`);
+export async function getActiveOrderForTable(qrToken: string,diningGroupId?: string): Promise<any> {
+  return await apiClient<any>(`/qr/${qrToken}/active-order${diningGroupId?`?diningGroupId=${diningGroupId}`:""}`);
 }
 
 export async function getTables(restaurantId: string): Promise<Table[]> {
@@ -307,6 +344,10 @@ export async function createMenuItemApi(restaurantId: string, categoryId: string
   if (item.description) formData.append('description', item.description);
   if (item.price !== undefined) formData.append('price', item.price.toString());
   formData.append('isAvailable', (item.available ?? true).toString());
+  if (item.isRefillEligible !== undefined) formData.append('isRefillEligible', item.isRefillEligible.toString());
+  if (item.refillMaxCount !== undefined) formData.append('refillMaxCount', item.refillMaxCount.toString());
+  if (item.refillKitchenStationId) formData.append('refillKitchenStationId', item.refillKitchenStationId);
+  if (item.kitchenStationId) formData.append('kitchenStationId', item.kitchenStationId);
   if (item.imageFile) {
     formData.append('imageFile', item.imageFile);
   } else if (item.image) {
@@ -325,6 +366,10 @@ export async function updateMenuItemApi(itemId: string, categoryId: string, item
   if (item.name) formData.append('name', item.name);
   if (item.description) formData.append('description', item.description);
   if (item.price !== undefined) formData.append('price', item.price.toString());
+  if (item.isRefillEligible !== undefined) formData.append('isRefillEligible', item.isRefillEligible.toString());
+  if (item.refillMaxCount !== undefined) formData.append('refillMaxCount', item.refillMaxCount.toString());
+  if (item.refillKitchenStationId) formData.append('refillKitchenStationId', item.refillKitchenStationId);
+  if (item.kitchenStationId) formData.append('kitchenStationId', item.kitchenStationId);
   if (item.imageFile) {
     formData.append('imageFile', item.imageFile);
   } else if (item.image) {
@@ -575,10 +620,10 @@ export async function updateAcceptingOrders(restaurantId: string, isAcceptingOrd
 
 import { ServiceRequest } from "@/types";
 
-export async function createServiceRequest(qrToken: string, type: string): Promise<ServiceRequest> {
+export async function createServiceRequest(qrToken: string, type: string,diningGroupId?:string): Promise<ServiceRequest> {
   return apiClient<ServiceRequest>(`/ServiceRequests/qr/${qrToken}`, {
     method: 'POST',
-    body: JSON.stringify({ type })
+    body: JSON.stringify({ type,diningGroupId })
   });
 }
 
@@ -586,8 +631,8 @@ export async function getActiveServiceRequests(): Promise<ServiceRequest[]> {
   return apiClient<ServiceRequest[]>('/ServiceRequests');
 }
 
-export async function getTableActiveServiceRequests(qrToken: string): Promise<ServiceRequest[]> {
-  return apiClient<ServiceRequest[]>(`/ServiceRequests/qr/${qrToken}`);
+export async function getTableActiveServiceRequests(qrToken: string,diningGroupId?:string): Promise<ServiceRequest[]> {
+  return apiClient<ServiceRequest[]>(`/ServiceRequests/qr/${qrToken}${diningGroupId?`?diningGroupId=${diningGroupId}`:""}`);
 }
 
 export async function acknowledgeServiceRequest(id: string): Promise<ServiceRequest> {
@@ -601,6 +646,189 @@ export async function completeServiceRequest(id: string): Promise<ServiceRequest
     method: 'PATCH'
   });
 }
+
+// Production Controls API (Hold/Fire, Modifiers, Refills, Cancellation)
+
+export interface FireOrderItemsRequest {
+  operationId: string;
+  orderItemIds?: string[];
+  courseName?: string;
+  firedByEmployeeId?: string;
+}
+
+export interface FiredItemsResponse {
+  orderId: string;
+  firedItemCount: number;
+  firedOrderItemIds: string[];
+  generatedKotTicketsCount: number;
+  kotTicketNumbers: string[];
+  message: string;
+}
+
+export async function fireOrderItems(orderId: string, data: FireOrderItemsRequest, restaurantId?: string): Promise<FiredItemsResponse> {
+  const url = restaurantId
+    ? `/restaurants/${restaurantId}/orders/${orderId}/fire-items`
+    : `/orders/${orderId}/fire-items`;
+  return apiClient<FiredItemsResponse>(url, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export interface CreateRefillRequest {
+  operationId: string;
+  quantity: number;
+  notes?: string;
+  actorEmployeeId?: string;
+}
+
+export interface RefillResponse {
+  orderId: string;
+  refillOrderItemId: string;
+  originalOrderItemId: string;
+  itemName: string;
+  quantity: number;
+  refillCount: number;
+  priceCharged: number;
+  kotTicketNumber: string;
+  message: string;
+}
+
+export async function createRefill(orderId: string, orderItemId: string, data: CreateRefillRequest, restaurantId?: string): Promise<RefillResponse> {
+  const url = restaurantId
+    ? `/restaurants/${restaurantId}/orders/${orderId}/items/${orderItemId}/refill`
+    : `/orders/${orderId}/items/${orderItemId}/refill`;
+  return apiClient<RefillResponse>(url, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export interface CancelOrderItemRequest {
+  operationId: string;
+  quantity: number;
+  outcome: "NotCooked" | "KitchenWaste";
+  reason: string;
+  managerPin?: string;
+  requestedByEmployeeId?: string;
+  approvedByEmployeeId?: string;
+}
+
+export interface ItemCancellationResponse {
+  cancellationLogId: string;
+  orderId: string;
+  orderItemId: string;
+  itemName: string;
+  quantityCancelled: number;
+  remainingQuantity: number;
+  productionOutcome: string;
+  newOrderTotal: number;
+  wastedCost?: number;
+  cancellationKotNoticeNumber?: string;
+  message: string;
+}
+
+export async function cancelOrderItem(orderId: string, orderItemId: string, data: CancelOrderItemRequest, restaurantId?: string): Promise<ItemCancellationResponse> {
+  const url = restaurantId
+    ? `/restaurants/${restaurantId}/orders/${orderId}/items/${orderItemId}/cancel`
+    : `/orders/${orderId}/items/${orderItemId}/cancel`;
+  return apiClient<ItemCancellationResponse>(url, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function verifyManagerPin(pin: string): Promise<{ id: string; name: string; role: string }> {
+  return apiClient<{ id: string; name: string; role: string }>('/employees/verify-pin', {
+    method: 'POST',
+    body: JSON.stringify({ pin })
+  });
+}
+
+export async function setManagerPin(employeeId: string, pin: string): Promise<{ message: string }> {
+  return apiClient<{ message: string }>(`/employees/${employeeId}/pin`, {
+    method: 'POST',
+    body: JSON.stringify({ pin })
+  });
+}
+
+export interface ModifierOption {
+  id: string;
+  modifierGroupId: string;
+  name: string;
+  priceDelta: number;
+  displayOrder: number;
+  isAvailable: boolean;
+  ingredientAdjustmentType: string;
+  ingredientId?: string;
+  ingredientName?: string;
+  ingredientQuantity: number;
+  originalIngredientId?: string;
+  originalIngredientName?: string;
+}
+
+export interface ModifierGroup {
+  id: string;
+  name: string;
+  minSelections: number;
+  maxSelections: number;
+  isRequired: boolean;
+  displayOrder: number;
+  isActive: boolean;
+  options: ModifierOption[];
+}
+
+export async function getModifierGroups(restaurantId: string): Promise<ModifierGroup[]> {
+  return apiClient<ModifierGroup[]>(`/restaurants/${restaurantId}/modifiers`);
+}
+
+export async function createModifierGroup(restaurantId: string, data: Partial<ModifierGroup>): Promise<ModifierGroup> {
+  return apiClient<ModifierGroup>(`/restaurants/${restaurantId}/modifiers`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function updateModifierGroup(groupId: string, data: Partial<ModifierGroup>): Promise<ModifierGroup> {
+  return apiClient<ModifierGroup>(`/modifiers/${groupId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function deleteModifierGroup(groupId: string): Promise<void> {
+  return apiClient<void>(`/modifiers/${groupId}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function createModifierOption(groupId: string, data: Partial<ModifierOption>): Promise<ModifierOption> {
+  return apiClient<ModifierOption>(`/modifiers/${groupId}/options`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function updateModifierOption(optionId: string, data: Partial<ModifierOption>): Promise<ModifierOption> {
+  return apiClient<ModifierOption>(`/modifiers/options/${optionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function deleteModifierOption(optionId: string): Promise<void> {
+  return apiClient<void>(`/modifiers/options/${optionId}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function assignModifierGroupsToItem(menuItemId: string, modifierGroupIds: string[]): Promise<void> {
+  return apiClient<void>(`/menu-items/${menuItemId}/modifier-groups`, {
+    method: 'POST',
+    body: JSON.stringify({ modifierGroupIds })
+  });
+}
+
 
 
 
