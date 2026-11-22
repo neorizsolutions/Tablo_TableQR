@@ -17,6 +17,21 @@ export interface StorefrontOutletSummary {
   closureReason?: string;
 }
 
+export interface UpdateStorefrontOutletSettingsRequest {
+  isOpen?: boolean;
+  isPublished?: boolean;
+  openingTime?: string;
+  closingTime?: string;
+  isOvernight?: boolean;
+  leadTimeMinutes?: number;
+  minOrderAmount?: number;
+  deliveryBaseFee?: number;
+  freeDeliveryAboveAmount?: number;
+  phone?: string;
+  isTemporarilyClosed?: boolean;
+  closureReason?: string;
+}
+
 export interface StorefrontOrderItem {
   menuItemId: string;
   name: string;
@@ -116,7 +131,7 @@ export const storefrontApi = {
       method: "GET",
     }),
 
-  updateOutletSettings: (outletId: string, settings: Partial<StorefrontOutletSummary>): Promise<StorefrontOutletSummary> =>
+  updateOutletSettings: (outletId: string, settings: UpdateStorefrontOutletSettingsRequest): Promise<StorefrontOutletSummary> =>
     apiClient<StorefrontOutletSummary>(`/storefront/admin/outlets/${outletId}`, {
       method: "PUT",
       body: JSON.stringify(settings),

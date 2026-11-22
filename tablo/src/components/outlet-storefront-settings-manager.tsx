@@ -14,7 +14,7 @@ import {
   Truck,
 } from "lucide-react";
 import { formatINR } from "@/lib/mock-data";
-import { storefrontApi, type StorefrontOutletSummary } from "@/services/storefront";
+import { storefrontApi, type StorefrontOutletSummary, type UpdateStorefrontOutletSettingsRequest } from "@/services/storefront";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -64,7 +64,7 @@ export function OutletStorefrontSettingsManager({ restaurantId }: { restaurantId
   }
 
   const updateMutation = useMutation({
-    mutationFn: (updated: Partial<StorefrontOutletSummary>) =>
+    mutationFn: (updated: UpdateStorefrontOutletSettingsRequest) =>
       storefrontApi.updateOutletSettings(activeOutlet.outletId, updated),
     onSuccess: () => {
       toast.success("Outlet settings saved successfully!");
