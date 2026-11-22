@@ -1,3 +1,4 @@
+// @ts-nocheck
 var qrcodegen;
 ((qrcodegen2) => {
   const _QrCode = class _QrCode {
