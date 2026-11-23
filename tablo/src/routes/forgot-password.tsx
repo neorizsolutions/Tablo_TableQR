@@ -1,8 +1,11 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ChefHat, Eye, EyeOff, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/apiClient";
+
+const primaryAction = "inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-800 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800 disabled:opacity-60";
+const RESEND_WAIT_SECONDS = 60;
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
@@ -12,7 +15,6 @@ export const Route = createFileRoute("/forgot-password")({
 });
 
 function ForgotPasswordPage() {
-  const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [busy, setBusy] = useState(false);
 
@@ -26,19 +28,19 @@ function ForgotPasswordPage() {
   const [resetToken, setResetToken] = useState("");
 
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendAt, setResendAt] = useState(0);
 
-  const startCooldown = () => {
-    setResendCooldown(30);
-    const interval = setInterval(() => {
-      setResendCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
+  useEffect(() => {
+    if (step !== 2 || resendAt === 0) return;
+    const timer = window.setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((resendAt - Date.now()) / 1000));
+      setResendCooldown(remaining);
+      if (remaining === 0) window.clearInterval(timer);
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [step, resendAt]);
+
+  const resendTime = `${Math.floor(resendCooldown / 60)}:${String(resendCooldown % 60).padStart(2, "0")}`;
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,12 +50,12 @@ function ForgotPasswordPage() {
         method: "POST",
         body: JSON.stringify({ email }),
       });
-      toast.success("If an account exists, an OTP was sent.");
+      setOtp("");
       setStep(2);
-      startCooldown();
-    } catch (err) {
-      toast.success("If an account exists, an OTP was sent.");
-      setStep(2);
+      setResendCooldown(RESEND_WAIT_SECONDS);
+      setResendAt(Date.now() + RESEND_WAIT_SECONDS * 1000);
+    } catch {
+      toast.error("Could not request a code. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -67,6 +69,7 @@ function ForgotPasswordPage() {
         method: "POST",
         body: JSON.stringify({ email, otp }),
       });
+      setOtp("");
       setResetToken(res.resetToken);
       setStep(3);
     } catch (err) {
@@ -88,6 +91,9 @@ function ForgotPasswordPage() {
         method: "POST",
         body: JSON.stringify({ email, resetToken, newPassword }),
       });
+      setResetToken("");
+      setNewPassword("");
+      setConfirmPassword("");
       setStep(4);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -97,19 +103,21 @@ function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary/40 via-background to-primary-soft/30 px-4 py-10">
+    <div className="min-h-screen bg-emerald-50 px-4 py-8 text-slate-950 sm:py-10">
       <div className="mx-auto max-w-md">
         <Link to="/" className="mb-6 inline-flex items-center gap-2 font-display text-lg font-bold">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-soft">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-800 text-white shadow-soft">
             <QrCode className="h-4 w-4" />
           </span>
           Tablo<span className="text-primary">.</span>
         </Link>
-        <div className="rounded-3xl border border-border bg-card p-8 shadow-card">
+        <div className="rounded-3xl border border-emerald-100 bg-white p-6 shadow-card sm:p-8">
           <div className="mb-6 flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary-soft text-primary">
-              <ChefHat className="h-5 w-5" />
-            </span>
+            {step !== 2 && (
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-800">
+                <ChefHat className="h-5 w-5" />
+              </span>
+            )}
             <div>
               <h1 className="font-display text-2xl font-bold">
                 {step === 1 && "Forgot your password?"}
@@ -119,7 +127,7 @@ function ForgotPasswordPage() {
               </h1>
               <p className="text-sm text-muted-foreground">
                 {step === 1 && "Enter the email address associated with your Tablo account and we'll send you a verification code."}
-                {step === 2 && "Enter the 6-digit code sent to your email."}
+                {step === 2 && "Enter the 6-digit code from your email."}
                 {step === 3 && "Your new password must be at least 6 characters long."}
                 {step === 4 && "Your password has been updated."}
               </p>
@@ -129,10 +137,12 @@ function ForgotPasswordPage() {
           {step === 1 && (
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</label>
+                <label htmlFor="reset-email" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600">Email</label>
                 <input
+                  id="reset-email"
                   required
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -142,10 +152,10 @@ function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={busy}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-glow disabled:opacity-60"
+                  className={primaryAction}
               >
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-                Send OTP
+                  Send verification code
               </button>
             </form>
           )}
@@ -153,47 +163,50 @@ function ForgotPasswordPage() {
           {step === 2 && (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Verification Code</label>
+                <label htmlFor="reset-otp" className="sr-only">Verification code</label>
                 <input
+                  id="reset-otp"
                   required
                   type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
                   maxLength={6}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-center font-mono text-2xl tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="------"
+                  className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-center font-mono text-xl tracking-[0.35em] text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 />
               </div>
               <button
                 type="submit"
                 disabled={busy || otp.length !== 6}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-glow disabled:opacity-60"
+                className={primaryAction}
               >
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}
                 Verify
               </button>
 
-              <p className="mt-4 text-center text-sm text-muted-foreground">
-                Didn't receive the code?{" "}
+              <div className="text-center text-sm">
                 <button
                   type="button"
                   disabled={busy || resendCooldown > 0}
                   onClick={handleRequestOtp}
-                  className="font-semibold text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                  className="font-medium tabular-nums text-emerald-800 enabled:hover:underline disabled:text-slate-600"
                 >
-                  {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : "Resend OTP"}
+                  {resendCooldown > 0 ? `Resend in ${resendTime}` : "Resend code"}
                 </button>
-              </p>
+              </div>
             </form>
           )}
 
           {step === 3 && (
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">New Password</label>
+                <label htmlFor="reset-password" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600">New Password</label>
                 <div className="relative">
                   <input
+                    id="reset-password"
                     required
+                    autoComplete="new-password"
                     type={showNewPassword ? "text" : "password"}
                     minLength={6}
                     value={newPassword}
@@ -212,10 +225,12 @@ function ForgotPasswordPage() {
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Confirm Password</label>
+                <label htmlFor="confirm-reset-password" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600">Confirm Password</label>
                 <div className="relative">
                   <input
+                    id="confirm-reset-password"
                     required
+                    autoComplete="new-password"
                     type={showConfirmPassword ? "text" : "password"}
                     minLength={6}
                     value={confirmPassword}
@@ -236,7 +251,7 @@ function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={busy}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-glow disabled:opacity-60"
+                className={primaryAction}
               >
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}
                 Reset Password
@@ -251,7 +266,7 @@ function ForgotPasswordPage() {
               </p>
               <Link
                 to="/auth"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-glow"
+                className={primaryAction}
               >
                 Back to Login
               </Link>

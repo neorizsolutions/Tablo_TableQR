@@ -39,7 +39,15 @@ test("4. Sidebar highlights exactly one item on /inventory (default stock view)"
   const active = computeActiveItem("/inventory", {});
   assert.equal(active.length, 1);
   assert.equal(active[0].id, "inventory-stock");
-  assert.equal(active[0].label, "Stock & Recipes");
+  assert.equal(active[0].label, "Ingredients & Stock");
+});
+
+test("Inventory preparations, suppliers and stock movements each have a direct sidebar entry", () => {
+  for (const tab of ["preparations", "suppliers", "movements"]) {
+    const active = computeActiveItem("/inventory", { tab });
+    assert.equal(active.length, 1);
+    assert.equal(active[0].search.tab, tab);
+  }
 });
 
 test("5. Sidebar highlights exactly one item on /inventory?tab=purchasing", () => {

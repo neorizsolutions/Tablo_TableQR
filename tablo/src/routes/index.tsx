@@ -33,6 +33,8 @@ import {
 import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
 import { useAuth } from "@/hooks/use-auth";
+import { useEffectiveAccess } from "@/hooks/use-effective-access";
+import { CAPABILITIES } from "@/config/navigation";
 import { publicPricingPlans } from "@/config/public-pricing";
 import { useOrders } from "@/hooks/use-orders";
 import { useActiveServiceRequests } from "@/hooks/use-service-requests";
@@ -68,7 +70,7 @@ function RootIndexPage() {
   if (loading) return null;
 
   // If user is authenticated as restaurant staff/admin/owner, show Executive Operational Overview
-  if (user && isStaff) {
+  if (user && (isStaff || user.role === "Owner")) {
     return <OperationalOverview />;
   }
 
@@ -82,6 +84,9 @@ function RootIndexPage() {
    ========================================================================== */
 function OperationalOverview() {
   const { user } = useAuth();
+  const { hasCapability } = useEffectiveAccess();
+  const showStockAlerts = (user?.role === "Admin" || user?.role === "Owner") &&
+    hasCapability(CAPABILITIES.InventoryCore);
   const restaurantId = user?.restaurantId || "22222222-0000-0000-0000-000000000001";
 
   const { data: orders = [], refetch: refetchOrders } = useOrders(restaurantId);
@@ -97,6 +102,7 @@ function OperationalOverview() {
     queryKey: ["ingredients", restaurantId],
     queryFn: () => getIngredients(restaurantId),
     refetchInterval: 30000,
+    enabled: showStockAlerts,
   });
 
   const tables = tablesQuery.data || [];
@@ -304,7 +310,7 @@ function OperationalOverview() {
             </Link>
 
             {/* 4. Low Stock Ingredients Alert */}
-            <Link
+            {showStockAlerts && <Link
               to="/inventory"
               search={{ tab: "ingredients" }}
               className={`group rounded-2xl border p-5 shadow-xs transition flex flex-col justify-between ${
@@ -339,7 +345,7 @@ function OperationalOverview() {
                 <span>Review Stock & POs</span>
                 <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
               </div>
-            </Link>
+            </Link>}
           </div>
 
           {/* Quick Floor Status Glance (10 Tables) */}

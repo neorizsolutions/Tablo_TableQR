@@ -34,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
+import { CAPABILITIES, NAVIGATION_REGISTRY } from "@/config/navigation";
 import { useEffectiveAccess } from "@/hooks/use-effective-access";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -137,7 +138,12 @@ function InventoryInner({ restaurantId }: { restaurantId: string }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const cache = useQueryClient();
 
-  const isInventoryAllowed = hasCapability("inventory_core");
+  const isInventoryAllowed = hasCapability(CAPABILITIES.InventoryCore);
+  const requiredCapabilities = NAVIGATION_REGISTRY.find(
+    (item) => item.to === "/inventory" && item.tabParam === tab,
+  )?.requiredCapabilities;
+  const canOpenTab = isInventoryAllowed &&
+    (!requiredCapabilities?.length || requiredCapabilities.some(hasCapability));
 
   const ingredientsQuery = useQuery({
     queryKey: ["inventory_ingredients", restaurantId],
@@ -154,7 +160,9 @@ function InventoryInner({ restaurantId }: { restaurantId: string }) {
   const lowStockCount = ingredientsQuery.data?.filter(i => i.isLowStock).length || 0;
   const unconfiguredCount = recipesQuery.data?.filter(r => !r.isConfigured).length || 0;
 
-  if (!accessLoading && !isInventoryAllowed) {
+  if (accessLoading) return null;
+
+  if (!canOpenTab) {
     return (
       <AppLayout>
         <div className="mx-auto max-w-xl px-4 py-16 text-center">
@@ -164,11 +172,10 @@ function InventoryInner({ restaurantId }: { restaurantId: string }) {
             </div>
             <h1 className="font-display text-2xl font-bold">Inventory & Recipe Costing</h1>
             <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              Requires Premium Plan
+              Inventory feature unavailable
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
-              Your restaurant is currently on the <span className="font-semibold capitalize text-foreground">{plan?.name || "Basic"}</span> tier.
-              Ingredient stock tracking, Thalassery biryani recipe yields, purchase orders, lots, and gross profit reports require the Premium plan.
+              Your restaurant’s <span className="font-semibold capitalize text-foreground">{plan?.name || "Basic"}</span> plan does not grant access to this inventory screen.
             </p>
             <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
               <Link

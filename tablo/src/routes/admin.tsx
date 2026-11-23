@@ -103,6 +103,7 @@ function AdminInner() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const currentTab = search.tab || "menu";
+  const isParcelTab = currentTab === "parcel";
   const isTablesTab = currentTab === "tables";
   const isCrmTab = currentTab === "crm";
   const isMarketplaceTab = currentTab === "marketplace";
@@ -216,7 +217,9 @@ function AdminInner() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-primary">Manager workspace</p>
               <h1 className="mt-1 font-display text-3xl font-bold">
-                {isTablesTab
+                {isParcelTab
+                  ? "Parcel Counter POS"
+                  : isTablesTab
                   ? "Tables & QR Codes"
                   : isCrmTab
                     ? "Customer CRM & Loyalty"
@@ -227,7 +230,9 @@ function AdminInner() {
                         : "Menu & Categories"}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                {isTablesTab
+                {isParcelTab
+                  ? "Direct walk-in parcel counter ordering, takeaway tokens, and instant payment settlements."
+                  : isTablesTab
                   ? "Configure dining tables, manage table status, and generate printable customer QR codes."
                   : isCrmTab
                     ? "Diner profiles, retry-safe loyalty points ledger, and receipt-linked guest feedback."
@@ -339,9 +344,28 @@ function AdminInner() {
               >
                 <Store className="h-4 w-4" /> Storefront & Outlets
               </Link>
+
+              <Link
+                to="/admin"
+                search={{ tab: "parcel" }}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isParcelTab
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+              >
+                <Package className="h-4 w-4" /> Parcel Counter
+              </Link>
             </div>
 
-            {isTablesTab ? (
+            {isParcelTab ? (
+              <div className="mt-6">
+                <ParcelCounter
+                  restaurantId={user!.restaurantId!}
+                  employeeId={user!.id}
+                  onClose={() => navigate({ search: { tab: "menu" } })}
+                />
+              </div>
+            ) : isTablesTab ? (
               <div className="mt-6">
                 <TablesWorkspaceView
                   restaurantId={user!.restaurantId!}

@@ -1,18 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   ChevronDown,
   ChevronRight,
   Lock,
-  Sparkles,
   ShieldCheck,
-  type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useEffectiveAccess } from "@/hooks/use-effective-access";
 import {
   NAVIGATION_REGISTRY,
-  CAPABILITIES,
   type NavItem,
 } from "@/config/navigation";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -36,16 +33,16 @@ export function AppSidebar({
   selectedOutletId,
 }: AppSidebarProps) {
   const { user, roles } = useAuth();
-  const { plan, hasCapability, isLoading } = useEffectiveAccess(selectedOutletId);
+  const { plan, hasCapability } = useEffectiveAccess(selectedOutletId);
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const currentSearch = (routerState.location.search || {}) as Record<string, any>;
 
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    inventory: false,
     operations: false,
+    management: false,
+    inventory: false,
     analytics: false,
-    admin: false,
   });
 
   const [lockedModal, setLockedModal] = useState<{
@@ -60,8 +57,6 @@ export function AppSidebar({
 
   const userRole = roles[0] || user?.role || "Staff";
   const isAdminOrOwner = userRole === "Admin" || userRole === "Owner";
-  const isWaiter = userRole === "Waiter";
-  const isKitchen = userRole === "Kitchen";
 
   // Filter items applicable to user's role
   const sections: SectionGroup[] = useMemo(() => {
@@ -76,9 +71,9 @@ export function AppSidebar({
     const groups: Record<string, NavItem[]> = {
       main: [],
       operations: [],
+      management: [],
       inventory: [],
       analytics: [],
-      admin: [],
     };
 
     for (const item of list) {
@@ -93,7 +88,10 @@ export function AppSidebar({
       result.push({ id: "main", label: "Dashboard", items: groups.main });
     }
     if (groups.operations.length > 0) {
-      result.push({ id: "operations", label: "Operations", items: groups.operations });
+      result.push({ id: "operations", label: "Floor & Operations", items: groups.operations });
+    }
+    if (groups.management.length > 0 && isAdminOrOwner) {
+      result.push({ id: "management", label: "Restaurant Management", items: groups.management });
     }
     if (groups.inventory.length > 0 && isAdminOrOwner) {
       result.push({ id: "inventory", label: "Inventory & Supply", items: groups.inventory });
@@ -101,12 +99,29 @@ export function AppSidebar({
     if (groups.analytics.length > 0 && isAdminOrOwner) {
       result.push({ id: "analytics", label: "Analytics & Reports", items: groups.analytics });
     }
-    if (groups.admin.length > 0 && isAdminOrOwner) {
-      result.push({ id: "admin", label: "Management", items: groups.admin });
-    }
 
     return result;
   }, [userRole, isAdminOrOwner]);
+
+  // Automatically expand group containing active item
+  useEffect(() => {
+    for (const sec of sections) {
+      if (sec.id === "main") continue;
+      const hasActive = sec.items.some((item) => {
+        const isPathMatch = currentPath === item.to;
+        const currentTab = currentSearch?.tab;
+        return (
+          isPathMatch &&
+          (item.tabParam
+            ? currentTab === item.tabParam || (!currentTab && !!item.isDefault)
+            : !currentTab || !!item.isDefault || !item.tabParam)
+        );
+      });
+      if (hasActive) {
+        setCollapsedSections((prev) => (prev[sec.id] ? { ...prev, [sec.id]: false } : prev));
+      }
+    }
+  }, [currentPath, currentSearch, sections]);
 
   const toggleSection = (sectionId: string) => {
     setCollapsedSections((prev) => ({
@@ -126,8 +141,9 @@ export function AppSidebar({
   };
 
   const renderNavContent = () => (
-    <div className="flex h-full flex-col justify-between py-3">
-      <div className="space-y-4 px-2">
+    <div className="flex h-full flex-col justify-between py-2">
+      {/* Scrollable Nav Item Sections */}
+      <div className="flex-1 overflow-y-auto px-2 space-y-4 pr-1">
         {sections.map((sec) => {
           const isCollapsed = !!collapsedSections[sec.id];
           return (
@@ -136,13 +152,13 @@ export function AppSidebar({
                 <button
                   type="button"
                   onClick={() => toggleSection(sec.id)}
-                  className="flex w-full items-center justify-between px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                  className="flex w-full items-center justify-between px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition"
                 >
                   <span>{sec.label}</span>
                   {isCollapsed ? (
-                    <ChevronRight className="h-3 w-3" />
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   ) : (
-                    <ChevronDown className="h-3 w-3" />
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
                 </button>
               )}
@@ -158,11 +174,11 @@ export function AppSidebar({
 
                     const isPathMatch = currentPath === item.to;
                     const currentTab = currentSearch?.tab;
-                    const isActive = isPathMatch && (
-                      item.tabParam
+                    const isActive =
+                      isPathMatch &&
+                      (item.tabParam
                         ? currentTab === item.tabParam || (!currentTab && !!item.isDefault)
-                        : !currentTab || !!item.isDefault || !item.tabParam
-                    );
+                        : !currentTab || !!item.isDefault || !item.tabParam);
                     const Icon = item.icon;
 
                     if (!isCapabilitySatisfied) {
@@ -214,7 +230,7 @@ export function AppSidebar({
       </div>
 
       {/* Sidebar Footer info */}
-      <div className="border-t border-border/60 p-3 mx-2">
+      <div className="border-t border-border/60 p-3 mx-2 mt-2 shrink-0">
         <div className="rounded-xl border border-border/80 bg-secondary/30 p-2.5 text-xs">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-foreground flex items-center gap-1">
@@ -238,7 +254,7 @@ export function AppSidebar({
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden md:flex md:w-56 lg:w-60 flex-col border-r border-border/80 bg-card/60 backdrop-blur shrink-0">
+      <aside className="hidden md:flex md:w-56 lg:w-60 flex-col border-r border-border/80 bg-card/60 backdrop-blur shrink-0 h-[calc(100vh-4rem)]">
         {renderNavContent()}
       </aside>
 

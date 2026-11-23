@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, Check, ChefHat, Filter, Flame, Loader2, LogIn, LogOut, PackageCheck, Printer, Search, ShieldAlert, ShoppingCart, Timer, UtensilsCrossed } from "lucide-react";
+import { Bell, Check, ChefHat, CreditCard, Filter, Flame, Loader2, LogIn, LogOut, PackageCheck, Printer, Search, ShieldAlert, ShoppingCart, Timer, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
@@ -107,7 +107,7 @@ function NoAccessGate({ roles, onSignOut }: { roles: string[]; onSignOut: () => 
 function DashboardInner() {
   const { signOut, user } = useAuth();
   const search = Route.useSearch();
-  const currentTab = search.tab === "order" ? "order" : search.tab === "kitchen" ? "kitchen" : "floor";
+  const currentTab = search.tab === "order" ? "order" : search.tab === "kitchen" ? "kitchen" : search.tab === "billing" ? "billing" : "floor";
   const searchTable = search.table;
   const searchGroup = search.group;
   const [showServiceDesk, setShowServiceDesk] = useState(false);
@@ -243,10 +243,22 @@ function DashboardInner() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                {currentTab === "order" ? "Direct table ordering" : currentTab === "kitchen" ? "Live kitchen display" : "Restaurant floor & billing"}
+                {currentTab === "order"
+                  ? "Direct table ordering"
+                  : currentTab === "kitchen"
+                  ? "Live kitchen display"
+                  : currentTab === "billing"
+                  ? "Table billing & payment settlements"
+                  : "Restaurant floor & billing"}
               </p>
               <h1 className="mt-1 font-display text-3xl font-bold">
-                {currentTab === "order" ? "Staff Order Taking" : currentTab === "kitchen" ? "Kitchen Production Queue" : "Floor & Table Orders"}
+                {currentTab === "order"
+                  ? "Staff Order Taking"
+                  : currentTab === "kitchen"
+                  ? "Kitchen Production Queue"
+                  : currentTab === "billing"
+                  ? "Table Billing & Settlements"
+                  : "Floor & Table Orders"}
               </h1>
               <p className="mt-1 text-xs text-muted-foreground">Signed in as {user?.email}</p>
             </div>
@@ -260,6 +272,58 @@ function DashboardInner() {
             </div>
           </div>
 
+          {/* Operational View Tabs */}
+          <div className="mt-6 flex flex-wrap gap-2 border-b border-border/60 pb-3">
+            <Link
+              to="/dashboard"
+              search={{ tab: "floor" }}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                currentTab === "floor"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <UtensilsCrossed className="h-4 w-4" /> Floor & Table Orders
+            </Link>
+            {canManageBills && (
+              <Link
+                to="/dashboard"
+                search={{ tab: "order" }}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  currentTab === "order"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                <ShoppingCart className="h-4 w-4" /> Staff Order Taking
+              </Link>
+            )}
+            <Link
+              to="/dashboard"
+              search={{ tab: "kitchen" }}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                currentTab === "kitchen"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <ChefHat className="h-4 w-4" /> Kitchen Queue
+            </Link>
+            {canManageBills && (
+              <Link
+                to="/dashboard"
+                search={{ tab: "billing" }}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  currentTab === "billing"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                <CreditCard className="h-4 w-4" /> Billing & Settlements
+              </Link>
+            )}
+          </div>
+
           {/* 1. DEDICATED STAFF ORDER TAKING WORKSPACE */}
           {currentTab === "order" && canManageBills && user?.restaurantId && (
             <div className="mt-6">
@@ -269,6 +333,19 @@ function DashboardInner() {
                 initialTableId={searchTable}
                 initialGroupId={searchGroup}
                 mode="order-only"
+              />
+            </div>
+          )}
+
+          {/* DEDICATED TABLE BILLING & SETTLEMENTS */}
+          {currentTab === "billing" && canManageBills && user?.restaurantId && (
+            <div className="mt-6">
+              <ServiceDesk
+                restaurantId={user.restaurantId}
+                employeeId={user.id}
+                initialTableId={searchTable}
+                initialGroupId={searchGroup}
+                mode="bills-only"
               />
             </div>
           )}
