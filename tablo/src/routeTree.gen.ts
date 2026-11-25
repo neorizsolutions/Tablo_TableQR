@@ -13,6 +13,7 @@ import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as StaffRouteImport } from './routes/staff'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as OrderRouteImport } from './routes/order'
+import { Route as MenuAccessRouteImport } from './routes/menu-access'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -39,6 +40,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const OrderRoute = OrderRouteImport.update({
   id: '/order',
   path: '/order',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MenuAccessRoute = MenuAccessRouteImport.update({
+  id: '/menu-access',
+  path: '/menu-access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InventoryRoute = InventoryRouteImport.update({
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/inventory': typeof InventoryRoute
+  '/menu-access': typeof MenuAccessRoute
   '/order': typeof OrderRoute
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/inventory': typeof InventoryRoute
+  '/menu-access': typeof MenuAccessRoute
   '/order': typeof OrderRoute
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/inventory': typeof InventoryRoute
+  '/menu-access': typeof MenuAccessRoute
   '/order': typeof OrderRoute
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/forgot-password'
     | '/inventory'
+    | '/menu-access'
     | '/order'
     | '/reports'
     | '/staff'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/forgot-password'
     | '/inventory'
+    | '/menu-access'
     | '/order'
     | '/reports'
     | '/staff'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/forgot-password'
     | '/inventory'
+    | '/menu-access'
     | '/order'
     | '/reports'
     | '/staff'
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   InventoryRoute: typeof InventoryRoute
+  MenuAccessRoute: typeof MenuAccessRoute
   OrderRoute: typeof OrderRoute
   ReportsRoute: typeof ReportsRoute
   StaffRoute: typeof StaffRoute
@@ -201,6 +214,13 @@ declare module '@tanstack/react-router' {
       path: '/order'
       fullPath: '/order'
       preLoaderRoute: typeof OrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/menu-access': {
+      id: '/menu-access'
+      path: '/menu-access'
+      fullPath: '/menu-access'
+      preLoaderRoute: typeof MenuAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inventory': {
@@ -262,6 +282,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   InventoryRoute: InventoryRoute,
+  MenuAccessRoute: MenuAccessRoute,
   OrderRoute: OrderRoute,
   ReportsRoute: ReportsRoute,
   StaffRoute: StaffRoute,

@@ -15,6 +15,7 @@ public static class NavigationAccess
         ["menu-management"] = new(new[] { "Admin", "Owner" }, new string[] { "menu_management" }),
         ["tables-qr"] = new(new[] { "Admin", "Owner" }, new string[] { "tables_qr" }),
         ["staff-management"] = new(new[] { "Admin", "Owner" }, new string[] {  }),
+        ["staff-menu-access"] = new(new[] { "Admin", "Owner" }, new string[] {  }),
         ["crm-loyalty"] = new(new[] { "Admin", "Owner" }, new string[] { "standard_billing" }),
         ["storefront-settings"] = new(new[] { "Admin", "Owner" }, new string[] { "standard_billing" }),
         ["marketplace-automation"] = new(new[] { "Admin", "Owner" }, new string[] { "standard_billing" }),
@@ -33,8 +34,8 @@ public static class NavigationAccess
         ["gross-profit-report"] = new(new[] { "Admin", "Owner" }, new string[] { "stock_profit_reports" }),
     };
     public static string[]? EffectiveOverride(Employee employee) => employee.AllowedMenuIds == null ? null :
-        employee.Role.Name is "Admin" or "Owner" ? employee.AllowedMenuIds.Append("staff-management").Distinct().ToArray() : employee.AllowedMenuIds;
+        employee.Role.Name is "Admin" or "Owner" ? employee.AllowedMenuIds.Concat(["staff-management", "staff-menu-access"]).Distinct().ToArray() : employee.AllowedMenuIds;
     public static bool RoleAllows(string role, string id) => Menus.TryGetValue(id, out var menu) && menu.Roles.Contains(role);
     public static bool Allows(Employee employee, IEnumerable<string> alternatives) => alternatives.Any(id =>
-        RoleAllows(employee.Role.Name, id) && (employee.AllowedMenuIds == null || employee.AllowedMenuIds.Contains(id) || (id == "staff-management" && employee.Role.Name is "Admin" or "Owner")));
+        RoleAllows(employee.Role.Name, id) && (employee.AllowedMenuIds == null || employee.AllowedMenuIds.Contains(id) || (id is "staff-management" or "staff-menu-access" && employee.Role.Name is "Admin" or "Owner")));
 }

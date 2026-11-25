@@ -54,7 +54,10 @@ public class NavigationAccessController(ApplicationDbContext db, ISubscriptionSe
             }
         }
         employee.AllowedMenuIds = ids;
+        // Older clients may omit the separate access-management menu.
+        // Keep administrator recovery available when saving their restrictions.
+        employee.AllowedMenuIds = NavigationAccess.EffectiveOverride(employee);
         await db.SaveChangesAsync();
-        return Ok(new MenuAccessDto(ids));
+        return Ok(new MenuAccessDto(employee.AllowedMenuIds));
     }
 }

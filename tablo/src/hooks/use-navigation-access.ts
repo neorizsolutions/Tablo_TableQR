@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./use-auth";
+import { getNavigationAccess } from "@/services/navigation-access";
 import { apiClient } from "@/services/apiClient";
 
 export interface MenuAccess {
@@ -17,7 +18,7 @@ export function useNavigationAccess() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["navigation-access", user?.restaurantId, user?.id],
-    queryFn: () => apiClient<MenuAccess>("/navigation-access"),
+    queryFn: getNavigationAccess,
     enabled: !!user?.restaurantId && user.role !== "SuperAdmin",
     staleTime: 0,
     refetchOnWindowFocus: "always",
