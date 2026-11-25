@@ -44,7 +44,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Kitchen,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter")]
         [HttpGet("/api/restaurants/{restaurantId}/orders")]
         public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders(Guid restaurantId, [FromQuery] string? status)
         {
@@ -103,7 +103,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Kitchen,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter")]
         [HttpPatch("{orderId}/status")]
         public async Task<ActionResult<OrderDto>> UpdateOrderStatus(Guid orderId, [FromBody] UpdateOrderStatusRequestDto request)
         {
@@ -133,7 +133,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Kitchen,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter")]
         [HttpPost("{orderId}/fire-items")]
         [HttpPost("/api/restaurants/{restaurantId}/orders/{orderId}/fire-items")]
         public async Task<ActionResult<FiredItemsResponseDto>> FireOrderItems(Guid orderId, [FromBody] FireOrderItemsRequestDto request, Guid? restaurantId = null)
@@ -175,7 +175,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Waiter")]
         [HttpPost("{orderId}/items/{orderItemId}/refill")]
         [HttpPost("/api/restaurants/{restaurantId}/orders/{orderId}/items/{orderItemId}/refill")]
         public async Task<ActionResult<RefillResponseDto>> CreateRefill(Guid orderId, Guid orderItemId, [FromBody] CreateRefillRequestDto request, Guid? restaurantId = null)
@@ -217,7 +217,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Kitchen,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter")]
         [HttpPost("{orderId}/items/{orderItemId}/cancel")]
         [HttpPost("/api/restaurants/{restaurantId}/orders/{orderId}/items/{orderItemId}/cancel")]
         public async Task<ActionResult<ItemCancellationResponseDto>> CancelOrderItem(Guid orderId, Guid orderItemId, [FromBody] CancelOrderItemRequestDto request, Guid? restaurantId = null)

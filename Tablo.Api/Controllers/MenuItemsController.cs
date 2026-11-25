@@ -12,7 +12,7 @@ using Tablo.Api.Extensions;
 namespace Tablo.Api.Controllers
 {
     [ApiController]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Owner")]
     [Route("api/menu-items/{menuItemId:guid}")]
     public class MenuItemsController : ControllerBase
     {

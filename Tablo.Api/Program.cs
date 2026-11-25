@@ -75,7 +75,8 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-builder.Services.AddControllers();
+builder.Services.AddScoped<Tablo.Api.Attributes.NavigationAccessFilter>();
+builder.Services.AddControllers(options => options.Filters.AddService<Tablo.Api.Attributes.NavigationAccessFilter>());
 builder.Services.AddSignalR();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IMenuRepository, Tablo.Api.Repositories.MenuRepository>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IMenuService, Tablo.Api.Services.MenuService>();
@@ -90,7 +91,9 @@ builder.Services.AddScoped<Tablo.Api.Services.InventoryService>();
 builder.Services.AddScoped<Tablo.Api.Services.InventoryReportService>();
 builder.Services.AddScoped<Tablo.Api.Services.StaffOrderingService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IAuthService, Tablo.Api.Services.AuthService>();
-builder.Services.AddScoped<Tablo.Api.Interfaces.IEmailService, Tablo.Api.Services.EmailService>();
+builder.Services.AddHttpClient<Tablo.Api.Interfaces.IEmailService, Tablo.Api.Services.EmailService>(
+    client => client.Timeout = TimeSpan.FromSeconds(10))
+    .RedactLoggedHeaders(new[] { "api-key" });
 builder.Services.AddScoped<Tablo.Api.Interfaces.IReportService, Tablo.Api.Services.ReportService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.IServiceRequestService, Tablo.Api.Services.ServiceRequestService>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.ISettingsService, Tablo.Api.Services.SettingsService>();

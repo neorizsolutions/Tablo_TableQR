@@ -48,7 +48,7 @@ public sealed class ServiceDeskTestHost : WebApplicationFactory<Program>
             config.Sources.Clear();
             config.AddInMemoryCollection(new Dictionary<string, string?> {
                 ["Jwt:Key"] = TestKey, ["Jwt:Issuer"] = "billing-tests", ["Jwt:Audience"] = "billing-tests",
-                ["AllowedOrigins:0"] = "http://localhost", ["SeedDummyData"] = "false",
+                ["AllowedOrigins:0"] = "http://localhost", ["SeedDummyData"] = "false", ["AutoMigrate"] = "false",
                 ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Database=unused;Username=unused"
             });
         });

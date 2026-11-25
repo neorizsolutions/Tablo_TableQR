@@ -24,8 +24,6 @@ import {
   Sliders,
   ShieldCheck,
   History,
-  LayoutDashboard,
-  LogOut,
   Plus,
   Search,
   CheckCircle2,
@@ -39,7 +37,11 @@ import {
   AlertCircle,
   Clock,
   Layers,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import { AppLayout } from "@/components/app-layout";
+import { SUPER_ADMIN_NAVIGATION } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +55,9 @@ import {
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/super-admin")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+  }),
   component: SuperAdminPage,
   head: () => ({
     meta: [{ title: "Super Admin Workspace — Tablo" }],
@@ -65,7 +70,7 @@ function SuperAdminPage() {
   const { user, signIn, signOut } = useAuth();
 
   if (user && user.role === "SuperAdmin") {
-    return <SuperAdminWorkspace onLogout={() => signOut("/super-admin")} />;
+    return <SuperAdminWorkspace />;
   }
 
   if (user) {
@@ -93,6 +98,7 @@ function SuperAdminPage() {
 function SuperAdminLogin({ onLogin }: { onLogin: (token: string) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -138,15 +144,26 @@ function SuperAdminLogin({ onLogin }: { onLogin: (token: string) => void }) {
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password</label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1"
-              />
+              <div className="relative mt-1">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition p-1"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
-            <Button disabled={busy} className="w-full mt-4" size="lg">
+            <Button type="submit" disabled={busy} className="w-full mt-4" size="lg">
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {busy ? "Authenticating..." : "Sign In to Workspace"}
             </Button>
@@ -160,108 +177,23 @@ function SuperAdminLogin({ onLogin }: { onLogin: (token: string) => void }) {
 /* ==========================================================================
    2. SUPER ADMIN WORKSPACE (Tabs: Overview, Tenants, Plans, Subscriptions, Audit)
    ========================================================================== */
-function SuperAdminWorkspace({ onLogout }: { onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
+function SuperAdminWorkspace() {
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const activeTab = SUPER_ADMIN_NAVIGATION.find((item) => item.tab === search.tab)?.tab ?? "overview";
+
+  const setActiveTab = (tab: TabType) => navigate({ search: { tab } });
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {/* Top Header */}
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-card/90 px-4 backdrop-blur sm:px-6">
-        <div className="flex items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-soft">
-            <QrCode className="h-4 w-4" />
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="font-display text-lg font-bold">
-              Tablo<span className="text-primary">.</span>
-            </span>
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
-              Platform Super Admin
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onLogout} className="gap-1.5 text-xs">
-            <LogOut className="h-3.5 w-3.5" /> Sign Out
-          </Button>
-        </div>
-      </header>
-
-      {/* Main Workspace Body: Tabs Bar + Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Navigation Tabs */}
-        <div className="border-b border-border/80 bg-secondary/30 px-4 sm:px-6">
-          <div className="flex space-x-1 overflow-x-auto py-2">
-            <TabButton
-              active={activeTab === "overview"}
-              onClick={() => setActiveTab("overview")}
-              icon={LayoutDashboard}
-              label="Overview"
-            />
-            <TabButton
-              active={activeTab === "tenants"}
-              onClick={() => setActiveTab("tenants")}
-              icon={Building2}
-              label="Restaurants"
-            />
-            <TabButton
-              active={activeTab === "plans"}
-              onClick={() => setActiveTab("plans")}
-              icon={Sliders}
-              label="Plans & Features"
-            />
-            <TabButton
-              active={activeTab === "subscriptions"}
-              onClick={() => setActiveTab("subscriptions")}
-              icon={ShieldCheck}
-              label="Subscriptions"
-            />
-            <TabButton
-              active={activeTab === "audit"}
-              onClick={() => setActiveTab("audit")}
-              icon={History}
-              label="Audit Log"
-            />
-          </div>
-        </div>
-
-        {/* Tab Content Panes */}
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
-          {activeTab === "overview" && <OverviewPane onNavigateTab={(t) => setActiveTab(t)} />}
-          {activeTab === "tenants" && <TenantsPane onManageSub={() => setActiveTab("subscriptions")} />}
-          {activeTab === "plans" && <PlansPane />}
-          {activeTab === "subscriptions" && <SubscriptionsPane />}
-          {activeTab === "audit" && <AuditLogPane />}
-        </main>
+    <AppLayout>
+      <div className="min-h-full p-4 sm:p-6">
+        {activeTab === "overview" && <OverviewPane onNavigateTab={setActiveTab} />}
+        {activeTab === "tenants" && <TenantsPane onManageSub={() => setActiveTab("subscriptions")} />}
+        {activeTab === "plans" && <PlansPane />}
+        {activeTab === "subscriptions" && <SubscriptionsPane />}
+        {activeTab === "audit" && <AuditLogPane />}
       </div>
-    </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  icon: Icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: any;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
-        active
-          ? "bg-card text-foreground shadow-xs border border-border"
-          : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
-      }`}
-    >
-      <Icon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground"}`} />
-      <span>{label}</span>
-    </button>
+    </AppLayout>
   );
 }
 

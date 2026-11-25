@@ -11,7 +11,7 @@ using Tablo.Api.Services;
 namespace Tablo.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles="Admin")]
+[Authorize(Roles="Admin,Owner")]
 [RequireCapability(Capabilities.AdvancedPaymentReports)]
 [Route("api/restaurants/{restaurantId:guid}/payment-reports")]
 public class PaymentReportsController(ApplicationDbContext db, PaymentReportService reports, BillingService billing) : ControllerBase

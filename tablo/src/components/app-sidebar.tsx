@@ -1,268 +1,306 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  ChevronDown,
-  ChevronRight,
-  Lock,
-  Sparkles,
-  ShieldCheck,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, LogOut, Menu, QrCode, ShieldCheck, Store } from "lucide-react";
+import { useNavigationAccess } from "@/hooks/use-navigation-access";
 import { useAuth } from "@/hooks/use-auth";
 import { useEffectiveAccess } from "@/hooks/use-effective-access";
-import {
-  NAVIGATION_REGISTRY,
-  CAPABILITIES,
-  type NavItem,
-} from "@/config/navigation";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { getDashboardTab, getEmployeeNavItems, isNavigationItemActive, SUPER_ADMIN_NAVIGATION } from "@/config/navigation";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { FeatureLockedModal } from "./feature-locked-modal";
+import { SubscriptionDetailsModal } from "./subscription-details-modal";
+
+const STORAGE_KEY = "tablo-sidebar-collapsed";
+const sections = [
+  ["main", "Workspace"],
+  ["operations", "Floor & Operations"],
+  ["management", "Restaurant Management"],
+  ["inventory", "Inventory & Supply"],
+  ["analytics", "Analytics & Reports"],
+  ["platform", "Platform Administration"],
+] as const;
 
 interface AppSidebarProps {
-  mobileOpen?: boolean;
-  onMobileOpenChange?: (open: boolean) => void;
   selectedOutletId?: string;
+  onSelectOutlet?: (outletId: string) => void;
 }
 
-interface SectionGroup {
-  id: string;
-  label: string;
-  items: NavItem[];
+function RailTooltip({ enabled, label, children }: { enabled: boolean; label: string; children: ReactElement }) {
+  return (
+    <Tooltip open={enabled ? undefined : false}>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={12} className="bg-foreground text-background shadow-md">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
-export function AppSidebar({
-  mobileOpen = false,
-  onMobileOpenChange,
-  selectedOutletId,
-}: AppSidebarProps) {
-  const { user, roles } = useAuth();
-  const { plan, hasCapability, isLoading } = useEffectiveAccess(selectedOutletId);
-  const routerState = useRouterState();
-  const currentPath = routerState.location.pathname;
-  const currentSearch = (routerState.location.search || {}) as Record<string, any>;
-
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    inventory: false,
-    operations: false,
-    analytics: false,
-    admin: false,
+export function AppSidebar({ selectedOutletId, onSelectOutlet }: AppSidebarProps) {
+  const { user, roles, signOut } = useAuth();
+  const permissions = useNavigationAccess();
+  const { access, hasCapability } = useEffectiveAccess(selectedOutletId);
+  const location = useRouterState({ select: (state) => state.location });
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
   });
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [subscriptionOpen, setSubscriptionOpen] = useState(false);
+  const [lockedFeature, setLockedFeature] = useState<{ label: string; plan: "Plus" | "Premium" }>();
 
-  const [lockedModal, setLockedModal] = useState<{
-    open: boolean;
-    featureName: string;
-    requiredPlan: "Plus" | "Premium";
-  }>({
-    open: false,
-    featureName: "",
-    requiredPlan: "Premium",
-  });
+  const role = roles[0] || user?.role || "Staff";
+  const platform = role === "SuperAdmin";
+  const brand = platform ? "Tablo Platform" : user?.restaurantName || "Tablo POS";
+  const roleLabel = role === "Admin" ? "Restaurant Admin" : platform ? "Super Admin" : role;
+  const profileName = user?.name || user?.email || roleLabel;
+  const outlets = access?.outlets;
+  const rawTab: unknown = "tab" in location.search ? location.search.tab : undefined;
+  const tab = typeof rawTab === "string" ? rawTab : undefined;
+  const activeTab = platform
+    ? SUPER_ADMIN_NAVIGATION.find((item) => item.tab === tab)?.tab ?? "overview"
+    : location.pathname === "/dashboard" ? getDashboardTab(tab, role) : tab;
+  const items = platform
+    ? SUPER_ADMIN_NAVIGATION.map((item) => ({
+        ...item,
+        tabParam: item.tab,
+        isDefault: item.tab === "overview",
+        requiredCapabilities: undefined,
+      }))
+    : getEmployeeNavItems(role, permissions.isError || !permissions.data ? [] : permissions.data.allowedMenuIds).filter((item) =>
+        !item.requiredRoles || item.requiredRoles.some((allowed) => allowed.toLowerCase() === role.toLowerCase()),
+      );
 
-  const userRole = roles[0] || user?.role || "Staff";
-  const isAdminOrOwner = userRole === "Admin" || userRole === "Owner";
-  const isWaiter = userRole === "Waiter";
-  const isKitchen = userRole === "Kitchen";
-
-  // Filter items applicable to user's role
-  const sections: SectionGroup[] = useMemo(() => {
-    const list = NAVIGATION_REGISTRY.filter((item) => {
-      // Role filtering
-      if (item.requiredRoles && !item.requiredRoles.some((r) => r.toLowerCase() === userRole.toLowerCase())) {
-        return false;
-      }
-      return true;
-    });
-
-    const groups: Record<string, NavItem[]> = {
-      main: [],
-      operations: [],
-      inventory: [],
-      analytics: [],
-      admin: [],
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const closeAtDesktop = () => {
+      if (desktop.matches) setMobileOpen(false);
     };
+    closeAtDesktop();
+    desktop.addEventListener("change", closeAtDesktop);
+    return () => desktop.removeEventListener("change", closeAtDesktop);
+  }, [mobileOpen]);
 
-    for (const item of list) {
-      if (groups[item.section]) {
-        groups[item.section].push(item);
-      }
+  function toggleCollapsed() {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, String(next));
+    } catch {
+      // The sidebar remains usable when browser storage is unavailable.
     }
+  }
 
-    const result: SectionGroup[] = [];
-
-    if (groups.main.length > 0) {
-      result.push({ id: "main", label: "Dashboard", items: groups.main });
-    }
-    if (groups.operations.length > 0) {
-      result.push({ id: "operations", label: "Operations", items: groups.operations });
-    }
-    if (groups.inventory.length > 0 && isAdminOrOwner) {
-      result.push({ id: "inventory", label: "Inventory & Supply", items: groups.inventory });
-    }
-    if (groups.analytics.length > 0 && isAdminOrOwner) {
-      result.push({ id: "analytics", label: "Analytics & Reports", items: groups.analytics });
-    }
-    if (groups.admin.length > 0 && isAdminOrOwner) {
-      result.push({ id: "admin", label: "Management", items: groups.admin });
-    }
-
-    return result;
-  }, [userRole, isAdminOrOwner]);
-
-  const toggleSection = (sectionId: string) => {
-    setCollapsedSections((prev) => ({
-      ...prev,
-      [sectionId]: !prev[sectionId],
-    }));
-  };
-
-  const handleLockedClick = (e: React.MouseEvent, item: NavItem) => {
-    e.preventDefault();
-    const isPremiumFeature = item.section === "inventory";
-    setLockedModal({
-      open: true,
-      featureName: item.label,
-      requiredPlan: isPremiumFeature ? "Premium" : "Plus",
-    });
-  };
-
-  const renderNavContent = () => (
-    <div className="flex h-full flex-col justify-between py-3">
-      <div className="space-y-4 px-2">
-        {sections.map((sec) => {
-          const isCollapsed = !!collapsedSections[sec.id];
-          return (
-            <div key={sec.id} className="space-y-1">
-              {sec.id !== "main" && (
-                <button
-                  type="button"
-                  onClick={() => toggleSection(sec.id)}
-                  className="flex w-full items-center justify-between px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                >
-                  <span>{sec.label}</span>
-                  {isCollapsed ? (
-                    <ChevronRight className="h-3 w-3" />
-                  ) : (
-                    <ChevronDown className="h-3 w-3" />
-                  )}
-                </button>
-              )}
-
-              {!isCollapsed && (
-                <div className="space-y-0.5">
-                  {sec.items.map((item) => {
-                    // Check if capability is satisfied
-                    const isCapabilitySatisfied =
-                      !item.requiredCapabilities ||
-                      item.requiredCapabilities.length === 0 ||
-                      item.requiredCapabilities.some((cap) => hasCapability(cap));
-
-                    const isPathMatch = currentPath === item.to;
-                    const currentTab = currentSearch?.tab;
-                    const isActive = isPathMatch && (
-                      item.tabParam
-                        ? currentTab === item.tabParam || (!currentTab && !!item.isDefault)
-                        : !currentTab || !!item.isDefault || !item.tabParam
-                    );
-                    const Icon = item.icon;
-
-                    if (!isCapabilitySatisfied) {
-                      // Locked item
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={(e) => handleLockedClick(e, item)}
-                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted/50 text-left"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Icon className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-                            <span>{item.label}</span>
-                          </div>
-                          <span className="flex items-center gap-1 rounded bg-secondary/80 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                            <Lock className="h-2.5 w-2.5" />
-                            {item.section === "inventory" ? "Premium" : "Plus"}
-                          </span>
-                        </button>
-                      );
-                    }
-
-                    return (
-                      <Link
-                        key={item.id}
-                        to={item.to}
-                        search={item.search}
-                        aria-current={isActive ? "page" : undefined}
-                        onClick={() => onMobileOpenChange?.(false)}
-                        className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition ${
-                          isActive
-                            ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                            : "text-foreground hover:bg-secondary/80 hover:text-foreground"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-primary-foreground" : "text-muted-foreground"}`} />
-                          <span>{item.label}</span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Sidebar Footer info */}
-      <div className="border-t border-border/60 p-3 mx-2">
-        <div className="rounded-xl border border-border/80 bg-secondary/30 p-2.5 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-foreground flex items-center gap-1">
-              <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              {plan?.name || "Basic"} Plan
-            </span>
-            <span className="text-[10px] uppercase font-bold text-muted-foreground">
-              {plan?.code || "Active"}
-            </span>
-          </div>
-          {plan?.code !== "premium" && isAdminOrOwner && (
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Upgrade to Premium for full Recipe Costing & Stocktakes.
-            </p>
+  function renderSidebar(rail: boolean, mobile = false) {
+    const actionClass = cn("h-9 shrink-0 rounded-xl", rail ? "w-10 px-0" : "w-full justify-start gap-3 px-3");
+    return (
+      <>
+        <div className={cn("flex h-16 shrink-0 items-center gap-2.5", rail ? "justify-center" : "px-3", mobile && "pr-10")}>
+          {!rail && (
+            <>
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+                <QrCode className="size-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-bold" title={brand}>{brand}</div>
+                <div className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{roleLabel}</div>
+              </div>
+            </>
+          )}
+          {!mobile && (
+            <RailTooltip enabled={rail} label="Expand sidebar">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn("shrink-0 text-muted-foreground", rail ? "size-10 rounded-xl" : "size-8")}
+                aria-label={rail ? "Expand sidebar" : "Collapse sidebar"}
+                aria-expanded={!rail}
+                onClick={toggleCollapsed}
+              >
+                {rail ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+              </Button>
+            </RailTooltip>
           )}
         </div>
-      </div>
-    </div>
-  );
+
+        {!platform && outlets && outlets.length > 1 && (
+          <div className={cn("flex shrink-0 pb-2", rail ? "justify-center" : "px-3")}>
+            <DropdownMenu>
+              <RailTooltip enabled={rail} label="Select outlet">
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className={actionClass} aria-label="Select outlet">
+                    <Store className="size-4" />
+                    {!rail && <span className="truncate">{outlets.find((outlet) => outlet.id === selectedOutletId)?.name || "All Outlets"}</span>}
+                  </Button>
+                </DropdownMenuTrigger>
+              </RailTooltip>
+              <DropdownMenuContent align="start" side={mobile ? "bottom" : "right"} sideOffset={8}>
+                <DropdownMenuLabel>Select Outlet</DropdownMenuLabel>
+                {outlets.map((outlet) => (
+                  <DropdownMenuItem key={outlet.id} onSelect={() => onSelectOutlet?.(outlet.id)}>
+                    {outlet.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
+        <nav aria-label={platform ? "Platform navigation" : "Workspace navigation"} className={cn("min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden py-2", rail ? "px-0" : "px-3")}>
+          {sections.map(([section, label]) => {
+            const links = items.filter((item) => item.section === section);
+            if (!links.length) return null;
+
+            return (
+              <div key={section} role="group" aria-label={label} className="space-y-1">
+                {section !== "main" && (rail
+                  ? <div aria-hidden="true" className="mx-auto mb-2 w-5 border-t border-border" />
+                  : <div className="truncate px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+                )}
+                {links.map((item) => {
+                  const active = isNavigationItemActive(item, location.pathname, activeTab);
+                  const locked = item.requiredCapabilities?.length && !item.requiredCapabilities.some(hasCapability);
+                  const plan = section === "inventory" ? "Premium" : "Plus";
+                  const Icon = item.icon;
+                  const className = cn(
+                    "relative flex h-10 items-center rounded-xl text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
+                    rail ? "mx-auto w-10 justify-center" : "w-full gap-2.5 overflow-hidden px-3 text-left",
+                    active ? "bg-emerald-700 font-semibold text-white" : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
+                  );
+                  const content = (
+                    <>
+                      <Icon className="size-4 shrink-0" aria-hidden="true" />
+                      {!rail && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
+                      {locked ? <Lock className={cn("size-3 shrink-0", rail && "absolute right-1 top-1")} aria-hidden="true" /> : null}
+                    </>
+                  );
+
+                  return (
+                    <RailTooltip key={item.id} enabled={rail} label={locked ? `${item.label} · ${plan}` : item.label}>
+                      {locked ? (
+                        <button
+                          type="button"
+                          aria-label={`${item.label}, requires ${plan}`}
+                          className={className}
+                          onClick={() => {
+                            setMobileOpen(false);
+                            setLockedFeature({ label: item.label, plan });
+                          }}
+                        >
+                          {content}
+                        </button>
+                      ) : (
+                        <Link
+                          to={item.to}
+                          search={item.search}
+                          aria-label={item.label}
+                          aria-current={active ? "page" : undefined}
+                          activeOptions={{ exact: true, includeSearch: Boolean(item.tabParam) }}
+                          activeProps={{}}
+                          className={className}
+                          onClick={() => setMobileOpen(false)}
+                        >
+                          {content}
+                        </Link>
+                      )}
+                    </RailTooltip>
+                  );
+                })}
+              </div>
+            );
+          })}
+          {!platform && (
+            <RailTooltip enabled={rail} label="Subscription & Entitlements">
+              <Button
+                type="button"
+                variant="ghost"
+                className={cn(actionClass, "text-muted-foreground", rail && "mx-auto flex")}
+                aria-label="Subscription & Entitlements"
+                onClick={() => {
+                  setMobileOpen(false);
+                  setSubscriptionOpen(true);
+                }}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {!rail && "Subscription"}
+              </Button>
+            </RailTooltip>
+          )}
+        </nav>
+
+        <footer className={cn("flex shrink-0 flex-col gap-2 border-t border-border p-3", rail && "items-center px-0")}>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary" title={rail ? profileName : undefined} aria-label={rail ? profileName : undefined}>
+              {profileName.charAt(0).toUpperCase()}
+            </span>
+            {!rail && (
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold" title={profileName}>{profileName}</div>
+                <span className="inline-flex rounded-md bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">{roleLabel}</span>
+              </div>
+            )}
+          </div>
+          <RailTooltip enabled={rail} label="Logout">
+            <Button
+              type="button"
+              variant="outline"
+              className={actionClass}
+              aria-label="Logout"
+              onClick={() => void signOut(platform ? "/super-admin" : undefined)}
+            >
+              <LogOut className="h-4 w-4" />
+              {!rail && "Logout"}
+            </Button>
+          </RailTooltip>
+        </footer>
+      </>
+    );
+  }
 
   return (
-    <>
-      {/* Desktop Persistent Sidebar */}
-      <aside className="hidden md:flex md:w-56 lg:w-60 flex-col border-r border-border/80 bg-card/60 backdrop-blur shrink-0">
-        {renderNavContent()}
+    <TooltipProvider delayDuration={200}>
+      <aside className={cn(
+        "hidden min-h-0 shrink-0 flex-col overflow-hidden border-r border-border bg-card transition-all duration-200 ease-in-out motion-reduce:transition-none md:flex",
+        collapsed ? "w-[72px]" : "w-64",
+      )}>
+        {renderSidebar(collapsed)}
       </aside>
-
-      {/* Mobile Drawer (Sheet) with keyboard escape and focus trap */}
-      <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
-        <SheetContent side="left" className="w-72 p-0">
-          <SheetHeader className="border-b border-border/60 p-4 text-left">
-            <SheetTitle className="flex items-center gap-2 text-base font-bold">
-              <span>Navigation Menu</span>
-            </SheetTitle>
-          </SheetHeader>
-          <div className="h-[calc(100vh-4rem)] overflow-y-auto">
-            {renderNavContent()}
-          </div>
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-1.5 md:hidden">
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Open navigation menu">
+              <Menu className="size-5" />
+            </Button>
+          </SheetTrigger>
+          <span className="truncate text-sm font-semibold">{brand}</span>
+        </div>
+        <SheetContent side="left" className="flex w-72 max-w-[90vw] flex-col gap-0 bg-card p-0 md:hidden" aria-describedby={undefined}>
+          <SheetTitle className="sr-only">Navigation menu</SheetTitle>
+          {renderSidebar(false, true)}
         </SheetContent>
       </Sheet>
-
-      {/* Feature Locked Modal */}
       <FeatureLockedModal
-        open={lockedModal.open}
-        onOpenChange={(open) => setLockedModal((prev) => ({ ...prev, open }))}
-        featureName={lockedModal.featureName}
-        requiredPlan={lockedModal.requiredPlan}
+        open={Boolean(lockedFeature)}
+        onOpenChange={(open) => { if (!open) setLockedFeature(undefined); }}
+        featureName={lockedFeature?.label || ""}
+        requiredPlan={lockedFeature?.plan || "Plus"}
       />
-    </>
+      {!platform && (
+        <SubscriptionDetailsModal
+          open={subscriptionOpen}
+          onOpenChange={setSubscriptionOpen}
+          access={access}
+          restaurantName={user?.restaurantName}
+        />
+      )}
+    </TooltipProvider>
   );
 }

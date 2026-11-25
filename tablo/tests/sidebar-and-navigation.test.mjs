@@ -1,19 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NAVIGATION_REGISTRY } from "../src/config/navigation.ts";
+import { NAVIGATION_REGISTRY, getDashboardTab, isNavigationItemActive } from "../src/config/navigation.ts";
 
 function computeActiveItem(pathname, search) {
-  const currentTab = search?.tab;
-  const activeItems = NAVIGATION_REGISTRY.filter((item) => {
-    const isPathMatch = pathname === item.to;
-    if (!isPathMatch) return false;
-    if (item.tabParam) {
-      return currentTab === item.tabParam || (!currentTab && !!item.isDefault);
-    }
-    return !currentTab || !!item.isDefault || !item.tabParam;
-  });
-  return activeItems;
+  return NAVIGATION_REGISTRY.filter((item) => isNavigationItemActive(item, pathname, search.tab));
 }
+
+test("Kitchen staff land in the kitchen queue on the dashboard", () => {
+  const tab = getDashboardTab(undefined, "Kitchen");
+  assert.equal(tab, "kitchen");
+  assert.equal(computeActiveItem("/dashboard", { tab })[0].id, "kitchen-queue");
+});
 
 test("1. Sidebar highlights exactly one item on /admin (default menu view)", () => {
   const active = computeActiveItem("/admin", {});
@@ -39,7 +36,15 @@ test("4. Sidebar highlights exactly one item on /inventory (default stock view)"
   const active = computeActiveItem("/inventory", {});
   assert.equal(active.length, 1);
   assert.equal(active[0].id, "inventory-stock");
-  assert.equal(active[0].label, "Stock & Recipes");
+  assert.equal(active[0].label, "Ingredients & Stock");
+});
+
+test("Inventory preparations, suppliers and stock movements each have a direct sidebar entry", () => {
+  for (const tab of ["preparations", "suppliers", "movements"]) {
+    const active = computeActiveItem("/inventory", { tab });
+    assert.equal(active.length, 1);
+    assert.equal(active[0].search.tab, tab);
+  }
 });
 
 test("5. Sidebar highlights exactly one item on /inventory?tab=purchasing", () => {
