@@ -180,6 +180,19 @@ namespace Tablo.Api.Controllers
             if (employee.RoleId != newRole.Id) employee.AllowedMenuIds = null;
             employee.RoleId = newRole.Id;
 
+            if (!string.IsNullOrWhiteSpace(request.NewPassword))
+            {
+                if (request.NewPassword.Length < 6)
+                {
+                    return BadRequest("New password must be at least 6 characters.");
+                }
+                employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+                employee.SecurityStamp = Guid.NewGuid().ToString("N");
+                employee.ResetOtpHash = null;
+                employee.ResetTokenHash = null;
+                employee.ResetOtpExpiration = null;
+            }
+
             await _context.SaveChangesAsync();
 
             return Ok(new EmployeeDto
@@ -192,6 +205,35 @@ namespace Tablo.Api.Controllers
                 Role = newRole.Name,
                 IsActive = employee.IsActive
             });
+        }
+
+        [HttpPost("{id}/reset-password")]
+        public async Task<IActionResult> ResetEmployeePassword(Guid id, [FromBody] ResetPasswordDto request)
+        {
+            var restaurantId = User.GetRestaurantId();
+
+            var employee = await _context.Employees
+                .FirstOrDefaultAsync(e => e.Id == id && e.RestaurantId == restaurantId);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+            {
+                return BadRequest("New password must be at least 6 characters.");
+            }
+
+            employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            employee.SecurityStamp = Guid.NewGuid().ToString("N");
+            employee.ResetOtpHash = null;
+            employee.ResetTokenHash = null;
+            employee.ResetOtpExpiration = null;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Password updated successfully and previous sessions invalidated." });
         }
 
         [HttpPatch("{id}/status")]
@@ -228,6 +270,10 @@ namespace Tablo.Api.Controllers
             }
 
             employee.IsActive = request.IsActive;
+            if (!request.IsActive)
+            {
+                employee.SecurityStamp = Guid.NewGuid().ToString("N");
+            }
             await _context.SaveChangesAsync();
 
             return Ok(new { message = request.IsActive ? "Employee activated." : "Employee deactivated." });

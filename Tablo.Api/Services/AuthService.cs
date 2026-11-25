@@ -79,6 +79,11 @@ namespace Tablo.Api.Services
                 new Claim(ClaimTypes.Role, employee.Role.Name)
             };
 
+            if (!string.IsNullOrEmpty(employee.SecurityStamp))
+            {
+                claims.Add(new Claim("SecurityStamp", employee.SecurityStamp));
+            }
+
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
@@ -141,14 +146,18 @@ namespace Tablo.Api.Services
             }
 
             employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            employee.SecurityStamp = Guid.NewGuid().ToString("N");
             await _context.SaveChangesAsync();
         }
 
         public async Task ForgotPasswordAsync(string email)
         {
-            var employee = await _context.Employees.AsNoTracking()
+            var employee = await _context.Employees
+                .Include(e => e.Role)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
-            if (employee == null) return;
+            // Self-service password reset is strictly restricted to Restaurant Admin
+            if (employee == null || employee.Role == null || employee.Role.Name != "Admin") return;
 
             var otp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
 
@@ -199,9 +208,11 @@ Tablo";
 
         public async Task<VerifyOtpResponseDto> VerifyOtpAsync(string email, string otp)
         {
-            var employee = await _context.Employees.AsNoTracking()
+            var employee = await _context.Employees
+                .Include(e => e.Role)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
-            if (employee == null || employee.ResetOtpHash == null)
+            if (employee == null || employee.Role == null || employee.Role.Name != "Admin" || employee.ResetOtpHash == null)
             {
                 throw new Exception("Invalid OTP.");
             }
@@ -244,9 +255,11 @@ Tablo";
 
         public async Task ResetPasswordAsync(string email, string resetToken, string newPassword)
         {
-            var employee = await _context.Employees.AsNoTracking()
+            var employee = await _context.Employees
+                .Include(e => e.Role)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
-            if (employee == null || employee.ResetTokenHash == null ||
+            if (employee == null || employee.Role == null || employee.Role.Name != "Admin" || employee.ResetTokenHash == null ||
                 employee.ResetOtpExpiration is null || employee.ResetOtpExpiration < DateTime.UtcNow)
             {
                 throw new Exception("Invalid or expired reset token.");
@@ -260,11 +273,13 @@ Tablo";
             var tokenHash = employee.ResetTokenHash;
             var now = DateTime.UtcNow;
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            var newSecurityStamp = Guid.NewGuid().ToString("N");
             var updated = await _context.Employees
                 .Where(e => e.Id == employee.Id && e.IsActive &&
                     e.ResetTokenHash == tokenHash && e.ResetOtpExpiration > now)
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(e => e.PasswordHash, passwordHash)
+                    .SetProperty(e => e.SecurityStamp, newSecurityStamp)
                     .SetProperty(e => e.ResetTokenHash, (string?)null)
                     .SetProperty(e => e.ResetOtpExpiration, (DateTime?)null));
             if (updated == 0)

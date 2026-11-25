@@ -173,6 +173,13 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
                       <button onClick={() => setEditing(emp)} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold transition hover:bg-secondary">
                         <Pencil className="h-3.5 w-3.5" /> Edit
                       </button>
+                      <Link
+                        to="/menu-access"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold transition hover:bg-secondary"
+                        title="Configure custom menu category and item access"
+                      >
+                        Menu Access
+                      </Link>
                       <button 
                         onClick={() => toggleStatus(emp)} 
                         className={`inline-flex items-center justify-center w-[110px] gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${emp.isActive ? 'bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground' : 'bg-success/10 text-success hover:bg-success hover:text-success-foreground'}`}
@@ -229,14 +236,23 @@ function EmployeeModal({ employee, onClose }: { employee: Employee | null; onClo
     
     try {
       if (employee) {
+        const payload: any = { firstName, lastName, email, roleName };
+        if (password.trim()) {
+          if (password.length < 6) {
+            toast.error("New password must be at least 6 characters");
+            setBusy(false);
+            return;
+          }
+          payload.newPassword = password;
+        }
         await updateEmp({ 
           id: employee.id, 
-          data: { firstName, lastName, email, roleName } 
+          data: payload
         });
-        toast.success("Employee updated");
+        toast.success(password.trim() ? "Profile details & password updated" : "Employee updated successfully");
       } else {
         await createEmp({ firstName, lastName, email, password, roleName });
-        toast.success("Employee created");
+        toast.success("Employee created successfully");
       }
       onClose();
     } catch (err: any) {
@@ -252,7 +268,7 @@ function EmployeeModal({ employee, onClose }: { employee: Employee | null; onClo
       <div className="relative w-full max-w-md animate-float-up rounded-3xl bg-card p-6 shadow-glow">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">{employee ? "Edit employee" : "New employee"}</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">{employee ? "Edit employee account" : "New employee"}</p>
             <h2 className="font-display text-xl font-bold">{employee ? `${employee.firstName} ${employee.lastName}` : "Add Staff"}</h2>
           </div>
           <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-secondary transition hover:bg-border"><X className="h-4 w-4" /></button>
@@ -264,11 +280,7 @@ function EmployeeModal({ employee, onClose }: { employee: Employee | null; onClo
             <Field label="Last Name" value={lastName} onChange={setLastName} />
           </div>
           
-          <Field label="Email" value={email} onChange={setEmail} type="email" />
-          
-          {!employee && (
-            <Field label="Password" value={password} onChange={setPassword} type="password" />
-          )}
+          <Field label="Login email" value={email} onChange={setEmail} type="email" />
 
           <label className="block">
             <span className="text-xs font-semibold text-muted-foreground">Role</span>
@@ -279,6 +291,23 @@ function EmployeeModal({ employee, onClose }: { employee: Employee | null; onClo
               <option value="Cashier">Cashier</option>
             </select>
           </label>
+
+          {employee ? (
+            <div className="rounded-2xl border border-border/80 bg-secondary/30 p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground">Password Management</span>
+                <span className="text-[10px] text-muted-foreground">Optional — leave blank to keep current</span>
+              </div>
+              <Field
+                label="New Staff Password"
+                value={password}
+                onChange={setPassword}
+                type="password"
+              />
+            </div>
+          ) : (
+            <Field label="Initial Password" value={password} onChange={setPassword} type="password" />
+          )}
 
           <div className="rounded-xl bg-secondary/40 p-3 text-xs space-y-1 border border-border/60">
             <span className="font-semibold text-foreground">

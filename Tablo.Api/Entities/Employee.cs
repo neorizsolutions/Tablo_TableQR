@@ -35,6 +35,9 @@ namespace Tablo.Api.Entities
 
         public bool IsActive { get; set; } = true;
 
+        [MaxLength(100)]
+        public string? SecurityStamp { get; set; }
+
         public string? ResetOtpHash { get; set; }
         public DateTime? ResetOtpExpiration { get; set; }
         public int ResetOtpAttempts { get; set; }

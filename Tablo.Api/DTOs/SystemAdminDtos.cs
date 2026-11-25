@@ -33,5 +33,8 @@ namespace Tablo.Api.DTOs
         [MinLength(6)]
         [MaxLength(100)]
         public string AdminPassword { get; set; } = string.Empty;
+
+        [MaxLength(50)]
+        public string? PlanCode { get; set; }
     }
 }
