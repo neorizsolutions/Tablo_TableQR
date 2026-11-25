@@ -193,6 +193,10 @@ namespace Tablo.Api.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("SecurityStamp")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<int>("ResetOtpAttempts")
                         .HasColumnType("integer");
 

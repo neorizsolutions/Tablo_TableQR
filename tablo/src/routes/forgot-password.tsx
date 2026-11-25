@@ -136,8 +136,14 @@ function ForgotPasswordPage() {
 
           {step === 1 && (
             <form onSubmit={handleRequestOtp} className="space-y-4">
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-900">
+                <p className="font-semibold">Restaurant Administrator Reset</p>
+                <p className="mt-0.5 text-[11px] text-amber-800">
+                  Self-service password reset is available for Restaurant Administrators. Waiter, Cashier, Kitchen, and floor staff must contact their restaurant administrator to update their login credentials.
+                </p>
+              </div>
               <div>
-                <label htmlFor="reset-email" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600">Email</label>
+                <label htmlFor="reset-email" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600">Admin Login Email</label>
                 <input
                   id="reset-email"
                   required
@@ -146,7 +152,7 @@ function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="you@restaurant.com"
+                  placeholder="admin@restaurant.com"
                 />
               </div>
               <button
