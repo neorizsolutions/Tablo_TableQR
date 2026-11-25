@@ -44,7 +44,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter,Cashier")]
         [HttpGet("/api/restaurants/{restaurantId}/orders")]
         public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders(Guid restaurantId, [FromQuery] string? status)
         {

@@ -414,10 +414,10 @@ export function ServiceDesk({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
         <div>
           <h2 id="service-desk-heading" className="font-display text-xl sm:text-2xl font-bold">
-            Staff Order Taking
+            {mode === "bills-only" ? "Table Billing & Settlement" : "Staff Order Taking"}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Select a table to start an order, switch between guest drafts without losing work, and split bills accurately.
+            {mode === "bills-only" ? "Select a table to review bills, collect payments and print receipts." : "Select a table to start an order, switch between guest drafts without losing work, and split bills accurately."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -437,7 +437,7 @@ export function ServiceDesk({
         </div>
       </div>
 
-      <FloorRecovery restaurantId={restaurantId} employeeId={employeeId} />
+      {mode !== "bills-only" && <FloorRecovery restaurantId={restaurantId} employeeId={employeeId} />}
 
       {/* =========================================================================
           SECTION 1: SEARCHABLE TOUCH-FRIENDLY TABLE GRID (When No Table Selected)
@@ -664,12 +664,13 @@ export function ServiceDesk({
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Ordering for: <span className="font-semibold text-foreground">{activeGroup ? `Group ${activeGroup.label}` : "Whole Table (Default Bill)"}</span>
+                  {mode === "bills-only" ? "Billing for:" : "Ordering for:"} <span className="font-semibold text-foreground">{activeGroup ? `Group ${activeGroup.label}` : "Whole Table (Default Bill)"}</span>
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
+              {mode !== "bills-only" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -678,6 +679,7 @@ export function ServiceDesk({
               >
                 <Plus className="h-3.5 w-3.5 text-primary" /> New Dining Group
               </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -720,6 +722,7 @@ export function ServiceDesk({
                 Group {g.label}
               </button>
             ))}
+            {mode !== "bills-only" && (
             <button
               type="button"
               onClick={() => setIsNewGroupModalOpen(true)}
@@ -727,10 +730,12 @@ export function ServiceDesk({
             >
               <Plus className="h-3.5 w-3.5" /> Add
             </button>
+            )}
           </div>
 
           {/* Layout: Order Entry Workspace (Menu + Current Cart) */}
-          <div className={`mt-3 grid gap-6 ${mode === "order-only" ? "max-w-4xl" : "xl:grid-cols-2"}`}>
+          <div className={`mt-3 grid gap-6 ${mode === "all" ? "xl:grid-cols-2" : mode === "order-only" ? "max-w-4xl" : ""}`}>
+            {mode !== "bills-only" && (
             <div>
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm">
@@ -967,6 +972,7 @@ export function ServiceDesk({
               )}
             </div>
 
+            )}
             {/* Existing Submitted Table Visits & Billing */}
             {mode !== "order-only" && (
               <FloorBills
@@ -978,6 +984,7 @@ export function ServiceDesk({
                 review={review.data}
                 tables={tables.data || []}
                 onTransferred={setTable}
+                billingOnly={mode === "bills-only"}
               />
             )}
           </div>

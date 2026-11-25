@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Bell, Check, ChefHat, Filter, Flame, Loader2, LogIn, LogOut, PackageCheck, Printer, Search, ShieldAlert, Timer } from "lucide-react";
@@ -56,6 +56,7 @@ function DashboardPage() {
   }
 
   if (!user) return <SignInGate />;
+  if (user.role === "Cashier") return <Navigate to="/cashier" replace />;
   if (!isStaff && user.role !== "Owner") return <NoAccessGate roles={roles} onSignOut={signOut} />;
 
   return <DashboardInner />;

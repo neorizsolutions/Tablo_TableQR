@@ -75,7 +75,7 @@ export interface NavItem {
   isDefault?: boolean;
   icon: LucideIcon;
   section: "main" | "operations" | "management" | "inventory" | "analytics";
-  requiredRoles?: ("Admin" | "Owner" | "Waiter" | "Kitchen")[];
+  requiredRoles?: ("Admin" | "Owner" | "Waiter" | "Kitchen" | "Cashier")[];
   requiredCapabilities?: string[];
 }
 
@@ -101,8 +101,18 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     to: "/",
     icon: LayoutDashboard,
     section: "main",
+    requiredRoles: ["Admin", "Owner", "Waiter", "Kitchen"],
   },
 
+  {
+    id: "cashier-billing",
+    label: "Cashier",
+    to: "/cashier",
+    icon: CreditCard,
+    section: "operations",
+    requiredRoles: ["Admin", "Owner", "Cashier"],
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
+  },
   // 2. OPERATIONS (Floor, Orders, Kitchen, Billing & Parcel)
   {
     id: "orders-servicedesk",
