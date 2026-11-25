@@ -6,6 +6,7 @@ public static class NavigationAccess
     public record Menu(string[] Roles, string[] Capabilities);
     public static readonly IReadOnlyDictionary<string, Menu> Menus = new Dictionary<string, Menu>(StringComparer.Ordinal)
     {
+        ["cashier-billing"] = new(new[] { "Admin", "Owner", "Cashier" }, new string[] { "standard_billing" }),
         ["overview"] = new(new[] { "Admin", "Owner", "Waiter", "Kitchen" }, new string[] {  }),
         ["orders-servicedesk"] = new(new[] { "Admin", "Owner", "Waiter" }, new string[] { "standard_billing" }),
         ["staff-order-taking"] = new(new[] { "Admin", "Owner", "Waiter" }, new string[] { "staff_ordering", "standard_billing" }),

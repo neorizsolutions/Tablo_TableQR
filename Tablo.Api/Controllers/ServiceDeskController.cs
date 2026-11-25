@@ -13,7 +13,7 @@ using Tablo.Api.Services;
 namespace Tablo.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin,Owner,Waiter")]
+[Authorize(Roles = "Admin,Owner,Waiter,Cashier")]
 [Route("api/restaurants/{restaurantId:guid}/service-desk")]
 public class ServiceDeskController(ApplicationDbContext db, BillingService billing, StaffOrderingService ordering,
     IHubContext<OrderHub> hub, ILogger<ServiceDeskController> logger, Tablo.Api.Services.Printing.IKotRoutingService? kotRouting = null) : ControllerBase

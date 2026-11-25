@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
-type Role = "Admin" | "Kitchen" | "Waiter" | "Owner" | "Staff" | "Customer" | "SuperAdmin";
+type Role = "Cashier" | "Admin" | "Kitchen" | "Waiter" | "Owner" | "Staff" | "Customer" | "SuperAdmin";
 
 interface AuthUser {
   id: string;
@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = path;
   };
 
-  const isStaff = roles.includes("Admin") || roles.includes("Kitchen") || roles.includes("Waiter");
+  const isStaff = roles.includes("Cashier") || roles.includes("Admin") || roles.includes("Kitchen") || roles.includes("Waiter");
 
   return (
     <Ctx.Provider value={{ user, roles, loading, isStaff, signIn, signOut }}>

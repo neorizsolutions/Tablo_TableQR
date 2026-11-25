@@ -106,6 +106,17 @@ public class SubscriptionService : ISubscriptionService
             return new HashSet<string>(Capabilities.PremiumDefaults, StringComparer.OrdinalIgnoreCase);
         }
 
+        if (role.Equals("Cashier", StringComparison.OrdinalIgnoreCase))
+        {
+            return new HashSet<string>(new[]
+            {
+                Capabilities.StandardBilling,
+                Capabilities.SplitBilling,
+                Capabilities.MixedPayments,
+                Capabilities.ThermalPrinting
+            }, StringComparer.OrdinalIgnoreCase);
+        }
+
         if (role.Equals("Waiter", StringComparison.OrdinalIgnoreCase))
         {
             return new HashSet<string>(new[]
