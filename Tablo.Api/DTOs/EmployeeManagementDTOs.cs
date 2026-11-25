@@ -44,6 +44,9 @@ namespace Tablo.Api.DTOs
         [Required]
         [MaxLength(100)]
         public string RoleName { get; set; } = string.Empty;
+
+        [MinLength(6)]
+        public string? NewPassword { get; set; }
     }
 
     public class UpdateEmployeeStatusDto

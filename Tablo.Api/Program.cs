@@ -4,6 +4,8 @@ using Tablo.Api.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
@@ -69,6 +71,29 @@ builder.Services.AddAuthentication(options =>
                 context.Token = accessToken;
             }
             return Task.CompletedTask;
+        },
+        OnTokenValidated = async context =>
+        {
+            var claimsPrincipal = context.Principal;
+            var sub = claimsPrincipal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value 
+                      ?? claimsPrincipal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (Guid.TryParse(sub, out var employeeId))
+            {
+                var db = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+                var employee = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == employeeId);
+                if (employee == null || !employee.IsActive)
+                {
+                    context.Fail("Account is inactive or disabled.");
+                    return;
+                }
+
+                var tokenStamp = claimsPrincipal?.FindFirst("SecurityStamp")?.Value;
+                if (!string.IsNullOrEmpty(employee.SecurityStamp) && tokenStamp != employee.SecurityStamp)
+                {
+                    context.Fail("Session has been invalidated due to password change.");
+                    return;
+                }
+            }
         }
     };
 });

@@ -87,7 +87,9 @@ namespace Tablo.Api.Controllers
                 return StatusCode(500, new { message = "System Error: Admin role not found." });
             }
 
-            var plan = await _context.Plans.FirstOrDefaultAsync(p => p.Code == "basic")
+            var targetPlanCode = !string.IsNullOrEmpty(request.PlanCode) ? request.PlanCode : "premium";
+            var plan = await _context.Plans.FirstOrDefaultAsync(p => p.Code == targetPlanCode)
+                       ?? await _context.Plans.FirstOrDefaultAsync(p => p.Code == "premium")
                        ?? await _context.Plans.FirstOrDefaultAsync();
 
             using var transaction = await _context.Database.BeginTransactionAsync();
