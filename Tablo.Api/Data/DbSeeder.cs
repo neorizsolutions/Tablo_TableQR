@@ -18,6 +18,12 @@ namespace Tablo.Api.Data
                 throw new InvalidOperationException("Database schema is missing or invalid. Please ensure all migrations are applied before starting the API.", ex);
             }
 
+            // Add operational roles before the existing-database early return.
+            if (!context.Roles.Any(r => r.Name == "Cashier"))
+            {
+                context.Roles.Add(new Role { Id = Guid.NewGuid(), Name = "Cashier", Description = "Billing and settlement" });
+                context.SaveChanges();
+            }
             EnsurePlansAndSubscriptions(context);
 
             if (rolesExist)

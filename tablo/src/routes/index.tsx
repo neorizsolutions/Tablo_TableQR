@@ -1,5 +1,5 @@
 import { EmployeeMenuLink } from "@/components/employee-menu-link";
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -69,6 +69,7 @@ function RootIndexPage() {
   const { user, isStaff, loading } = useAuth();
 
   if (loading) return null;
+  if (user?.role === "Cashier") return <Navigate to="/cashier" replace />;
 
   // If user is authenticated as restaurant staff/admin/owner, show Executive Operational Overview
   if (user && (isStaff || user.role === "Owner")) {
@@ -451,6 +452,7 @@ function LandingPage() {
   }, [user, roles, loading, router]);
 
   if (loading) return null;
+  if (user?.role === "Cashier") return <Navigate to="/cashier" replace />;
 
   return (
     <div className="min-h-screen bg-background text-foreground scroll-smooth">
