@@ -1,10 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getEmployees, getEmployee, createEmployee, updateEmployee, updateEmployeeStatus, Employee } from "@/services/api";
+import { useAuth } from "./use-auth";
 
 export function useStaff() {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["employees"],
+    queryKey: ["employees", user?.restaurantId, user?.id],
     queryFn: getEmployees,
+    enabled: !!user?.restaurantId && (user.role === "Admin" || user.role === "Owner"),
   });
 }
 
