@@ -18,7 +18,7 @@ test("custom access intersects roles and preserves management recovery", () => {
   );
   assert.deepEqual(
     getEmployeeNavItems("Admin", []).map((x) => x.id),
-    ["staff-management"],
+    ["staff-management", "staff-menu-access"],
   );
   assert.ok(getEmployeeNavItems("Waiter", null).some((x) => x.id === "orders-servicedesk"));
 });
@@ -40,7 +40,13 @@ test("every registered direct menu route resolves to its menu and role restricti
   );
   assert.deepEqual(
     getEmployeeNavItems("Owner", []).map((x) => x.id),
-    ["staff-management"],
+    ["staff-management", "staff-menu-access"],
   );
   assert.equal(getRouteMenuItem("/inventory", "not-a-menu", "Admin"), undefined);
+});
+
+test("dedicated staff menu access is restaurant-admin only", () => {
+  assert.equal(getRouteMenuItem("/menu-access", undefined, "Admin")?.id, "staff-menu-access");
+  assert.ok(getEmployeeNavItems("Admin", null).some((item) => item.id === "staff-menu-access"));
+  assert.ok(!getEmployeeNavItems("Waiter", null).some((item) => item.id === "staff-menu-access"));
 });

@@ -17,6 +17,14 @@ public class NavigationAccessTests
         Assert.False(NavigationAccess.RoleAllows("Waiter", "staff-management"));
         Assert.False(NavigationAccess.RoleAllows("Kitchen", "table-billing"));
         Assert.False(NavigationAccess.RoleAllows("Admin", "sa-tenants"));
+        Assert.True(NavigationAccess.RoleAllows("Admin", "staff-menu-access"));
+        Assert.False(NavigationAccess.RoleAllows("Waiter", "staff-menu-access"));
+        var administrator = new Tablo.Api.Entities.Employee
+        {
+            Role = new Tablo.Api.Entities.Role { Name = "Admin" },
+            AllowedMenuIds = ["staff-management"]
+        };
+        Assert.Contains("staff-menu-access", NavigationAccess.EffectiveOverride(administrator)!);
         Assert.Contains("staff-order-taking", NavigationAccessFilter.RequiredMenus("ServiceDesk", "Submit", "POST"));
         Assert.Equal(new[] { "inventory-stocktakes" }, NavigationAccessFilter.RequiredMenus("Inventory", "SaveDraft", "PUT"));
         Assert.Equal(new[] { "gross-profit-report" }, NavigationAccessFilter.RequiredMenus("Inventory", "GetSalesGrossProfitReport", "GET"));
