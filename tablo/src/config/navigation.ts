@@ -194,6 +194,14 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     requiredRoles: ["Admin", "Owner"],
   },
   {
+    id: "staff-menu-access",
+    label: "Staff Menu Access",
+    to: "/menu-access",
+    icon: ShieldCheck,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
+  },
+  {
     id: "crm-loyalty",
     label: "Customer CRM & Loyalty",
     to: "/admin",
@@ -466,7 +474,7 @@ export function getEmployeeNavItems(role: string, allowedMenuIds: string[] | nul
   const allowed = allowedMenuIds === null ? null : new Set(allowedMenuIds);
   return NAVIGATION_REGISTRY.filter(item =>
     (!item.requiredRoles || item.requiredRoles.some(r => r.toLowerCase() === role.toLowerCase())) &&
-    (allowed === null || allowed.has(item.id) || (item.id === "staff-management" && ["admin", "owner"].includes(role.toLowerCase()))),
+    (allowed === null || allowed.has(item.id) || (["staff-management", "staff-menu-access"].includes(item.id) && ["admin", "owner"].includes(role.toLowerCase()))),
   );
 }
 
