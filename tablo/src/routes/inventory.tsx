@@ -118,7 +118,6 @@ function InventoryPage() {
 function InventoryInner({ restaurantId }: { restaurantId: string }) {
   const { plan, hasCapability, isLoading: accessLoading } = useEffectiveAccess();
   const search = Route.useSearch();
-  const navigate = Route.useNavigate();
   const tab = (search.tab as
     | "ingredients"
     | "recipes"
@@ -132,10 +131,7 @@ function InventoryInner({ restaurantId }: { restaurantId: string }) {
     | "stocktakes"
     | "stock-report"
     | "gross-profit") || "ingredients";
-  const setTab = (newTab: string) => {
-    navigate({ search: { tab: newTab } });
-  };
-  const [settingsOpen, setSettingsOpen] = useState(false);
+const [settingsOpen, setSettingsOpen] = useState(false);
   const cache = useQueryClient();
 
   const isInventoryAllowed = hasCapability(CAPABILITIES.InventoryCore);
@@ -157,8 +153,7 @@ function InventoryInner({ restaurantId }: { restaurantId: string }) {
     enabled: isInventoryAllowed,
   });
 
-  const lowStockCount = ingredientsQuery.data?.filter(i => i.isLowStock).length || 0;
-  const unconfiguredCount = recipesQuery.data?.filter(r => !r.isConfigured).length || 0;
+const unconfiguredCount = recipesQuery.data?.filter(r => !r.isConfigured).length || 0;
 
   if (accessLoading) return null;
 
@@ -216,107 +211,6 @@ function InventoryInner({ restaurantId }: { restaurantId: string }) {
                 Costing & Policy
               </button>
             </div>
-          </div>
-
-          {/* Tab Navigation */}
-          <div className="mt-6 flex flex-wrap gap-2 border-b border-border/60 pb-3">
-            <button
-              onClick={() => setTab("ingredients")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "ingredients" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <Package className="h-4 w-4" /> Ingredients
-              {lowStockCount > 0 && (
-                <span className="ml-1 rounded-full bg-destructive px-2 py-0.2 text-[11px] font-bold text-destructive-foreground">
-                  {lowStockCount} low
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setTab("recipes")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "recipes" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <ChefHat className="h-4 w-4" /> Recipes & Costing
-              {unconfiguredCount > 0 && (
-                <span className="ml-1 rounded-full bg-amber-500/20 px-2 py-0.2 text-[11px] font-bold text-amber-700 dark:text-amber-300">
-                  {unconfiguredCount} unconfigured
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setTab("preparations")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "preparations" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <FlaskConical className="h-4 w-4" /> Semi-Finished Prep
-            </button>
-
-            <button
-              onClick={() => setTab("suppliers")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "suppliers" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <Truck className="h-4 w-4" /> Suppliers
-            </button>
-
-            <button
-              onClick={() => setTab("purchasing")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "purchasing" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <ShoppingCart className="h-4 w-4" /> Purchasing & Returns
-            </button>
-
-            <button
-              onClick={() => setTab("lots")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "lots" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <Boxes className="h-4 w-4" /> Lots & Expiry
-            </button>
-
-            <button
-              onClick={() => setTab("transfers")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "transfers" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <ArrowLeftRight className="h-4 w-4" /> Transfers
-            </button>
-
-            <button
-              onClick={() => setTab("movements")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "movements" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <History className="h-4 w-4" /> Movement Ledger
-            </button>
-
-            <button
-              onClick={() => setTab("stocktakes")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "stocktakes" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <ClipboardCheck className="h-4 w-4" /> End-of-Day Stocktake
-            </button>
-
-            <button
-              onClick={() => setTab("stock-report")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "stock-report" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <FileSpreadsheet className="h-4 w-4" /> Stock Report
-            </button>
-
-            <button
-              onClick={() => setTab("gross-profit")}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "gross-profit" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground hover:bg-secondary"
-                }`}
-            >
-              <BarChart3 className="h-4 w-4" /> Sales & Gross Profit
-            </button>
           </div>
 
           {/* Tab Views */}

@@ -24,8 +24,6 @@ import {
   Sliders,
   ShieldCheck,
   History,
-  LayoutDashboard,
-  LogOut,
   Plus,
   Search,
   CheckCircle2,
@@ -41,11 +39,8 @@ import {
   Layers,
   Eye,
   EyeOff,
-  Menu,
-  ChevronDown,
-  ChevronRight,
 } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { AppLayout } from "@/components/app-layout";
 import { SUPER_ADMIN_NAVIGATION } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,7 +70,7 @@ function SuperAdminPage() {
   const { user, signIn, signOut } = useAuth();
 
   if (user && user.role === "SuperAdmin") {
-    return <SuperAdminWorkspace onLogout={() => signOut("/super-admin")} />;
+    return <SuperAdminWorkspace />;
   }
 
   if (user) {
@@ -182,220 +177,23 @@ function SuperAdminLogin({ onLogin }: { onLogin: (token: string) => void }) {
 /* ==========================================================================
    2. SUPER ADMIN WORKSPACE (Tabs: Overview, Tenants, Plans, Subscriptions, Audit)
    ========================================================================== */
-function SuperAdminWorkspace({ onLogout }: { onLogout: () => void }) {
+function SuperAdminWorkspace() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const validTabs: TabType[] = ["overview", "tenants", "plans", "subscriptions", "audit"];
-  const activeTab: TabType = (validTabs.includes(search.tab as any) ? search.tab : "overview") as TabType;
+  const activeTab = SUPER_ADMIN_NAVIGATION.find((item) => item.tab === search.tab)?.tab ?? "overview";
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [platformCollapsed, setPlatformCollapsed] = useState(false);
-
-  const setActiveTab = (tab: TabType) => {
-    navigate({ search: { tab } });
-  };
-
-  // Ensure active group is expanded
-  useEffect(() => {
-    setPlatformCollapsed(false);
-  }, [activeTab]);
-
-  const renderSidebarNav = () => (
-    <div className="flex h-full flex-col justify-between py-2">
-      <div className="flex-1 overflow-y-auto px-2 space-y-4">
-        {/* Collapsible Platform Section */}
-        <div className="space-y-1">
-          <button
-            type="button"
-            onClick={() => setPlatformCollapsed((prev) => !prev)}
-            className="flex w-full items-center justify-between px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition"
-          >
-            <span>Platform Administration</span>
-            {platformCollapsed ? (
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            )}
-          </button>
-
-          {!platformCollapsed && (
-            <div className="space-y-0.5">
-              {SUPER_ADMIN_NAVIGATION.map((item) => {
-                const isActive = activeTab === item.tab;
-                const Icon = item.icon;
-
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(item.tab);
-                      setMobileMenuOpen(false);
-                    }}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition text-left ${
-                      isActive
-                        ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                        : "text-foreground hover:bg-secondary/80 hover:text-foreground"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon
-                        className={`h-4 w-4 shrink-0 ${
-                          isActive ? "text-primary-foreground" : "text-muted-foreground"
-                        }`}
-                      />
-                      <span>{item.label}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="border-t border-border px-3 pt-3">
-        <p className="text-[11px] text-muted-foreground font-medium">TABLO Platform Operator</p>
-        <p className="text-[10px] text-muted-foreground/70">v2.0 • Multi-Tenant</p>
-      </div>
-    </div>
-  );
+  const setActiveTab = (tab: TabType) => navigate({ search: { tab } });
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {/* Top Header */}
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-card/90 px-4 backdrop-blur sm:px-6">
-        <div className="flex items-center gap-3">
-          {/* Mobile hamburger menu */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-card text-foreground hover:bg-secondary lg:hidden"
-            aria-label="Open Platform Navigation"
-          >
-            <Menu className="h-4 w-4" />
-          </button>
-
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-soft">
-            <QrCode className="h-4 w-4" />
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="font-display text-lg font-bold">
-              Tablo<span className="text-primary">.</span>
-            </span>
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
-              Platform Super Admin
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onLogout} className="gap-1.5 text-xs">
-            <LogOut className="h-3.5 w-3.5" /> Sign Out
-          </Button>
-        </div>
-      </header>
-
-      {/* Mobile Drawer Sheet */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-64 p-0 bg-card">
-          <SheetHeader className="border-b border-border px-4 py-3">
-            <SheetTitle className="flex items-center gap-2 text-sm font-bold">
-              <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-primary-foreground">
-                <QrCode className="h-3.5 w-3.5" />
-              </span>
-              <span>Super Admin Menu</span>
-            </SheetTitle>
-          </SheetHeader>
-          <div className="h-[calc(100vh-60px)]">
-            {renderSidebarNav()}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Main Workspace Body: Desktop Sidebar + Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-card/60 p-2 shrink-0">
-          {renderSidebarNav()}
-        </aside>
-
-        {/* Content Area */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          {/* Navigation Tabs Bar for secondary quick navigation */}
-          <div className="border-b border-border/80 bg-secondary/30 px-4 sm:px-6">
-            <div className="flex space-x-1 overflow-x-auto py-2">
-              <TabButton
-                active={activeTab === "overview"}
-                onClick={() => setActiveTab("overview")}
-                icon={LayoutDashboard}
-                label="Overview"
-              />
-              <TabButton
-                active={activeTab === "tenants"}
-                onClick={() => setActiveTab("tenants")}
-                icon={Building2}
-                label="Restaurants"
-              />
-              <TabButton
-                active={activeTab === "plans"}
-                onClick={() => setActiveTab("plans")}
-                icon={Sliders}
-                label="Plans & Features"
-              />
-              <TabButton
-                active={activeTab === "subscriptions"}
-                onClick={() => setActiveTab("subscriptions")}
-                icon={ShieldCheck}
-                label="Subscriptions"
-              />
-              <TabButton
-                active={activeTab === "audit"}
-                onClick={() => setActiveTab("audit")}
-                icon={History}
-                label="Audit Log"
-              />
-            </div>
-          </div>
-
-          {/* Tab Content Panes */}
-          <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
-            {activeTab === "overview" && <OverviewPane onNavigateTab={(t) => setActiveTab(t)} />}
-            {activeTab === "tenants" && <TenantsPane onManageSub={() => setActiveTab("subscriptions")} />}
-            {activeTab === "plans" && <PlansPane />}
-            {activeTab === "subscriptions" && <SubscriptionsPane />}
-            {activeTab === "audit" && <AuditLogPane />}
-          </main>
-        </div>
+    <AppLayout>
+      <div className="min-h-full p-4 sm:p-6">
+        {activeTab === "overview" && <OverviewPane onNavigateTab={setActiveTab} />}
+        {activeTab === "tenants" && <TenantsPane onManageSub={() => setActiveTab("subscriptions")} />}
+        {activeTab === "plans" && <PlansPane />}
+        {activeTab === "subscriptions" && <SubscriptionsPane />}
+        {activeTab === "audit" && <AuditLogPane />}
       </div>
-    </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  icon: Icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: any;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
-        active
-          ? "bg-card text-foreground shadow-xs border border-border"
-          : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
-      }`}
-    >
-      <Icon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground"}`} />
-      <span>{label}</span>
-    </button>
+    </AppLayout>
   );
 }
 

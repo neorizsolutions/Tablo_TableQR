@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Languages, Loader2, Pencil, Plus, QrCode, Receipt, Search, Sparkles, X, Trash2, FolderPlus, LogIn, ShieldAlert, LogOut, Package, Printer, Settings, ShoppingBag, Sliders, Users, Store } from "lucide-react";
+import { Eye, Languages, Loader2, Pencil, Plus, QrCode, Search, Sparkles, X, Trash2, FolderPlus, LogIn, ShieldAlert, LogOut, Printer, Settings, Sliders } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
@@ -211,11 +211,10 @@ function AdminInner() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-secondary/40">
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="min-h-full bg-secondary/40">
+        <div className="px-4 py-6 sm:px-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Manager workspace</p>
               <h1 className="mt-1 font-display text-3xl font-bold">
                 {isParcelTab
                   ? "Parcel Counter POS"
@@ -287,75 +286,6 @@ function AdminInner() {
               )}
             </div>
           </div>
-
-          {/* Admin Navigation Tabs */}
-              <div className="mt-6 flex flex-wrap gap-2 border-b border-border/60 pb-3">
-                <Link
-                  to="/admin"
-                  search={{ tab: "menu" }}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isMenuTab
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                >
-                  <Receipt className="h-4 w-4" /> Menu & Categories
-                </Link>
-
-                <Link
-                  to="/admin"
-                  search={{ tab: "tables" }}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isTablesTab
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                >
-                  <QrCode className="h-4 w-4" /> Tables & QR Codes ({tables.length})
-                </Link>
-
-                <Link
-                  to="/admin"
-                  search={{ tab: "crm" }}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isCrmTab
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                >
-                  <Users className="h-4 w-4" /> Customer CRM & Loyalty
-                </Link>
-
-                <Link
-                  to="/admin"
-                  search={{ tab: "marketplace" }}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isMarketplaceTab
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                >
-                  <ShoppingBag className="h-4 w-4" /> Marketplace Automation
-                </Link>
-
-              <Link
-                to="/admin"
-                search={{ tab: "storefront" }}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isStorefrontTab
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-              >
-                <Store className="h-4 w-4" /> Storefront & Outlets
-              </Link>
-
-              <Link
-                to="/admin"
-                search={{ tab: "parcel" }}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isParcelTab
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-              >
-                <Package className="h-4 w-4" /> Parcel Counter
-              </Link>
-            </div>
 
             {isParcelTab ? (
               <div className="mt-6">
@@ -519,7 +449,7 @@ function AdminInner() {
                       </aside>
                     </div>
                   )}
-                </main>
+                </div>
 
                 {editing && <ItemModal item={editing} categories={categoriesList} onClose={() => setEditing(null)} onSaved={saveItem} />}
                 {creating && <ItemModal categories={categoriesList} onClose={() => setCreating(false)} onSaved={saveItem} />}
