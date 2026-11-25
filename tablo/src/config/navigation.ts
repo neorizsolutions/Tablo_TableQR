@@ -21,6 +21,8 @@ import {
   Factory,
   ClipboardCheck,
   FileSpreadsheet,
+  LifeBuoy,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 
@@ -244,6 +246,14 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     requiredRoles: ["Admin", "Owner"],
     requiredCapabilities: [CAPABILITIES.StandardBilling],
   },
+  {
+    id: "support",
+    label: "Support",
+    to: "/support",
+    icon: LifeBuoy,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
+  },
 
   // 4. INVENTORY & SUPPLY (ERP)
   {
@@ -395,7 +405,7 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
 export interface SuperAdminNavItem {
   id: string;
   label: string;
-  tab: "overview" | "tenants" | "plans" | "subscriptions" | "audit";
+  tab: "overview" | "tenants" | "plans" | "subscriptions" | "audit" | "inbox";
   to: string;
   search: { tab: string };
   icon: LucideIcon;
@@ -410,6 +420,15 @@ export const SUPER_ADMIN_NAVIGATION: SuperAdminNavItem[] = [
     to: "/super-admin",
     search: { tab: "overview" },
     icon: LayoutDashboard,
+    section: "platform",
+  },
+  {
+    id: "sa-support-inbox",
+    label: "Support Inbox",
+    tab: "inbox",
+    to: "/super-admin",
+    search: { tab: "inbox" },
+    icon: Inbox,
     section: "platform",
   },
   {

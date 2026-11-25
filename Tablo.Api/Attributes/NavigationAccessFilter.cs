@@ -19,7 +19,7 @@ public sealed class NavigationAccessFilter(ApplicationDbContext db, ISubscriptio
         if (user.Identity?.IsAuthenticated != true || user.IsInRole("SuperAdmin") ||
             context.ActionDescriptor.EndpointMetadata.OfType<IAllowAnonymous>().Any()) { await next(); return; }
         var action = (ControllerActionDescriptor)context.ActionDescriptor;
-        if (action.ControllerName is "Auth" or "Subscriptions" or "SystemAdmin") { await next(); return; }
+        if (action.ControllerName is "Auth" or "Subscriptions" or "SystemAdmin" or "SupportAdmin") { await next(); return; }
         var employee = await db.Employees.AsNoTracking().Include(e => e.Role).FirstOrDefaultAsync(e =>
             e.Id == user.GetUserId() && e.RestaurantId == user.GetRestaurantId() && e.IsActive);
         if (employee == null) { context.Result = new ForbidResult(); return; }
@@ -74,6 +74,7 @@ public sealed class NavigationAccessFilter(ApplicationDbContext db, ISubscriptio
             "Settings" => read ? ["storefront-settings", "orders-servicedesk", "staff-order-taking", "kitchen-queue", "table-billing", "parcel-counter", "menu-management"] : ["storefront-settings", "menu-management"],
             "KitchenStations" or "Printers" => ["kitchen-queue", "storefront-settings", "menu-management"],
             "CentralKitchen" => ["central-kitchen"],
+            "Support" => ["support"],
             "Inventory" => read && action == "GetIngredients" ? ["inventory-stock", "inventory-recipes", "inventory-preparations", "inventory-suppliers", "purchasing-orders", "inventory-stocktakes", "central-kitchen", "stock-valuation-report", "gross-profit-report", "outlet-transfers", "inventory-movements"] : read && action == "GetRecipes" ? ["inventory-recipes", "gross-profit-report", "stock-valuation-report"] : InventoryMenus(action),
             _ => []
         };

@@ -33,6 +33,7 @@ public static class NavigationAccess
         ["financial-reports"] = new(new[] { "Admin", "Owner" }, new string[] { "basic_reports" }),
         ["stock-valuation-report"] = new(new[] { "Admin", "Owner" }, new string[] { "stock_profit_reports" }),
         ["gross-profit-report"] = new(new[] { "Admin", "Owner" }, new string[] { "stock_profit_reports" }),
+        ["support"] = new(new[] { "Admin", "Owner" }, new string[] { }),
     };
     public static string[]? EffectiveOverride(Employee employee) => employee.AllowedMenuIds == null ? null :
         employee.Role.Name is "Admin" or "Owner" ? employee.AllowedMenuIds.Concat(["staff-management", "staff-menu-access"]).Distinct().ToArray() : employee.AllowedMenuIds;

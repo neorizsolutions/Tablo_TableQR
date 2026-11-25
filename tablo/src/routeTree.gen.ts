@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SupportRouteImport } from './routes/support'
 import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as StaffRouteImport } from './routes/staff'
 import { Route as ReportsRouteImport } from './routes/reports'
@@ -23,6 +24,11 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TQrTokenRouteImport } from './routes/t.$qrToken'
 
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SuperAdminRoute = SuperAdminRouteImport.update({
   id: '/super-admin',
   path: '/super-admin',
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/super-admin': typeof SuperAdminRoute
+  '/support': typeof SupportRoute
   '/t/$qrToken': typeof TQrTokenRoute
 }
 export interface FileRoutesByTo {
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/super-admin': typeof SuperAdminRoute
+  '/support': typeof SupportRoute
   '/t/$qrToken': typeof TQrTokenRoute
 }
 export interface FileRoutesById {
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/staff': typeof StaffRoute
   '/super-admin': typeof SuperAdminRoute
+  '/support': typeof SupportRoute
   '/t/$qrToken': typeof TQrTokenRoute
 }
 export interface FileRouteTypes {
@@ -150,6 +159,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/staff'
     | '/super-admin'
+    | '/support'
     | '/t/$qrToken'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/staff'
     | '/super-admin'
+    | '/support'
     | '/t/$qrToken'
   id:
     | '__root__'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/staff'
     | '/super-admin'
+    | '/support'
     | '/t/$qrToken'
   fileRoutesById: FileRoutesById
 }
@@ -196,11 +208,19 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   StaffRoute: typeof StaffRoute
   SuperAdminRoute: typeof SuperAdminRoute
+  SupportRoute: typeof SupportRoute
   TQrTokenRoute: typeof TQrTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/super-admin': {
       id: '/super-admin'
       path: '/super-admin'
@@ -308,6 +328,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   StaffRoute: StaffRoute,
   SuperAdminRoute: SuperAdminRoute,
+  SupportRoute: SupportRoute,
   TQrTokenRoute: TQrTokenRoute,
 }
 export const routeTree = rootRouteImport

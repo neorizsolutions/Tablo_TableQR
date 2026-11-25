@@ -127,7 +127,14 @@ builder.Services.AddScoped<Tablo.Api.Services.Printing.IKotRoutingService, Tablo
 builder.Services.AddScoped<Tablo.Api.Interfaces.IParcelOrderService, Tablo.Api.Services.ParcelOrderService>();
 builder.Services.AddScoped<Tablo.Api.Services.ModifierService>();
 builder.Services.AddScoped<Tablo.Api.Services.ManagerAuthService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<Tablo.Api.Hubs.SupportConnectionRegistry>();
+builder.Services.AddSingleton<Tablo.Api.Hubs.ISupportConnectionRevoker>(sp =>
+    sp.GetRequiredService<Tablo.Api.Hubs.SupportConnectionRegistry>());
+builder.Services.AddScoped<Tablo.Api.Hubs.ISupportRealtimeNotifier, Tablo.Api.Hubs.SupportRealtimeNotifier>();
+builder.Services.AddScoped<Tablo.Api.Interfaces.ISupportService, Tablo.Api.Services.SupportService>();
 builder.Services.AddHostedService<Tablo.Api.Services.ScheduledOrderReleaseWorker>();
+builder.Services.AddHostedService<Tablo.Api.Services.SupportEscalationWorker>();
 
 var imageStorageOptions = builder.Configuration.GetSection(Tablo.Api.Configurations.ImageStorageOptions.ImageStorage).Get<Tablo.Api.Configurations.ImageStorageOptions>() ?? new Tablo.Api.Configurations.ImageStorageOptions();
 builder.Services.Configure<Tablo.Api.Configurations.ImageStorageOptions>(builder.Configuration.GetSection(Tablo.Api.Configurations.ImageStorageOptions.ImageStorage));
@@ -204,6 +211,7 @@ app.MapGet("/health", async (Tablo.Api.Data.ApplicationDbContext context, ILogge
 
 app.MapControllers();
 app.MapHub<OrderHub>("/hubs/order");
+app.MapHub<SupportHub>("/hubs/support");
 
 using (var scope = app.Services.CreateScope())
 {

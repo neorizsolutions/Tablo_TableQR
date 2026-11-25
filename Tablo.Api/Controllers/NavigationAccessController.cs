@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Tablo.Api.Data;
 using Tablo.Api.Extensions;
+using Tablo.Api.Hubs;
 using Tablo.Api.Interfaces;
 using Tablo.Api.Services;
 namespace Tablo.Api.Controllers;
@@ -11,7 +12,7 @@ public record MenuAccessDto(string[]? AllowedMenuIds);
 
 [ApiController]
 [Authorize]
-public class NavigationAccessController(ApplicationDbContext db, ISubscriptionService subscriptions) : ControllerBase
+public class NavigationAccessController(ApplicationDbContext db, ISubscriptionService subscriptions, ISupportConnectionRevoker? revoker = null) : ControllerBase
 {
     [HttpGet("api/navigation-access")]
     public async Task<IActionResult> Current()
@@ -58,6 +59,10 @@ public class NavigationAccessController(ApplicationDbContext db, ISubscriptionSe
         // Keep administrator recovery available when saving their restrictions.
         employee.AllowedMenuIds = NavigationAccess.EffectiveOverride(employee);
         await db.SaveChangesAsync();
+        if (revoker != null && !NavigationAccess.Allows(employee, ["support"]))
+        {
+            await revoker.RevokeEmployeeConnectionsAsync(employee.Id, "Support menu access revoked.");
+        }
         return Ok(new MenuAccessDto(employee.AllowedMenuIds));
     }
 }
