@@ -12,10 +12,12 @@ namespace Tablo.Api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, ILogger<AuthController> logger)
         {
             _authService = authService;
+            _logger = logger;
         }
 
         [HttpPost("login")]
@@ -56,13 +58,12 @@ namespace Tablo.Api.Controllers
             try
             {
                 await _authService.ForgotPasswordAsync(request.Email);
-                return Ok(new { message = "If an account exists for this email, a verification code has been sent." });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Always return generic success to prevent email enumeration
-                return Ok(new { message = "If an account exists for this email, a verification code has been sent." });
+                _logger.LogWarning("Password reset request failed ({ErrorType}).", ex.GetType().Name);
             }
+            return Ok(new { message = "If an account exists for this email, a verification code has been sent." });
         }
 
         [HttpPost("verify-reset-otp")]

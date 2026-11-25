@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ChefHat, Loader2, QrCode } from "lucide-react";
+import { ChefHat, Eye, EyeOff, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { apiClient } from "@/services/apiClient";
@@ -20,6 +20,7 @@ function AuthPage() {
   const { user, loading, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -79,15 +80,25 @@ function AuthPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password</label>
-              <input
-                required
-                type="password"
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <input
+                  required
+                  type={showPassword ? "text" : "password"}
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background pl-4 pr-11 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition p-1"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <button
               type="submit"

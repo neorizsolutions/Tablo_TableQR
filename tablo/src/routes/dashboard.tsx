@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, Check, ChefHat, Filter, Flame, Loader2, LogIn, LogOut, PackageCheck, Printer, Search, ShieldAlert, ShoppingCart, Timer, UtensilsCrossed } from "lucide-react";
+import { Bell, Check, ChefHat, Filter, Flame, Loader2, LogIn, LogOut, PackageCheck, Printer, Search, ShieldAlert, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
+import { getDashboardTab } from "@/config/navigation";
 import { AppLayout } from "@/components/app-layout";
 import { ServiceDesk } from "@/components/service-desk";
 import { KitchenPrintingSettingsModal } from "@/components/kitchen-printing-settings";
@@ -55,7 +56,7 @@ function DashboardPage() {
   }
 
   if (!user) return <SignInGate />;
-  if (!isStaff) return <NoAccessGate roles={roles} onSignOut={signOut} />;
+  if (!isStaff && user.role !== "Owner") return <NoAccessGate roles={roles} onSignOut={signOut} />;
 
   return <DashboardInner />;
 }
@@ -105,9 +106,9 @@ function NoAccessGate({ roles, onSignOut }: { roles: string[]; onSignOut: () => 
 }
 
 function DashboardInner() {
-  const { signOut, user } = useAuth();
+  const { user } = useAuth();
   const search = Route.useSearch();
-  const currentTab = search.tab === "order" ? "order" : search.tab === "kitchen" ? "kitchen" : "floor";
+  const currentTab = getDashboardTab(search.tab, user?.role);
   const searchTable = search.table;
   const searchGroup = search.group;
   const [showServiceDesk, setShowServiceDesk] = useState(false);
@@ -238,25 +239,24 @@ function DashboardInner() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-secondary/40">
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="min-h-full bg-secondary/40">
+        <div className="px-4 py-6 sm:px-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                {currentTab === "order" ? "Direct table ordering" : currentTab === "kitchen" ? "Live kitchen display" : "Restaurant floor & billing"}
-              </p>
               <h1 className="mt-1 font-display text-3xl font-bold">
-                {currentTab === "order" ? "Staff Order Taking" : currentTab === "kitchen" ? "Kitchen Production Queue" : "Floor & Table Orders"}
+                {currentTab === "order"
+                  ? "Staff Order Taking"
+                  : currentTab === "kitchen"
+                  ? "Kitchen Production Queue"
+                  : currentTab === "billing"
+                  ? "Table Billing & Settlements"
+                  : "Floor & Table Orders"}
               </h1>
-              <p className="mt-1 text-xs text-muted-foreground">Signed in as {user?.email}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-1.5 text-xs font-medium shadow-soft">
                 <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary" /> Real-time updates
               </span>
-              <button onClick={() => void signOut()} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold">
-                <LogOut className="h-3.5 w-3.5" /> Sign out
-              </button>
             </div>
           </div>
 
@@ -269,6 +269,19 @@ function DashboardInner() {
                 initialTableId={searchTable}
                 initialGroupId={searchGroup}
                 mode="order-only"
+              />
+            </div>
+          )}
+
+          {/* DEDICATED TABLE BILLING & SETTLEMENTS */}
+          {currentTab === "billing" && canManageBills && user?.restaurantId && (
+            <div className="mt-6">
+              <ServiceDesk
+                restaurantId={user.restaurantId}
+                employeeId={user.id}
+                initialTableId={searchTable}
+                initialGroupId={searchGroup}
+                mode="bills-only"
               />
             </div>
           )}
@@ -615,7 +628,7 @@ function DashboardInner() {
                   onClose={() => setShowPrintingSettings(false)}
                 />
               )}
-            </main>
+            </div>
       </div>
     </AppLayout>
   );

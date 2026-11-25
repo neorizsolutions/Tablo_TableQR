@@ -73,6 +73,7 @@ namespace Tablo.Api.Services
             {
                 new Claim(JwtRegisteredClaimNames.Sub, employee.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, employee.Email),
+                new Claim(JwtRegisteredClaimNames.Name, employee.FullName),
                 new Claim("RestaurantId", employee.RestaurantId.ToString()),
                 new Claim("RestaurantName", employee.Restaurant?.Name ?? "Tablo Restaurant"),
                 new Claim(ClaimTypes.Role, employee.Role.Name)
@@ -145,19 +146,26 @@ namespace Tablo.Api.Services
 
         public async Task ForgotPasswordAsync(string email)
         {
-            var employee = await _context.Employees.FirstOrDefaultAsync(e => e.Email == email);
+            var employee = await _context.Employees.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
             if (employee == null) return;
 
-            // Generate 6-digit OTP
-            var random = new Random();
-            var otp = random.Next(100000, 999999).ToString();
+            var otp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
 
-            employee.ResetOtpHash = BCrypt.Net.BCrypt.HashPassword(otp);
-            employee.ResetOtpExpiration = DateTime.UtcNow.AddMinutes(10);
-            employee.ResetOtpAttempts = 0;
-            employee.ResetTokenHash = null;
-
-            await _context.SaveChangesAsync();
+            var otpHash = BCrypt.Net.BCrypt.HashPassword(otp);
+            var now = DateTime.UtcNow;
+            var expiresAt = now.AddMinutes(10);
+            var cooldownCutoff = expiresAt.AddMinutes(-1);
+            var updated = await _context.Employees
+                .Where(e => e.Id == employee.Id && e.IsActive &&
+                    (e.ResetOtpExpiration == null || e.ResetOtpExpiration <= cooldownCutoff))
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(e => e.ResetOtpHash, otpHash)
+                    .SetProperty(e => e.ResetOtpExpiration, expiresAt)
+                    .SetProperty(e => e.ResetOtpAttempts, 0)
+                    .SetProperty(e => e.ResetTokenHash, (string?)null));
+            if (updated == 0)
+                return;
 
             string subject = "Tablo Password Reset Code";
             string body = $@"Hello,
@@ -175,18 +183,30 @@ If you did not request this, you can safely ignore this email.
 Regards,
 Tablo";
 
-            await _emailService.SendEmailAsync(employee.Email, subject, body);
+            try
+            {
+                await _emailService.SendEmailAsync(employee.Email, subject, body);
+            }
+            catch
+            {
+                await _context.Employees.Where(e => e.Id == employee.Id && e.ResetOtpHash == otpHash)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(e => e.ResetOtpHash, (string?)null)
+                        .SetProperty(e => e.ResetOtpExpiration, (DateTime?)null));
+                throw;
+            }
         }
 
         public async Task<VerifyOtpResponseDto> VerifyOtpAsync(string email, string otp)
         {
-            var employee = await _context.Employees.FirstOrDefaultAsync(e => e.Email == email);
+            var employee = await _context.Employees.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
             if (employee == null || employee.ResetOtpHash == null)
             {
                 throw new Exception("Invalid OTP.");
             }
 
-            if (employee.ResetOtpExpiration < DateTime.UtcNow)
+            if (employee.ResetOtpExpiration is null || employee.ResetOtpExpiration < DateTime.UtcNow)
             {
                 throw new Exception("OTP has expired.");
             }
@@ -196,32 +216,38 @@ Tablo";
                 throw new Exception("Too many failed attempts. Please request a new OTP.");
             }
 
+            var now = DateTime.UtcNow;
+            var challenge = _context.Employees.Where(e =>
+                e.Id == employee.Id && e.IsActive && e.ResetOtpHash == employee.ResetOtpHash &&
+                e.ResetOtpExpiration > now && e.ResetOtpAttempts < 5);
             if (!BCrypt.Net.BCrypt.Verify(otp, employee.ResetOtpHash))
             {
-                employee.ResetOtpAttempts++;
-                await _context.SaveChangesAsync();
+                await challenge.ExecuteUpdateAsync(setters => setters
+                    .SetProperty(e => e.ResetOtpAttempts, e => e.ResetOtpAttempts + 1));
                 throw new Exception("Invalid OTP.");
             }
 
             // Generate reset token
             var resetToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
             
-            // Single use OTP - invalidate it now
-            employee.ResetOtpHash = null;
-            employee.ResetOtpExpiration = null;
-            employee.ResetOtpAttempts = 0;
-            
-            // Set reset token hash
-            employee.ResetTokenHash = BCrypt.Net.BCrypt.HashPassword(resetToken);
-            await _context.SaveChangesAsync();
+            var resetTokenHash = BCrypt.Net.BCrypt.HashPassword(resetToken);
+            var updated = await challenge.ExecuteUpdateAsync(setters => setters
+                .SetProperty(e => e.ResetOtpHash, (string?)null)
+                .SetProperty(e => e.ResetOtpExpiration, now.AddMinutes(10))
+                .SetProperty(e => e.ResetOtpAttempts, 0)
+                .SetProperty(e => e.ResetTokenHash, resetTokenHash));
+            if (updated == 0)
+                throw new Exception("Invalid OTP.");
 
             return new VerifyOtpResponseDto { ResetToken = resetToken };
         }
 
         public async Task ResetPasswordAsync(string email, string resetToken, string newPassword)
         {
-            var employee = await _context.Employees.FirstOrDefaultAsync(e => e.Email == email);
-            if (employee == null || employee.ResetTokenHash == null)
+            var employee = await _context.Employees.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
+            if (employee == null || employee.ResetTokenHash == null ||
+                employee.ResetOtpExpiration is null || employee.ResetOtpExpiration < DateTime.UtcNow)
             {
                 throw new Exception("Invalid or expired reset token.");
             }
@@ -231,10 +257,18 @@ Tablo";
                 throw new Exception("Invalid or expired reset token.");
             }
 
-            employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
-            employee.ResetTokenHash = null; // Invalidate reset token after use
-
-            await _context.SaveChangesAsync();
+            var tokenHash = employee.ResetTokenHash;
+            var now = DateTime.UtcNow;
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            var updated = await _context.Employees
+                .Where(e => e.Id == employee.Id && e.IsActive &&
+                    e.ResetTokenHash == tokenHash && e.ResetOtpExpiration > now)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(e => e.PasswordHash, passwordHash)
+                    .SetProperty(e => e.ResetTokenHash, (string?)null)
+                    .SetProperty(e => e.ResetOtpExpiration, (DateTime?)null));
+            if (updated == 0)
+                throw new Exception("Invalid or expired reset token.");
         }
     }
 }

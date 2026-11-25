@@ -73,7 +73,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Waiter")]
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ServiceRequestDto>>> GetActiveRequests()
         {
@@ -94,7 +94,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Waiter")]
         [HttpPatch("{id}/acknowledge")]
         public async Task<ActionResult<ServiceRequestDto>> AcknowledgeRequest(Guid id)
         {
@@ -115,7 +115,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Waiter")]
         [HttpPatch("{id}/complete")]
         public async Task<ActionResult<ServiceRequestDto>> CompleteRequest(Guid id)
         {

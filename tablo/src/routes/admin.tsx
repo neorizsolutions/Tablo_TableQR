@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Languages, Loader2, Pencil, Plus, QrCode, Receipt, Search, Sparkles, X, Trash2, FolderPlus, LogIn, ShieldAlert, LogOut, Package, Printer, Settings, ShoppingBag, Sliders, Users, Store } from "lucide-react";
+import { Eye, Languages, Loader2, Pencil, Plus, QrCode, Search, Sparkles, X, Trash2, FolderPlus, LogIn, ShieldAlert, LogOut, Printer, Settings, Sliders } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
@@ -103,6 +103,7 @@ function AdminInner() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const currentTab = search.tab || "menu";
+  const isParcelTab = currentTab === "parcel";
   const isTablesTab = currentTab === "tables";
   const isCrmTab = currentTab === "crm";
   const isMarketplaceTab = currentTab === "marketplace";
@@ -210,13 +211,14 @@ function AdminInner() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-secondary/40">
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="min-h-full bg-secondary/40">
+        <div className="px-4 py-6 sm:px-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Manager workspace</p>
               <h1 className="mt-1 font-display text-3xl font-bold">
-                {isTablesTab
+                {isParcelTab
+                  ? "Parcel Counter POS"
+                  : isTablesTab
                   ? "Tables & QR Codes"
                   : isCrmTab
                     ? "Customer CRM & Loyalty"
@@ -227,7 +229,9 @@ function AdminInner() {
                         : "Menu & Categories"}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                {isTablesTab
+                {isParcelTab
+                  ? "Direct walk-in parcel counter ordering, takeaway tokens, and instant payment settlements."
+                  : isTablesTab
                   ? "Configure dining tables, manage table status, and generate printable customer QR codes."
                   : isCrmTab
                     ? "Diner profiles, retry-safe loyalty points ledger, and receipt-linked guest feedback."
@@ -283,65 +287,15 @@ function AdminInner() {
             </div>
           </div>
 
-          {/* Admin Navigation Tabs */}
-              <div className="mt-6 flex flex-wrap gap-2 border-b border-border/60 pb-3">
-                <Link
-                  to="/admin"
-                  search={{ tab: "menu" }}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isMenuTab
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                >
-                  <Receipt className="h-4 w-4" /> Menu & Categories
-                </Link>
-
-                <Link
-                  to="/admin"
-                  search={{ tab: "tables" }}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isTablesTab
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                >
-                  <QrCode className="h-4 w-4" /> Tables & QR Codes ({tables.length})
-                </Link>
-
-                <Link
-                  to="/admin"
-                  search={{ tab: "crm" }}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isCrmTab
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                >
-                  <Users className="h-4 w-4" /> Customer CRM & Loyalty
-                </Link>
-
-                <Link
-                  to="/admin"
-                  search={{ tab: "marketplace" }}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isMarketplaceTab
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                >
-                  <ShoppingBag className="h-4 w-4" /> Marketplace Automation
-                </Link>
-
-              <Link
-                to="/admin"
-                search={{ tab: "storefront" }}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isStorefrontTab
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-              >
-                <Store className="h-4 w-4" /> Storefront & Outlets
-              </Link>
-            </div>
-
-            {isTablesTab ? (
+            {isParcelTab ? (
+              <div className="mt-6">
+                <ParcelCounter
+                  restaurantId={user!.restaurantId!}
+                  employeeId={user!.id}
+                  onClose={() => navigate({ search: { tab: "menu" } })}
+                />
+              </div>
+            ) : isTablesTab ? (
               <div className="mt-6">
                 <TablesWorkspaceView
                   restaurantId={user!.restaurantId!}
@@ -495,7 +449,7 @@ function AdminInner() {
                       </aside>
                     </div>
                   )}
-                </main>
+                </div>
 
                 {editing && <ItemModal item={editing} categories={categoriesList} onClose={() => setEditing(null)} onSaved={saveItem} />}
                 {creating && <ItemModal categories={categoriesList} onClose={() => setCreating(false)} onSaved={saveItem} />}

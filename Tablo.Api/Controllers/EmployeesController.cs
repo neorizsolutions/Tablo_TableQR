@@ -11,7 +11,7 @@ namespace Tablo.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Owner")]
     public class EmployeesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -265,7 +265,7 @@ namespace Tablo.Api.Controllers
             return Ok(new { message = "Manager PIN set successfully." });
         }
 
-        [Authorize(Roles = "Admin,Waiter,Kitchen")]
+        [Authorize(Roles = "Admin,Owner,Waiter,Kitchen")]
         [HttpPost("verify-pin")]
         public async Task<IActionResult> VerifyManagerPin([FromBody] VerifyManagerPinRequestDto request, [FromServices] Services.ManagerAuthService managerAuth)
         {

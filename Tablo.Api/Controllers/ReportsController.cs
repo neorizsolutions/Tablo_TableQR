@@ -9,7 +9,7 @@ namespace Tablo.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Owner")]
     public class ReportsController : ControllerBase
     {
         private readonly IReportService _reportService;

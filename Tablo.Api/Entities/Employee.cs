@@ -31,6 +31,8 @@ namespace Tablo.Api.Entities
         [MaxLength(500)]
         public string PasswordHash { get; set; } = string.Empty;
 
+        public string[]? AllowedMenuIds { get; set; }
+
         public bool IsActive { get; set; } = true;
 
         public string? ResetOtpHash { get; set; }

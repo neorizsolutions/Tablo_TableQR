@@ -16,7 +16,12 @@ import {
   FileText,
   Sliders,
   History,
-  type LucideIcon
+  CreditCard,
+  Store,
+  Factory,
+  ClipboardCheck,
+  FileSpreadsheet,
+  type LucideIcon,
 } from "lucide-react";
 
 export const CAPABILITIES = {
@@ -35,6 +40,17 @@ export const CAPABILITIES = {
   MixedPayments: "mixed_payments",
   TableTransfers: "table_transfers",
   AdvancedPaymentReports: "advanced_payment_reports",
+  ThermalPrinting: "thermal_printing",
+  MultipleKitchenStations: "multiple_stations",
+  ParcelCounter: "parcel_counter",
+  HoldFireCourses: "hold_fire_courses",
+  ItemModifiers: "item_modifiers",
+  FreeRefills: "free_refills",
+  ManagerWasteCancellation: "waste_cancellation",
+  ScheduledPickup: "scheduled_pickup",
+  HybridDineInParcel: "hybrid_dinein_parcel",
+  CarSideOrdering: "carside_ordering",
+  DynamicUpiQr: "dynamic_upi_qr",
 
   // Premium
   InventoryCore: "inventory_core",
@@ -48,7 +64,7 @@ export const CAPABILITIES = {
   AutoAvailability: "auto_availability",
 } as const;
 
-export type CapabilityKey = typeof CAPABILITIES[keyof typeof CAPABILITIES];
+export type CapabilityKey = (typeof CAPABILITIES)[keyof typeof CAPABILITIES];
 
 export interface NavItem {
   id: string;
@@ -58,22 +74,36 @@ export interface NavItem {
   tabParam?: string;
   isDefault?: boolean;
   icon: LucideIcon;
-  section: "main" | "operations" | "inventory" | "analytics" | "admin";
+  section: "main" | "operations" | "management" | "inventory" | "analytics";
   requiredRoles?: ("Admin" | "Owner" | "Waiter" | "Kitchen")[];
   requiredCapabilities?: string[];
 }
 
+export function isNavigationItemActive(
+  item: Pick<NavItem, "to" | "tabParam" | "isDefault">,
+  pathname: string,
+  tab?: string,
+) {
+  return pathname === item.to && (!item.tabParam || item.tabParam === tab || (!tab && !!item.isDefault));
+}
+
+export function getDashboardTab(tab?: string, role?: string) {
+  if (role === "Kitchen") return "kitchen";
+  if (tab === "order" || tab === "kitchen" || tab === "billing") return tab;
+  return "floor";
+}
+
 export const NAVIGATION_REGISTRY: NavItem[] = [
-  // Main
+  // 1. MAIN / DASHBOARD
   {
     id: "overview",
     label: "Overview",
     to: "/",
     icon: LayoutDashboard,
-    section: "main"
+    section: "main",
   },
 
-  // Operations
+  // 2. OPERATIONS (Floor, Orders, Kitchen, Billing & Parcel)
   {
     id: "orders-servicedesk",
     label: "Floor & Orders",
@@ -84,7 +114,7 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     icon: UtensilsCrossed,
     section: "operations",
     requiredRoles: ["Admin", "Owner", "Waiter"],
-    requiredCapabilities: [CAPABILITIES.StandardBilling]
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
   },
   {
     id: "staff-order-taking",
@@ -95,7 +125,7 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     icon: ShoppingCart,
     section: "operations",
     requiredRoles: ["Admin", "Owner", "Waiter"],
-    requiredCapabilities: [CAPABILITIES.StaffOrdering, CAPABILITIES.StandardBilling]
+    requiredCapabilities: [CAPABILITIES.StaffOrdering, CAPABILITIES.StandardBilling],
   },
   {
     id: "kitchen-queue",
@@ -106,8 +136,32 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     icon: ChefHat,
     section: "operations",
     requiredRoles: ["Admin", "Owner", "Kitchen"],
-    requiredCapabilities: [CAPABILITIES.KitchenDisplay]
+    requiredCapabilities: [CAPABILITIES.KitchenDisplay],
   },
+  {
+    id: "table-billing",
+    label: "Billing & Settlement",
+    to: "/dashboard",
+    search: { tab: "billing" },
+    tabParam: "billing",
+    icon: CreditCard,
+    section: "operations",
+    requiredRoles: ["Admin", "Owner", "Waiter"],
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
+  },
+  {
+    id: "parcel-counter",
+    label: "Parcel Counter",
+    to: "/admin",
+    search: { tab: "parcel" },
+    tabParam: "parcel",
+    icon: Package,
+    section: "operations",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
+  },
+
+  // 3. RESTAURANT MANAGEMENT (Menu, Tables, Staff, CRM, Storefront, Marketplace)
   {
     id: "menu-management",
     label: "Menu & Categories",
@@ -116,9 +170,9 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     tabParam: "menu",
     isDefault: true,
     icon: Receipt,
-    section: "operations",
+    section: "management",
     requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.MenuManagement]
+    requiredCapabilities: [CAPABILITIES.MenuManagement],
   },
   {
     id: "tables-qr",
@@ -127,9 +181,17 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     search: { tab: "tables" },
     tabParam: "tables",
     icon: QrCode,
-    section: "operations",
+    section: "management",
     requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.TablesAndQr]
+    requiredCapabilities: [CAPABILITIES.TablesAndQr],
+  },
+  {
+    id: "staff-management",
+    label: "Staff & Roles",
+    to: "/staff",
+    icon: Users,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
   },
   {
     id: "crm-loyalty",
@@ -138,9 +200,20 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     search: { tab: "crm" },
     tabParam: "crm",
     icon: Users,
-    section: "operations",
+    section: "management",
     requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.StandardBilling]
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
+  },
+  {
+    id: "storefront-settings",
+    label: "Storefront & Outlets",
+    to: "/admin",
+    search: { tab: "storefront" },
+    tabParam: "storefront",
+    icon: Store,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
   },
   {
     id: "marketplace-automation",
@@ -149,15 +222,15 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     search: { tab: "marketplace" },
     tabParam: "marketplace",
     icon: ShoppingBag,
-    section: "operations",
+    section: "management",
     requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.StandardBilling]
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
   },
 
-  // Inventory & Purchasing (Premium tier)
+  // 4. INVENTORY & SUPPLY (ERP)
   {
     id: "inventory-stock",
-    label: "Stock & Recipes",
+    label: "Ingredients & Stock",
     to: "/inventory",
     search: { tab: "ingredients" },
     tabParam: "ingredients",
@@ -165,7 +238,18 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     icon: Package,
     section: "inventory",
     requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.InventoryCore]
+    requiredCapabilities: [CAPABILITIES.InventoryCore],
+  },
+  {
+    id: "inventory-recipes",
+    label: "Recipes & Costing",
+    to: "/inventory",
+    search: { tab: "recipes" },
+    tabParam: "recipes",
+    icon: ChefHat,
+    section: "inventory",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.RecipesCosting],
   },
   {
     id: "purchasing-orders",
@@ -176,7 +260,40 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     icon: ShoppingCart,
     section: "inventory",
     requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.Purchasing]
+    requiredCapabilities: [CAPABILITIES.Purchasing],
+  },
+  {
+    id: "inventory-suppliers",
+    label: "Suppliers",
+    to: "/inventory",
+    search: { tab: "suppliers" },
+    tabParam: "suppliers",
+    icon: Building2,
+    section: "inventory",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.Purchasing],
+  },
+  {
+    id: "inventory-preparations",
+    label: "Preparations",
+    to: "/inventory",
+    search: { tab: "preparations" },
+    tabParam: "preparations",
+    icon: ChefHat,
+    section: "inventory",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.Preparations],
+  },
+  {
+    id: "inventory-movements",
+    label: "Stock Movements",
+    to: "/inventory",
+    search: { tab: "movements" },
+    tabParam: "movements",
+    icon: History,
+    section: "inventory",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.InventoryCore],
   },
   {
     id: "lots-expiry",
@@ -187,7 +304,7 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     icon: Boxes,
     section: "inventory",
     requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.LotsAndExpiry]
+    requiredCapabilities: [CAPABILITIES.LotsAndExpiry],
   },
   {
     id: "outlet-transfers",
@@ -198,10 +315,32 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     icon: ArrowLeftRight,
     section: "inventory",
     requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.OutletTransfers]
+    requiredCapabilities: [CAPABILITIES.OutletTransfers],
+  },
+  {
+    id: "inventory-stocktakes",
+    label: "Physical Stocktakes",
+    to: "/inventory",
+    search: { tab: "stocktakes" },
+    tabParam: "stocktakes",
+    icon: ClipboardCheck,
+    section: "inventory",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.Stocktakes],
+  },
+  {
+    id: "central-kitchen",
+    label: "Central Kitchen",
+    to: "/inventory",
+    search: { tab: "central-kitchen" },
+    tabParam: "central-kitchen",
+    icon: Factory,
+    section: "inventory",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.Preparations, CAPABILITIES.OutletTransfers],
   },
 
-  // Analytics & Reports
+  // 5. ANALYTICS & REPORTS
   {
     id: "financial-reports",
     label: "Payment Reports",
@@ -209,47 +348,101 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     icon: BarChart3,
     section: "analytics",
     requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.BasicReports]
+    requiredCapabilities: [CAPABILITIES.BasicReports],
   },
-
-  // Staff & Administration
   {
-    id: "staff-management",
-    label: "Staff & Roles",
-    to: "/staff",
-    icon: Users,
-    section: "admin",
-    requiredRoles: ["Admin", "Owner"]
-  }
+    id: "stock-valuation-report",
+    label: "Stock Valuation Report",
+    to: "/inventory",
+    search: { tab: "stock-report" },
+    tabParam: "stock-report",
+    icon: FileSpreadsheet,
+    section: "analytics",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.StockProfitReports],
+  },
+  {
+    id: "gross-profit-report",
+    label: "Sales & Gross Profit",
+    to: "/inventory",
+    search: { tab: "gross-profit" },
+    tabParam: "gross-profit",
+    icon: BarChart3,
+    section: "analytics",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.StockProfitReports],
+  },
 ];
 
 export interface SuperAdminNavItem {
   id: string;
   label: string;
   tab: "overview" | "tenants" | "plans" | "subscriptions" | "audit";
+  to: string;
+  search: { tab: string };
   icon: LucideIcon;
-  badge?: string;
+  section: "platform";
 }
 
 export const SUPER_ADMIN_NAVIGATION: SuperAdminNavItem[] = [
-  { id: "sa-overview", label: "Overview", tab: "overview", icon: LayoutDashboard },
-  { id: "sa-tenants", label: "Restaurants", tab: "tenants", icon: Building2 },
-  { id: "sa-plans", label: "Plans & Features", tab: "plans", icon: Sliders },
-  { id: "sa-subscriptions", label: "Subscriptions", tab: "subscriptions", icon: ShieldCheck },
-  { id: "sa-audit", label: "Audit Log", tab: "audit", icon: History }
+  {
+    id: "sa-overview",
+    label: "Platform Overview",
+    tab: "overview",
+    to: "/super-admin",
+    search: { tab: "overview" },
+    icon: LayoutDashboard,
+    section: "platform",
+  },
+  {
+    id: "sa-tenants",
+    label: "Restaurants & Tenants",
+    tab: "tenants",
+    to: "/super-admin",
+    search: { tab: "tenants" },
+    icon: Building2,
+    section: "platform",
+  },
+  {
+    id: "sa-plans",
+    label: "Plans & Features",
+    tab: "plans",
+    to: "/super-admin",
+    search: { tab: "plans" },
+    icon: Sliders,
+    section: "platform",
+  },
+  {
+    id: "sa-subscriptions",
+    label: "Tenant Subscriptions",
+    tab: "subscriptions",
+    to: "/super-admin",
+    search: { tab: "subscriptions" },
+    icon: ShieldCheck,
+    section: "platform",
+  },
+  {
+    id: "sa-audit",
+    label: "Platform Audit Log",
+    tab: "audit",
+    to: "/super-admin",
+    search: { tab: "audit" },
+    icon: History,
+    section: "platform",
+  },
 ];
 
 export function getVisibleNavItems(role: string, capabilities: string[]): NavItem[] {
   const capSet = new HashSetCI(capabilities);
 
-  return NAVIGATION_REGISTRY.filter(item => {
+  return NAVIGATION_REGISTRY.filter((item) => {
     // Check role restriction
-    if (item.requiredRoles && !item.requiredRoles.some(r => r.toLowerCase() === role.toLowerCase())) {
+    if (item.requiredRoles && !item.requiredRoles.some((r) => r.toLowerCase() === role.toLowerCase())) {
       return false;
     }
 
     // Check capability restriction
-    if (item.requiredCapabilities && !item.requiredCapabilities.some(c => capSet.has(c))) {
+    if (item.requiredCapabilities && !item.requiredCapabilities.some((c) => capSet.has(c))) {
       return false;
     }
 
@@ -267,4 +460,19 @@ class HashSetCI {
   has(item: string) {
     return this.set.has(item.toLowerCase());
   }
+}
+
+export function getEmployeeNavItems(role: string, allowedMenuIds: string[] | null): NavItem[] {
+  const allowed = allowedMenuIds === null ? null : new Set(allowedMenuIds);
+  return NAVIGATION_REGISTRY.filter(item =>
+    (!item.requiredRoles || item.requiredRoles.some(r => r.toLowerCase() === role.toLowerCase())) &&
+    (allowed === null || allowed.has(item.id) || (item.id === "staff-management" && ["admin", "owner"].includes(role.toLowerCase()))),
+  );
+}
+
+export function getRouteMenuItem(pathname: string, tab: string | undefined, role: string): NavItem | undefined {
+  const resolvedTab = pathname === "/dashboard" ? getDashboardTab(tab, role) : tab;
+  // Unknown tabs must never inherit access from a default tab.
+  if (pathname === "/dashboard" && tab && !["floor", "order", "kitchen", "billing"].includes(tab)) return undefined;
+  return NAVIGATION_REGISTRY.find(item => isNavigationItemActive(item, pathname, resolvedTab));
 }
