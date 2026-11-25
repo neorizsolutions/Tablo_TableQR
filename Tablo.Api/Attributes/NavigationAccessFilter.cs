@@ -6,11 +6,12 @@ using Microsoft.EntityFrameworkCore;
 using Tablo.Api.Data;
 using Tablo.Api.Extensions;
 using Tablo.Api.Services;
+using Tablo.Api.Interfaces;
 namespace Tablo.Api.Attributes;
 
 // Runs in addition to existing role, tenant, and subscription checks. Shared read
 // resources accept any consuming menu; mutations require their owning module.
-public sealed class NavigationAccessFilter(ApplicationDbContext db) : IAsyncActionFilter
+public sealed class NavigationAccessFilter(ApplicationDbContext db, ISubscriptionService subscriptions) : IAsyncActionFilter
 {
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
@@ -25,9 +26,13 @@ public sealed class NavigationAccessFilter(ApplicationDbContext db) : IAsyncActi
         // Role claims can outlive a role change. Never let a stale elevated token
         // authorize requests after the employee has been demoted.
         if (!user.IsInRole(employee.Role.Name)) { context.Result = new ForbidResult(); return; }
-        if (action.ControllerName == "NavigationAccess" || employee.AllowedMenuIds == null) { await next(); return; }
+        if (action.ControllerName == "NavigationAccess" || (employee.AllowedMenuIds == null && employee.Role.Name != "Cashier")) { await next(); return; }
+        if (employee.Role.Name == "Cashier" && !await subscriptions.HasCapabilityAsync(employee.RestaurantId, "standard_billing"))
+        {
+            context.Result = new ForbidResult(); return;
+        }
         var menus = RequiredMenus(action.ControllerName, action.ActionName, context.HttpContext.Request.Method);
-        if (menus.Length == 0 ? employee.AllowedMenuIds != null : !NavigationAccess.Allows(employee, menus))
+        if (menus.Length == 0 ? true : !NavigationAccess.Allows(employee, menus))
         {
             context.Result = new ObjectResult(new { code = "MENU_ACCESS_DENIED", message = "You do not have access to this module." }) { StatusCode = 403 };
             return;
@@ -36,6 +41,21 @@ public sealed class NavigationAccessFilter(ApplicationDbContext db) : IAsyncActi
     }
 
     public static string[] RequiredMenus(string controller, string action, string method)
+    {
+        var regular = ModuleMenus(controller, action, method);
+        return CashierSupports(controller, action, method) ? regular.Append("cashier-billing").ToArray() : regular;
+    }
+
+    public static bool CashierSupports(string controller, string action, string method) => controller switch
+    {
+        "ServiceDesk" => action is "Tables" or "Review" or "Groups" or "Pay" or "PreviewSplit" or "Split" or "Receipt" or "Open" or "Settle",
+        "Orders" => method == "GET",
+        "Tables" => method == "GET" && action == "GetTables",
+        "Settings" => method == "GET" && action == "GetSettings",
+        _ => false
+    };
+
+    private static string[] ModuleMenus(string controller, string action, string method)
     {
         var read = method == "GET";
         return controller switch

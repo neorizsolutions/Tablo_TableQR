@@ -24,7 +24,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (user && !loading) navigate({ to: "/dashboard" });
+    if (user && !loading) navigate({ to: user.role === "Cashier" ? "/cashier" : "/dashboard" });
   }, [user, loading, navigate]);
 
   const submit = async (e: React.FormEvent) => {
@@ -37,7 +37,7 @@ function AuthPage() {
       });
       signIn(res.token);
       toast.success("Welcome back!");
-      navigate({ to: "/dashboard" });
+      // The authenticated-user effect selects the role-specific destination.
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {

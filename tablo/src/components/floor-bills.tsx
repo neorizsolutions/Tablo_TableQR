@@ -23,6 +23,7 @@ export function FloorBills({
   review,
   tables,
   onTransferred,
+  billingOnly = false,
 }: {
   restaurantId: string;
   employeeId: string;
@@ -31,6 +32,7 @@ export function FloorBills({
   review?: BillReview;
   tables: ServiceTable[];
   onTransferred: (id: string) => void;
+  billingOnly?: boolean;
 }) {
   const cache = useQueryClient();
   const [label, setLabel] = useState("");
@@ -48,7 +50,7 @@ export function FloorBills({
   const base = `tables/${tableId}`;
   return (
     <div className="space-y-5">
-      <section className="rounded-2xl border p-4">
+      {!billingOnly && <section className="rounded-2xl border p-4">
         <h3 className="font-semibold">Dining groups and transfers</h3>
         <p className="my-2 text-xs text-muted-foreground">
           Groups A/B have independent orders and bills. Existing whole-table bills stay under Whole
@@ -148,7 +150,7 @@ export function FloorBills({
             </button>
           </p>
         )}
-      </section>
+      </section>}
       <h3 className="font-semibold">Bill review</h3>
       {!review?.openBills.length && <p>No open bill for this selection.</p>}
       {review?.openBills.map((bill) => (

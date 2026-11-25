@@ -50,3 +50,26 @@ test("dedicated staff menu access is restaurant-admin only", () => {
   assert.ok(getEmployeeNavItems("Admin", null).some((item) => item.id === "staff-menu-access"));
   assert.ok(!getEmployeeNavItems("Waiter", null).some((item) => item.id === "staff-menu-access"));
 });
+
+test("Cashier defaults only to cashier billing and custom overrides cannot grant other workspaces", () => {
+  assert.deepEqual(
+    getEmployeeNavItems("Cashier", null).map((item) => item.id),
+    ["cashier-billing"],
+  );
+  assert.deepEqual(
+    getEmployeeNavItems("Cashier", [
+      "overview",
+      "staff-order-taking",
+      "parcel-counter",
+      "cashier-billing",
+    ]).map((item) => item.id),
+    ["cashier-billing"],
+  );
+  assert.deepEqual(
+    getEmployeeNavItems("Cashier", []).map((item) => item.id),
+    [],
+  );
+  assert.equal(getRouteMenuItem("/cashier", undefined, "Cashier")?.id, "cashier-billing");
+  assert.ok(getEmployeeNavItems("Admin", null).some((item) => item.id === "cashier-billing"));
+  assert.ok(!getEmployeeNavItems("Waiter", null).some((item) => item.id === "cashier-billing"));
+});

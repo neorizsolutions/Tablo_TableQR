@@ -75,10 +75,10 @@ namespace Tablo.Api.Controllers
         {
             var restaurantId = User.GetRestaurantId();
 
-            var allowedRoles = new[] { "Admin", "Kitchen", "Waiter" };
+            var allowedRoles = new[] { "Admin", "Kitchen", "Waiter", "Cashier" };
             if (!allowedRoles.Contains(request.RoleName))
             {
-                return BadRequest("Invalid role. Allowed roles are: Admin, Kitchen, Waiter.");
+                return BadRequest("Invalid role. Allowed roles are: Admin, Kitchen, Waiter, Cashier.");
             }
 
             // Check global email uniqueness
@@ -135,10 +135,10 @@ namespace Tablo.Api.Controllers
                 return NotFound();
             }
 
-            var allowedRoles = new[] { "Admin", "Kitchen", "Waiter" };
+            var allowedRoles = new[] { "Admin", "Kitchen", "Waiter", "Cashier" };
             if (!allowedRoles.Contains(request.RoleName))
             {
-                return BadRequest("Invalid role. Allowed roles are: Admin, Kitchen, Waiter.");
+                return BadRequest("Invalid role. Allowed roles are: Admin, Kitchen, Waiter, Cashier.");
             }
 
             var newRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == request.RoleName);
@@ -176,6 +176,8 @@ namespace Tablo.Api.Controllers
 
             employee.FirstName = request.FirstName;
             employee.LastName = request.LastName;
+            // A prior role's custom menu list can otherwise leave a new role unusable.
+            if (employee.RoleId != newRole.Id) employee.AllowedMenuIds = null;
             employee.RoleId = newRole.Id;
 
             await _context.SaveChangesAsync();
