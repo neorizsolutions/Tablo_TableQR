@@ -1,19 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NAVIGATION_REGISTRY } from "../src/config/navigation.ts";
+import { NAVIGATION_REGISTRY, getDashboardTab, isNavigationItemActive } from "../src/config/navigation.ts";
 
 function computeActiveItem(pathname, search) {
-  const currentTab = search?.tab;
-  const activeItems = NAVIGATION_REGISTRY.filter((item) => {
-    const isPathMatch = pathname === item.to;
-    if (!isPathMatch) return false;
-    if (item.tabParam) {
-      return currentTab === item.tabParam || (!currentTab && !!item.isDefault);
-    }
-    return !currentTab || !!item.isDefault || !item.tabParam;
-  });
-  return activeItems;
+  return NAVIGATION_REGISTRY.filter((item) => isNavigationItemActive(item, pathname, search.tab));
 }
+
+test("Kitchen staff land in the kitchen queue on the dashboard", () => {
+  const tab = getDashboardTab(undefined, "Kitchen");
+  assert.equal(tab, "kitchen");
+  assert.equal(computeActiveItem("/dashboard", { tab })[0].id, "kitchen-queue");
+});
 
 test("1. Sidebar highlights exactly one item on /admin (default menu view)", () => {
   const active = computeActiveItem("/admin", {});

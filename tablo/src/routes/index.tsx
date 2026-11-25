@@ -1,3 +1,4 @@
+import { EmployeeMenuLink } from "@/components/employee-menu-link";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -167,40 +168,40 @@ function OperationalOverview() {
 
             {/* Quick Action Toolbar */}
             <div className="flex flex-wrap items-center gap-2">
-              <Link
+              <EmployeeMenuLink
                 to="/dashboard"
                 search={{ tab: "order" }}
                 className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/95 transition"
               >
                 <Plus className="h-3.5 w-3.5" /> Take Staff Order
-              </Link>
-              <Link
+              </EmployeeMenuLink>
+              <EmployeeMenuLink
                 to="/dashboard"
                 search={{ tab: "kitchen" }}
                 className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft hover:bg-secondary transition"
               >
                 <ChefHat className="h-3.5 w-3.5 text-primary" /> Kitchen Queue
-              </Link>
-              <Link
+              </EmployeeMenuLink>
+              <EmployeeMenuLink
                 to="/inventory"
                 search={{ tab: "ingredients" }}
                 className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft hover:bg-secondary transition"
               >
                 <Package className="h-3.5 w-3.5 text-primary" /> Stock & Recipes
-              </Link>
-              <Link
+              </EmployeeMenuLink>
+              <EmployeeMenuLink
                 to="/reports"
                 className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft hover:bg-secondary transition"
               >
                 <Receipt className="h-3.5 w-3.5 text-primary" /> Payment Reports
-              </Link>
+              </EmployeeMenuLink>
             </div>
           </div>
 
           {/* 4 Primary Operational Metric Cards with Direct Filtered Links */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* 1. Active Floor Orders */}
-            <Link
+            <EmployeeMenuLink
               to="/dashboard"
               search={{ tab: "floor" }}
               className="group rounded-2xl border border-border bg-card p-5 shadow-xs hover:border-primary/50 hover:shadow-soft transition flex flex-col justify-between"
@@ -225,10 +226,10 @@ function OperationalOverview() {
                 <span>View Floor & Billing</span>
                 <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
               </div>
-            </Link>
+            </EmployeeMenuLink>
 
             {/* 2. Kitchen Delays & Queue */}
-            <Link
+            <EmployeeMenuLink
               to="/dashboard"
               search={{ tab: "kitchen" }}
               className={`group rounded-2xl border p-5 shadow-xs transition flex flex-col justify-between ${
@@ -269,10 +270,10 @@ function OperationalOverview() {
                 <span>Open Kitchen Queue</span>
                 <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
               </div>
-            </Link>
+            </EmployeeMenuLink>
 
             {/* 3. Service Calls & Bill Requests */}
-            <Link
+            <EmployeeMenuLink
               to="/dashboard"
               search={{ tab: "floor" }}
               className={`group rounded-2xl border p-5 shadow-xs transition flex flex-col justify-between ${
@@ -307,10 +308,10 @@ function OperationalOverview() {
                 <span>Manage Table Requests</span>
                 <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
               </div>
-            </Link>
+            </EmployeeMenuLink>
 
             {/* 4. Low Stock Ingredients Alert */}
-            {showStockAlerts && <Link
+            {showStockAlerts && <EmployeeMenuLink
               to="/inventory"
               search={{ tab: "ingredients" }}
               className={`group rounded-2xl border p-5 shadow-xs transition flex flex-col justify-between ${
@@ -345,7 +346,7 @@ function OperationalOverview() {
                 <span>Review Stock & POs</span>
                 <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
               </div>
-            </Link>}
+            </EmployeeMenuLink>}
           </div>
 
           {/* Quick Floor Status Glance (10 Tables) */}
@@ -357,13 +358,13 @@ function OperationalOverview() {
                   Tap any table to start taking an order or manage dining groups.
                 </p>
               </div>
-              <Link
+              <EmployeeMenuLink
                 to="/dashboard"
                 search={{ tab: "order" }}
                 className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
               >
                 Go to Staff Order Taking <ArrowRight className="h-3 w-3" />
-              </Link>
+              </EmployeeMenuLink>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-10 gap-2.5">
@@ -372,7 +373,7 @@ function OperationalOverview() {
                 const isBillReq = t.status === "Bill Requested";
 
                 return (
-                  <Link
+                  <EmployeeMenuLink
                     key={t.id}
                     to="/dashboard"
                     search={{ tab: "order", table: t.id }}
@@ -388,7 +389,7 @@ function OperationalOverview() {
                     <div className="text-[10px] font-bold uppercase mt-0.5">
                       {isBillReq ? "Bill" : isOccupied ? "Active" : "Open"}
                     </div>
-                  </Link>
+                  </EmployeeMenuLink>
                 );
               })}
             </div>

@@ -79,6 +79,20 @@ export interface NavItem {
   requiredCapabilities?: string[];
 }
 
+export function isNavigationItemActive(
+  item: Pick<NavItem, "to" | "tabParam" | "isDefault">,
+  pathname: string,
+  tab?: string,
+) {
+  return pathname === item.to && (!item.tabParam || item.tabParam === tab || (!tab && !!item.isDefault));
+}
+
+export function getDashboardTab(tab?: string, role?: string) {
+  if (role === "Kitchen") return "kitchen";
+  if (tab === "order" || tab === "kitchen" || tab === "billing") return tab;
+  return "floor";
+}
+
 export const NAVIGATION_REGISTRY: NavItem[] = [
   // 1. MAIN / DASHBOARD
   {
@@ -446,4 +460,19 @@ class HashSetCI {
   has(item: string) {
     return this.set.has(item.toLowerCase());
   }
+}
+
+export function getEmployeeNavItems(role: string, allowedMenuIds: string[] | null): NavItem[] {
+  const allowed = allowedMenuIds === null ? null : new Set(allowedMenuIds);
+  return NAVIGATION_REGISTRY.filter(item =>
+    (!item.requiredRoles || item.requiredRoles.some(r => r.toLowerCase() === role.toLowerCase())) &&
+    (allowed === null || allowed.has(item.id) || (item.id === "staff-management" && ["admin", "owner"].includes(role.toLowerCase()))),
+  );
+}
+
+export function getRouteMenuItem(pathname: string, tab: string | undefined, role: string): NavItem | undefined {
+  const resolvedTab = pathname === "/dashboard" ? getDashboardTab(tab, role) : tab;
+  // Unknown tabs must never inherit access from a default tab.
+  if (pathname === "/dashboard" && tab && !["floor", "order", "kitchen", "billing"].includes(tab)) return undefined;
+  return NAVIGATION_REGISTRY.find(item => isNavigationItemActive(item, pathname, resolvedTab));
 }

@@ -5,6 +5,7 @@ type Role = "Admin" | "Kitchen" | "Waiter" | "Owner" | "Staff" | "Customer" | "S
 interface AuthUser {
   id: string;
   email: string;
+  name?: string;
   restaurantId?: string;
   restaurantName?: string;
   role: Role;
@@ -49,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({
           id: payload.sub,
           email: email,
+          name: typeof payload.name === "string" ? payload.name : undefined,
           restaurantId: payload.RestaurantId,
           restaurantName: payload.RestaurantName,
           role: role as Role
@@ -70,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser({
         id: payload.sub,
         email: email,
+        name: typeof payload.name === "string" ? payload.name : undefined,
         restaurantId: payload.RestaurantId,
         restaurantName: payload.RestaurantName,
         role: role as Role

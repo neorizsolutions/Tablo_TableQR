@@ -8,7 +8,7 @@ export function useEffectiveAccess(outletId?: string) {
   const isRestaurantUser = !!user && user.role !== "SuperAdmin" && !!user.restaurantId;
 
   const query = useQuery<EffectiveAccess, Error>({
-    queryKey: ["effective_access", user?.restaurantId, outletId],
+    queryKey: ["effective_access", user?.restaurantId, user?.id, outletId],
     queryFn: () => getEffectiveAccess(outletId),
     enabled: isRestaurantUser,
     staleTime: 60 * 1000, // 1 minute fresh cache
@@ -33,6 +33,7 @@ export function useEffectiveAccess(outletId?: string) {
     limits: query.data?.limits,
     hasCapability,
     isLoading: query.isLoading && isRestaurantUser,
+    isError: query.isError,
     refetch: query.refetch
   };
 }

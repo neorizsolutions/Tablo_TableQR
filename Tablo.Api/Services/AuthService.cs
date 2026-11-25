@@ -73,6 +73,7 @@ namespace Tablo.Api.Services
             {
                 new Claim(JwtRegisteredClaimNames.Sub, employee.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, employee.Email),
+                new Claim(JwtRegisteredClaimNames.Name, employee.FullName),
                 new Claim("RestaurantId", employee.RestaurantId.ToString()),
                 new Claim("RestaurantName", employee.Restaurant?.Name ?? "Tablo Restaurant"),
                 new Claim(ClaimTypes.Role, employee.Role.Name)

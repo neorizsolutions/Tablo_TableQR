@@ -163,6 +163,9 @@ namespace Tablo.Api.Migrations
 
             modelBuilder.Entity("Tablo.Api.Entities.Employee", b =>
                 {
+                    b.Property<string[]>("AllowedMenuIds")
+                        .HasColumnType("text[]");
+
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
