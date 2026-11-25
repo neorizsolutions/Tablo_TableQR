@@ -112,8 +112,11 @@ function AuthPage() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             <Link to="/forgot-password" className="font-semibold text-primary hover:underline">
-              Forgot password?
+              Forgot password? (Admin reset)
             </Link>
+          </p>
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">
+            Staff members (Waiter, Cashier, Kitchen): contact your restaurant administrator for credential updates.
           </p>
         </div>
         <p className="mt-4 text-center text-xs text-muted-foreground">
