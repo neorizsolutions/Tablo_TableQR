@@ -1,4 +1,3 @@
-import { confirmClose } from "@/lib/confirmation";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChefHat, CircleDot, Flame, Languages, Loader2, Minus, PackageCheck, Plus, Search, ShoppingBag, Sparkles, Utensils, X, Bell, Receipt, HandPlatter } from "lucide-react";
@@ -328,12 +327,12 @@ function CustomerPage() {
 
       {serviceDrawerOpen && (
         <div className="fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(() => setServiceDrawerOpen(false))} />
+          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setServiceDrawerOpen(false)} />
           <div className="absolute inset-x-0 bottom-0 mx-auto max-w-md animate-float-up rounded-t-[2rem] bg-card p-5 shadow-glow sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-[2rem]">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" />
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-display text-lg font-bold">Service</h2>
-              <button onClick={() => void confirmClose(() => setServiceDrawerOpen(false))} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+              <button onClick={() => setServiceDrawerOpen(false)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
             </div>
             
             <div className="space-y-3">
@@ -377,12 +376,12 @@ function CustomerPage() {
 
       {drawerOpen && (
         <div className="fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(() => setDrawerOpen(false))} />
+          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
           <div className="absolute inset-x-0 bottom-0 mx-auto max-w-md animate-float-up rounded-t-[2rem] bg-card p-5 shadow-glow sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-[2rem]">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" />
             <div className="flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">Your order · {qrData.tableNameOrNumber}</h2>
-              <button onClick={() => void confirmClose(() => setDrawerOpen(false))} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+              <button onClick={() => setDrawerOpen(false)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
             </div>
             <ul className="mt-4 max-h-[40vh] divide-y divide-border overflow-y-auto">
               {cart.map((l) => {
@@ -657,7 +656,7 @@ function CustomizationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-foreground/50 backdrop-blur-sm" onClick={() => void confirmClose(onClose)} />
+      <div className="absolute inset-0 bg-foreground/50 backdrop-blur-sm" onClick={() => onClose()} />
       <div className="relative z-10 w-full max-w-lg max-h-[85vh] overflow-hidden rounded-t-[2rem] bg-card p-6 shadow-glow flex flex-col sm:rounded-[2rem]">
         <div className="flex items-start justify-between pb-3 border-b border-border">
           <div>
@@ -665,7 +664,7 @@ function CustomizationModal({
             <p className="text-xs text-muted-foreground">{item.description}</p>
             <p className="mt-1 font-display text-sm font-semibold text-primary">{formatINR(item.price)} base</p>
           </div>
-          <button onClick={() => void confirmClose(onClose)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary">
+          <button onClick={() => onClose()} className="grid h-8 w-8 place-items-center rounded-full bg-secondary">
             <X className="h-4 w-4" />
           </button>
         </div>
