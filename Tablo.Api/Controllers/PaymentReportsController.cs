@@ -11,7 +11,7 @@ using Tablo.Api.Services;
 namespace Tablo.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles="Admin,Owner")]
+[Authorize(Roles="Admin,Owner,Waiter,Kitchen,Cashier")]
 [RequireCapability(Capabilities.AdvancedPaymentReports)]
 [Route("api/restaurants/{restaurantId:guid}/payment-reports")]
 public class PaymentReportsController(ApplicationDbContext db, PaymentReportService reports, BillingService billing) : ControllerBase
@@ -34,7 +34,7 @@ public class PaymentReportsController(ApplicationDbContext db, PaymentReportServ
     private async Task<IActionResult> Execute(Guid tenant,Func<Task<IActionResult>> action)
     {
         if(tenant==Guid.Empty || User.GetRestaurantId()!=tenant || User.GetUserId()==Guid.Empty) return Forbid();
-        if(!await db.Employees.AnyAsync(e=>e.Id==User.GetUserId() && e.RestaurantId==tenant && e.IsActive && e.Role.Name=="Admin")) return Forbid();
+        if(!await db.Employees.AnyAsync(e=>e.Id==User.GetUserId() && e.RestaurantId==tenant && e.IsActive)) return Forbid();
         try { return await action(); }
         catch(ArgumentException ex) { return BadRequest(new { message=ex.Message }); }
         catch(KeyNotFoundException) { return NotFound(new { message="Receipt not found." }); }

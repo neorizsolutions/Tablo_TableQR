@@ -19,6 +19,15 @@ public class NavigationAccessTests
         Assert.False(NavigationAccess.RoleAllows("Admin", "sa-tenants"));
         Assert.True(NavigationAccess.RoleAllows("Admin", "staff-menu-access"));
         Assert.False(NavigationAccess.RoleAllows("Waiter", "staff-menu-access"));
+        Assert.True(NavigationAccess.CanAssign("Waiter", "kitchen-queue"));
+        Assert.True(NavigationAccess.CanAssign("Kitchen", "cashier-billing"));
+        Assert.True(NavigationAccess.CanAssign("Cashier", "inventory-stock"));
+        Assert.False(NavigationAccess.CanAssign("Waiter", "staff-management"));
+        Assert.False(NavigationAccess.CanAssign("Waiter", "staff-menu-access"));
+        Assert.False(NavigationAccess.CanAssign("Waiter", "support"));
+        Assert.False(NavigationAccess.CanAssign("Kitchen", "support"));
+        Assert.False(NavigationAccess.CanAssign("Cashier", "staff-menu-access"));
+        Assert.False(NavigationAccess.CanAssign("Admin", "sa-tenants"));
         var administrator = new Tablo.Api.Entities.Employee
         {
             Role = new Tablo.Api.Entities.Role { Name = "Admin" },
@@ -48,6 +57,14 @@ public class NavigationAccessTests
         Assert.Equal(HttpStatusCode.OK, (await staff.GetAsync($"/api/restaurants/{host.Restaurant}/orders")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync($"/api/restaurants/{host.Restaurant}/service-desk/tables")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync(target, new MenuAccessDto(["staff-management"]))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync(target, new MenuAccessDto(["staff-menu-access"]))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync(target, new MenuAccessDto(["support"]))).StatusCode);
+        // Cross-role assignment: Waiter with default null cannot update kitchen/inventory,
+        // but once Waiter is granted kitchen-queue / inventory-stock, cross-role routes succeed.
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync(target, new MenuAccessDto(["kitchen-queue", "inventory-stock"]))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await staff.GetAsync($"/api/restaurants/{host.Restaurant}/inventory/ingredients")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync($"/api/restaurants/{host.Restaurant}/service-desk/tables")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/employees")).StatusCode);
         using (var tenantScope = host.Services.CreateScope())
         {
             var tenantDb = tenantScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

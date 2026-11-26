@@ -17,7 +17,7 @@ namespace Tablo.Api.Controllers;
 [ApiController]
 [Route("api/central-kitchen")]
 [Route("api/centralkitchen")]
-[Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,StockJournalManager")]
+[Authorize(Roles = "Admin,Owner,SuperAdmin,Waiter,Kitchen,Cashier,StockJournalManager")]
 [RequireCapability(Capabilities.InventoryCore)]
 public class CentralKitchenController : ControllerBase
 {

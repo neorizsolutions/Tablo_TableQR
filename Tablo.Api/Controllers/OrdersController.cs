@@ -103,7 +103,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter,Cashier")]
         [HttpPatch("{orderId}/status")]
         public async Task<ActionResult<OrderDto>> UpdateOrderStatus(Guid orderId, [FromBody] UpdateOrderStatusRequestDto request)
         {
@@ -133,7 +133,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter,Cashier")]
         [HttpPost("{orderId}/fire-items")]
         [HttpPost("/api/restaurants/{restaurantId}/orders/{orderId}/fire-items")]
         public async Task<ActionResult<FiredItemsResponseDto>> FireOrderItems(Guid orderId, [FromBody] FireOrderItemsRequestDto request, Guid? restaurantId = null)
@@ -175,7 +175,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Owner,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Waiter,Kitchen,Cashier")]
         [HttpPost("{orderId}/items/{orderItemId}/refill")]
         [HttpPost("/api/restaurants/{restaurantId}/orders/{orderId}/items/{orderItemId}/refill")]
         public async Task<ActionResult<RefillResponseDto>> CreateRefill(Guid orderId, Guid orderItemId, [FromBody] CreateRefillRequestDto request, Guid? restaurantId = null)
@@ -217,7 +217,7 @@ namespace Tablo.Api.Controllers
             }
         }
 
-        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter")]
+        [Authorize(Roles = "Admin,Owner,Kitchen,Waiter,Cashier")]
         [HttpPost("{orderId}/items/{orderItemId}/cancel")]
         [HttpPost("/api/restaurants/{restaurantId}/orders/{orderId}/items/{orderItemId}/cancel")]
         public async Task<ActionResult<ItemCancellationResponseDto>> CancelOrderItem(Guid orderId, Guid orderItemId, [FromBody] CancelOrderItemRequestDto request, Guid? restaurantId = null)

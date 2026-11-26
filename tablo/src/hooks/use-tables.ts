@@ -2,11 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTables, createTable, updateTable, regenerateTableQR, Table } from '../services/api';
 import { toast } from 'sonner';
 
-export function useTables(restaurantId: string | null) {
+export function useTables(restaurantId: string | null, enabled = true) {
   return useQuery({
     queryKey: ['tables', restaurantId],
     queryFn: () => getTables(restaurantId!),
-    enabled: !!restaurantId,
+    enabled: !!restaurantId && enabled,
   });
 }
 

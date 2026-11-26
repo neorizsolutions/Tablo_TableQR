@@ -25,7 +25,12 @@ export function AppLayout({ children, selectedOutletId, onSelectOutlet }: AppLay
       "tab" in location.search && typeof location.search.tab === "string"
         ? location.search.tab
         : undefined;
-    const current = getRouteMenuItem(location.pathname, tab, role);
+    const current = getRouteMenuItem(
+      location.pathname,
+      tab,
+      role,
+      permissions.data ? permissions.data.allowedMenuIds : undefined,
+    );
     const items = getEmployeeNavItems(
       role,
       permissions.data ? permissions.data.allowedMenuIds : [],

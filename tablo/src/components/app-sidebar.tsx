@@ -74,9 +74,7 @@ export function AppSidebar({ selectedOutletId, onSelectOutlet }: AppSidebarProps
         isDefault: item.tab === "overview",
         requiredCapabilities: undefined,
       }))
-    : getEmployeeNavItems(role, permissions.isError || !permissions.data ? [] : permissions.data.allowedMenuIds).filter((item) =>
-        !item.requiredRoles || item.requiredRoles.some((allowed) => allowed.toLowerCase() === role.toLowerCase()),
-      );
+    : getEmployeeNavItems(role, permissions.isError || !permissions.data ? [] : permissions.data.allowedMenuIds);
   const canUseRestaurantSupport = !platform && items.some((item) => item.id === "support");
   const supportUnreadCount = useSupportUnreadCount(
     platform ? "superadmin" : "restaurant",

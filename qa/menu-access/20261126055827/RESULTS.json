@@ -1,0 +1,55 @@
+{
+  "runStamp": "20261126055827",
+  "checks": [
+    {
+      "name": "Isolated PostgreSQL 17 DB created",
+      "status": "PASS",
+      "details": "tablo_menu_access_e2e_20261126055827"
+    },
+    {
+      "name": "Backend started & migrations applied",
+      "status": "PASS",
+      "details": "port=5194"
+    },
+    {
+      "name": "Frontend built & preview started",
+      "status": "PASS",
+      "details": "http://127.0.0.1:4194"
+    },
+    {
+      "name": "Seeded Hotel City tenant, 5 staff, menu item, and table 4",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Test 1: Full grouped checklist, role defaults & Basic plan requirement badges",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Test 1b: Upgraded to Premium — all 25 operational menus enabled for assignment",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Test 2: Default role sessions & direct backend boundaries verified",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Test 3: Waiter granted Kitchen Queue -> live open-session sync, refresh persistence & kitchen status workflow",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Test 4: Kitchen granted Cashier/Inventory/Reports, Cash settled, Admin/Support boundaries enforced",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Test 5: Employee isolation, tenant boundary, downgrade enforcement, SignalR revocation & reset verified",
+      "status": "PASS",
+      "details": ""
+    }
+  ]
+}

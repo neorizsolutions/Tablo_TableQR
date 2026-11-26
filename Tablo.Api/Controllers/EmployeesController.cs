@@ -17,11 +17,16 @@ namespace Tablo.Api.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ISupportConnectionRevoker? _revoker;
+        private readonly IOrderConnectionRevoker? _orderRevoker;
 
-        public EmployeesController(ApplicationDbContext context, ISupportConnectionRevoker? revoker = null)
+        public EmployeesController(
+            ApplicationDbContext context,
+            ISupportConnectionRevoker? revoker = null,
+            IOrderConnectionRevoker? orderRevoker = null)
         {
             _context = context;
             _revoker = revoker;
+            _orderRevoker = orderRevoker;
         }
 
         [HttpGet]
@@ -209,6 +214,11 @@ namespace Tablo.Api.Controllers
                 await _revoker.RevokeEmployeeConnectionsAsync(employee.Id,
                     passwordChanged ? "Session invalidated due to password reset." : "Role permissions changed.");
             }
+            if (_orderRevoker != null && (passwordChanged || roleChanged))
+            {
+                await _orderRevoker.SyncEmployeePermissionsAsync(employee,
+                    passwordChanged ? "Session invalidated due to password reset." : "Role permissions changed.");
+            }
 
             return Ok(new EmployeeDto
             {
@@ -300,6 +310,10 @@ namespace Tablo.Api.Controllers
             {
                 await _revoker.RevokeEmployeeConnectionsAsync(employee.Id, "Account deactivated.");
             }
+            if (!request.IsActive && _orderRevoker != null)
+            {
+                await _orderRevoker.SyncEmployeePermissionsAsync(employee, "Account deactivated.");
+            }
 
             return Ok(new { message = request.IsActive ? "Employee activated." : "Employee deactivated." });
         }
@@ -344,7 +358,7 @@ namespace Tablo.Api.Controllers
             return Ok(new { message = "Manager PIN set successfully." });
         }
 
-        [Authorize(Roles = "Admin,Owner,Waiter,Kitchen")]
+        [Authorize(Roles = "Admin,Owner,Waiter,Kitchen,Cashier")]
         [HttpPost("verify-pin")]
         public async Task<IActionResult> VerifyManagerPin([FromBody] VerifyManagerPinRequestDto request, [FromServices] Services.ManagerAuthService managerAuth)
         {

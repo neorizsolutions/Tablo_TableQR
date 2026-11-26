@@ -131,6 +131,9 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<Tablo.Api.Hubs.SupportConnectionRegistry>();
 builder.Services.AddSingleton<Tablo.Api.Hubs.ISupportConnectionRevoker>(sp =>
     sp.GetRequiredService<Tablo.Api.Hubs.SupportConnectionRegistry>());
+builder.Services.AddSingleton<Tablo.Api.Hubs.OrderConnectionRegistry>();
+builder.Services.AddSingleton<Tablo.Api.Hubs.IOrderConnectionRevoker>(sp =>
+    sp.GetRequiredService<Tablo.Api.Hubs.OrderConnectionRegistry>());
 builder.Services.AddScoped<Tablo.Api.Hubs.ISupportRealtimeNotifier, Tablo.Api.Hubs.SupportRealtimeNotifier>();
 builder.Services.AddScoped<Tablo.Api.Interfaces.ISupportService, Tablo.Api.Services.SupportService>();
 builder.Services.AddHostedService<Tablo.Api.Services.ScheduledOrderReleaseWorker>();
