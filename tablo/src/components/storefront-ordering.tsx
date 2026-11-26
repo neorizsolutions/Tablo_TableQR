@@ -1,3 +1,4 @@
+import { confirmClose } from "@/lib/confirmation";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
@@ -429,7 +430,7 @@ export function StorefrontOrdering() {
             <p>Estimated fulfillment: <strong>{new Date(checkoutResult.estimatedFulfillmentUtc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong></p>
           </div>
 
-          <Button variant="outline" size="sm" onClick={() => setCheckoutResult(null)} className="rounded-full text-xs">
+          <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setCheckoutResult(null))} className="rounded-full text-xs">
             Back to Menu
           </Button>
         </div>

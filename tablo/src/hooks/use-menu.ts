@@ -105,8 +105,8 @@ export function useDeleteMenuItem() {
 export function useCreateCategory() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ restaurantId, name }: { restaurantId: string; name: string }) =>
-      import("@/services/api").then(m => m.createCategory(restaurantId, name)),
+    mutationFn: ({ restaurantId, name, kitchenStationId }: { restaurantId: string; name: string; kitchenStationId?: string | null }) =>
+      import("@/services/api").then(m => m.createCategory(restaurantId, name, kitchenStationId)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["menu"] });
       queryClient.invalidateQueries({ queryKey: ["adminMenu"] });
@@ -117,8 +117,8 @@ export function useCreateCategory() {
 export function useUpdateCategory() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ categoryId, name }: { categoryId: string; name: string }) =>
-      import("@/services/api").then(m => m.updateCategory(categoryId, name)),
+    mutationFn: ({ categoryId, name, kitchenStationId }: { categoryId: string; name: string; kitchenStationId?: string | null }) =>
+      import("@/services/api").then(m => m.updateCategory(categoryId, name, kitchenStationId)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["menu"] });
       queryClient.invalidateQueries({ queryKey: ["adminMenu"] });

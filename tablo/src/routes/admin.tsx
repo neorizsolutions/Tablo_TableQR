@@ -1,5 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
+import { printingService, type KitchenStation } from "@/services/printing";
+import { confirmClose, confirmAction, showNotice } from "@/lib/confirmation";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useId } from "react";
 import { Eye, Languages, Loader2, Pencil, Plus, QrCode, Search, Sparkles, X, Trash2, FolderPlus, LogIn, ShieldAlert, LogOut, Printer, Settings, Sliders } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
@@ -197,7 +200,7 @@ function AdminInner() {
   };
 
   const removeMenuItem = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this menu item?")) return;
+    if (!await confirmAction("Are you sure you want to delete this menu item?")) return;
     try {
       await deleteItem(id);
       toast.success("Item deleted");
@@ -206,26 +209,28 @@ function AdminInner() {
     }
   };
 
-  const handleCreateCategory = async (name: string) => {
+  const handleCreateCategory = async (name: string, kitchenStationId: string | null) => {
     try {
-      await createCat({ restaurantId: user!.restaurantId!, name });
+      await createCat({ restaurantId: user!.restaurantId!, name, kitchenStationId });
       toast.success("Category created");
     } catch (err: any) {
       toast.error(err.message || "Failed to create category");
+      throw err;
     }
   };
 
-  const handleUpdateCategory = async (id: string, name: string) => {
+  const handleUpdateCategory = async (id: string, name: string, kitchenStationId: string | null) => {
     try {
-      await updateCat({ categoryId: id, name });
+      await updateCat({ categoryId: id, name, kitchenStationId });
       toast.success("Category updated");
     } catch (err: any) {
       toast.error(err.message || "Failed to update category");
+      throw err;
     }
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this category?")) return;
+    if (!await confirmAction("Are you sure you want to delete this category?")) return;
     try {
       await deleteCat(id);
       toast.success("Category deleted");
@@ -478,7 +483,7 @@ function AdminInner() {
 
                 {editing && <ItemModal item={editing} categories={categoriesList} onClose={() => setEditing(null)} onSaved={saveItem} />}
                 {creating && <ItemModal categories={categoriesList} onClose={() => setCreating(false)} onSaved={saveItem} />}
-                {manageCategories && <CategoriesModal categories={categoriesList} onClose={() => setManageCategories(false)} onCreate={handleCreateCategory} onUpdate={handleUpdateCategory} onDelete={handleDeleteCategory} />}
+                {manageCategories && <CategoriesModal restaurantId={user!.restaurantId!} categories={categoriesList} onClose={() => setManageCategories(false)} onCreate={handleCreateCategory} onUpdate={handleUpdateCategory} onDelete={handleDeleteCategory} />}
                 {manageTables && (
                   <TablesModal
                     restaurantId={user!.restaurantId!}
@@ -525,6 +530,7 @@ function AdminInner() {
   };
 
   const handleToggleActive = async (t: any) => {
+    if (t.isActive && !await confirmAction({ title: "Deactivate table?", description: `Table ${t.tableNumber} will no longer be available for new orders.`, confirmLabel: "Deactivate", destructive: true })) return;
             setBusy(true);
           try {
             await update({ restaurantId, tableId: t.id, data: { tableNumber: t.tableNumber, isActive: !t.isActive } });
@@ -537,7 +543,7 @@ function AdminInner() {
   };
 
   const handleRegenerate = async (t: any) => {
-    if (!confirm(`Regenerate QR token for Table ${t.tableNumber}? The existing printed QR code will immediately stop working.`)) return;
+    if (!await confirmAction(`Regenerate QR token for Table ${t.tableNumber}? The existing printed QR code will immediately stop working.`)) return;
           setBusy(true);
           try {
             await regen({ restaurantId, tableId: t.id });
@@ -716,6 +722,7 @@ function AdminInner() {
   };
 
   const handleToggleActive = async (t: any) => {
+    if (t.isActive && !await confirmAction({ title: "Deactivate table?", description: `Table ${t.tableNumber} will no longer be available for new orders.`, confirmLabel: "Deactivate", destructive: true })) return;
             setBusy(true);
           try {
             await update({ restaurantId, tableId: t.id, data: { tableNumber: t.tableNumber, isActive: !t.isActive } });
@@ -725,7 +732,7 @@ function AdminInner() {
   };
 
   const handleRegenerate = async (t: any) => {
-    if (!confirm("Regenerate QR? The old QR code will immediately stop working.")) return;
+    if (!await confirmAction("Regenerate QR? The old QR code will immediately stop working.")) return;
           setBusy(true);
           try {
             await regen({ restaurantId, tableId: t.id });
@@ -743,14 +750,14 @@ function AdminInner() {
 
           return (
           <div className="fixed inset-0 z-50 grid place-items-center p-4">
-            <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(onClose)} />
             <div className="relative w-full max-w-2xl animate-float-up rounded-3xl bg-card p-6 shadow-glow max-h-[85vh] flex flex-col">
               <div className="flex items-start justify-between shrink-0">
                 <div>
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">Manage</p>
                   <h2 className="font-display text-xl font-bold">Tables & QR Codes</h2>
                 </div>
-                <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+                <button onClick={() => void confirmClose(onClose)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
               </div>
 
               <div className="mt-4 flex gap-2 shrink-0">
@@ -831,7 +838,7 @@ function AdminInner() {
       }, 500);
     } catch (error) {
             console.error("Failed to download QR code", error);
-          alert("Failed to download QR code.");
+          void showNotice("Failed to download QR code.");
     } finally {
             setDownloading(false);
     }
@@ -904,14 +911,14 @@ function AdminInner() {
 
             return (
             <div className="fixed inset-0 z-50 grid place-items-center p-4">
-              <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onClose} />
+              <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(onClose)} />
               <div className="relative w-full max-w-lg animate-float-up rounded-3xl bg-card p-6 shadow-glow">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-wider text-muted-foreground">{item ? "Edit item" : "New item"}</p>
                     <h2 className="font-display text-xl font-bold">{item ? item.name : "Create Menu Item"}</h2>
                   </div>
-                  <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+                  <button onClick={() => void confirmClose(onClose)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -964,7 +971,7 @@ function AdminInner() {
                   </div>
                 </div>
                 <div className="mt-5 flex justify-end gap-2">
-                  <button onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm font-semibold">Cancel</button>
+                  <button onClick={() => void confirmClose(onClose)} className="rounded-full border border-border px-4 py-2 text-sm font-semibold">Cancel</button>
                   <button onClick={save} disabled={busy} className="inline-flex items-center gap-2 rounded-full bg-gradient-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-soft disabled:opacity-60">
                     {busy && <Loader2 className="h-4 w-4 animate-spin" />} {item ? "Save changes" : "Create item"}
                   </button>
@@ -974,80 +981,64 @@ function AdminInner() {
             );
 }
 
-            function CategoriesModal({categories, onClose, onCreate, onUpdate, onDelete}: {categories: any[]; onClose: () => void; onCreate: (n: string) => Promise<void>; onUpdate: (id: string, n: string) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
-  const [newCat, setNewCat] = useState("");
-              const [editingCatId, setEditingCatId] = useState("");
-              const [editingName, setEditingName] = useState("");
-              const [busy, setBusy] = useState(false);
-
-  const create = async () => {
-    if (!newCat.trim()) return;
-              setBusy(true);
-              await onCreate(newCat);
-              setNewCat("");
-              setBusy(false);
-  };
-
-  const update = async () => {
-    if (!editingName.trim()) return;
-              setBusy(true);
-              await onUpdate(editingCatId, editingName);
-              setEditingCatId("");
-              setEditingName("");
-              setBusy(false);
-  };
-
-  const remove = async (id: string) => {
-                setBusy(true);
-              await onDelete(id);
-              setBusy(false);
-  };
-
-              return (
-              <div className="fixed inset-0 z-50 grid place-items-center p-4">
-                <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onClose} />
-                <div className="relative w-full max-w-md animate-float-up rounded-3xl bg-card p-6 shadow-glow max-h-[80vh] flex flex-col">
-                  <div className="flex items-start justify-between shrink-0">
-                    <div>
-                      <p className="text-xs uppercase tracking-wider text-muted-foreground">Manage</p>
-                      <h2 className="font-display text-xl font-bold">Categories</h2>
-                    </div>
-                    <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
-                  </div>
-
-                  <div className="mt-4 flex gap-2 shrink-0">
-                    <input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="New category name..." className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                    <button onClick={create} disabled={busy || !newCat} className="rounded-xl bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">Add</button>
-                  </div>
-
-                  <div className="mt-6 flex-1 overflow-y-auto min-h-[200px]">
-                    {categories.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No categories yet.</p>}
-                    <div className="space-y-2">
-                      {categories.map((c: any) => (
-                        <div key={c.id} className="flex items-center gap-2 p-2 rounded-xl border border-border bg-background">
-                          {editingCatId === c.id ? (
-                            <>
-                              <input value={editingName} onChange={e => setEditingName(e.target.value)} className="flex-1 rounded border border-border bg-background px-2 py-1 text-sm focus:outline-none" />
-                              <button onClick={update} disabled={busy || !editingName} className="text-xs font-semibold text-primary">Save</button>
-                              <button onClick={() => setEditingCatId("")} className="text-xs text-muted-foreground">Cancel</button>
-                            </>
-                          ) : (
-                            <>
-                              <span className="flex-1 text-sm font-semibold">{c.name}</span>
-                              <button onClick={() => { setEditingCatId(c.id); setEditingName(c.name); }} className="p-1.5 text-muted-foreground hover:bg-secondary rounded-md transition"><Pencil className="h-4 w-4" /></button>
-                              <button onClick={() => remove(c.id)} disabled={busy} className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition"><Trash2 className="h-4 w-4" /></button>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              );
+function KitchenChoices({ stations, value, onChange, disabled }: { stations: KitchenStation[]; value: string; onChange: (id: string) => void; disabled?: boolean }) {
+  const groupId = useId();
+  return <fieldset disabled={disabled} className="mt-3 space-y-2">
+    <legend className="text-sm font-semibold">Kitchen for this category</legend>
+    {[{ id: "", name: "Restaurant default kitchen" }, ...stations.filter(station => station.isActive)].map(station =>
+      <label key={station.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm ${value === station.id ? "border-primary bg-primary/5" : "border-border"}`}>
+        <input type="radio" name={groupId} checked={value === station.id} onChange={() => onChange(station.id)} aria-label={station.name} />
+        {station.name}
+      </label>)}
+    {value && !stations.some(station => station.id === value && station.isActive) && <p className="text-sm text-destructive">The assigned kitchen is unavailable. Choose an active kitchen before saving.</p>}
+    <p className="text-xs text-muted-foreground">All items in this category use this kitchen unless an item has its own kitchen assignment. Separate routing requires multiple kitchens enabled in Kitchen & Printing.</p>
+  </fieldset>;
 }
 
-              function Field({label, value, onChange, readOnly}: {label: string; value: string; onChange?: (v: string) => void; readOnly?: boolean }) {
+function CategoriesModal({ restaurantId, categories, onClose, onCreate, onUpdate, onDelete }: {
+  restaurantId: string; categories: any[]; onClose: () => void;
+  onCreate: (name: string, kitchenStationId: string | null) => Promise<void>;
+  onUpdate: (id: string, name: string, kitchenStationId: string | null) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [stationId, setStationId] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const stationsQuery = useQuery({ queryKey: ["kitchen-stations", restaurantId], queryFn: () => printingService.getStations(restaurantId) });
+  const stations = stationsQuery.data ?? [];
+  const unavailable = !!stationId && !stations.some(station => station.id === stationId && station.isActive);
+  const reset = () => { setName(""); setStationId(""); setEditingId(null); };
+  const save = async () => {
+    if (!name.trim() || busy || unavailable || !stationsQuery.isSuccess) return;
+    setBusy(true);
+    try {
+      if (editingId) await onUpdate(editingId, name.trim(), stationId || null);
+      else await onCreate(name.trim(), stationId || null);
+      reset();
+    } catch { /* Parent reports the error. Keep the form for retry. */ }
+    finally { setBusy(false); }
+  };
+  return <div role="dialog" aria-modal="true" aria-labelledby="categories-title" className="fixed inset-0 z-50 grid place-items-center p-4" onKeyDown={event => { if (event.key === "Escape" && !busy) void confirmClose(onClose); }}>
+    <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => { if (!busy) void confirmClose(onClose); }} />
+    <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-y-auto rounded-3xl bg-card p-6 shadow-glow">
+      <div className="flex items-center justify-between"><h2 id="categories-title" className="text-xl font-bold">Categories</h2><button type="button" aria-label="Close categories" disabled={busy} onClick={() => void confirmClose(onClose)}><X className="h-5 w-5" /></button></div>
+      <div className="mt-4 rounded-2xl border p-4">
+        <h3 className="font-semibold">{editingId ? "Edit category" : "Add category"}</h3>
+        <label className="mt-3 block text-sm">Category name<input aria-label="Category name" disabled={busy} value={name} onChange={event => setName(event.target.value)} className="mt-1 w-full rounded-xl border bg-background px-3 py-2" /></label>
+        {stationsQuery.isPending ? <p className="mt-3 text-sm">Loading kitchens…</p> : stationsQuery.isError ? <div className="mt-3 text-sm text-destructive">Unable to load kitchens. <button onClick={() => void stationsQuery.refetch()}>Retry</button></div> : <KitchenChoices stations={stations} value={stationId} onChange={setStationId} disabled={busy} />}
+        <div className="mt-4 flex justify-end gap-3">{editingId && <button disabled={busy} onClick={() => void confirmClose(reset)} className="rounded-full border px-4 py-2 text-sm">Cancel edit</button>}<button disabled={busy || !name.trim() || unavailable || !stationsQuery.isSuccess} onClick={save} className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Saving…" : editingId ? "Save category" : "Add category"}</button></div>
+      </div>
+      <div className="mt-4 space-y-2">{categories.map(category => <div key={category.id} className="flex items-center gap-3 rounded-xl border p-3">
+        <div className="min-w-0 flex-1"><p className="truncate font-semibold">{category.name}</p><p className="text-xs text-muted-foreground">{stations.find(station => station.id === category.kitchenStationId)?.name ?? (category.kitchenStationId ? "Unavailable kitchen" : "Restaurant default kitchen")}</p></div>
+        <button disabled={busy} aria-label={`Edit ${category.name}`} onClick={async () => { if ((name || editingId) && !await confirmAction({ title: "Switch category?", description: "Unsaved category changes will be discarded.", confirmLabel: "Switch category" })) return; setEditingId(category.id); setName(category.name); setStationId(category.kitchenStationId ?? ""); }}><Pencil className="h-4 w-4" /></button>
+        <button disabled={busy} aria-label={`Delete ${category.name}`} className="text-destructive" onClick={async () => { setBusy(true); try { await onDelete(category.id); } finally { setBusy(false); } }}><Trash2 className="h-4 w-4" /></button>
+      </div>)}</div>
+    </div>
+  </div>;
+}
+
+                            function Field({label, value, onChange, readOnly}: {label: string; value: string; onChange?: (v: string) => void; readOnly?: boolean }) {
   return (
               <label className="block">
                 <span className="text-xs font-semibold text-muted-foreground">{label}</span>
@@ -1076,14 +1067,14 @@ function AdminInner() {
 
               return (
               <div className="fixed inset-0 z-50 grid place-items-center p-4">
-                <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onClose} />
+                <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(onClose)} />
                 <div className="relative w-full max-w-md animate-float-up rounded-3xl bg-card p-6 shadow-glow max-h-[80vh] flex flex-col">
                   <div className="flex items-start justify-between shrink-0 mb-6">
                     <div>
                       <p className="text-xs uppercase tracking-wider text-muted-foreground">Manage</p>
                       <h2 className="font-display text-xl font-bold">Restaurant Settings</h2>
                     </div>
-                    <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+                    <button onClick={() => void confirmClose(onClose)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
                   </div>
 
                   {isLoading ? (
@@ -1183,7 +1174,7 @@ function AdminInner() {
   };
 
   const handleDeleteGroup = async (groupId: string) => {
-    if (!confirm("Are you sure you want to delete this modifier group and its options?")) return;
+    if (!await confirmAction("Are you sure you want to delete this modifier group and its options?")) return;
                 try {
       const {deleteModifierGroup} = await import("@/services/api");
                 await deleteModifierGroup(groupId);
@@ -1224,6 +1215,7 @@ function AdminInner() {
   };
 
   const handleDeleteOption = async (optionId: string) => {
+    if (!await confirmAction({ title: "Delete modifier option?", description: "This option will be removed from the modifier group.", confirmLabel: "Delete option", destructive: true })) return;
     try {
       const {deleteModifierOption} = await import("@/services/api");
                 await deleteModifierOption(optionId);
@@ -1270,14 +1262,14 @@ function AdminInner() {
 
                 return (
                 <div className="fixed inset-0 z-50 grid place-items-center p-4">
-                  <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onClose} />
+                  <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(onClose)} />
                   <div className="relative w-full max-w-3xl animate-float-up rounded-3xl bg-card p-6 shadow-glow max-h-[90vh] flex flex-col">
                     <div className="flex items-start justify-between shrink-0 mb-4">
                       <div>
                         <p className="text-xs uppercase tracking-wider text-muted-foreground">Kitchen &amp; Production</p>
                         <h2 className="font-display text-xl font-bold">Priced Modifiers &amp; Swaps</h2>
                       </div>
-                      <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+                      <button onClick={() => void confirmClose(onClose)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
                     </div>
 
                     <div className="flex gap-2 border-b border-border pb-3 mb-4 shrink-0">

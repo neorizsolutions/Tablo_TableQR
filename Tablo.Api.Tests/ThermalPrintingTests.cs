@@ -196,8 +196,10 @@ public class ThermalPrintingTests
         Assert.Contains("1x Cola", queuedJobs[0].ReadableText);
     }
 
-    [Fact]
-    public async Task KotRouting_SeparateKitchens_RoutesFoodAndBeveragesToSeparateStations()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task KotRouting_SeparateKitchens_RoutesFoodAndBeveragesToSeparateStations(bool itemOverride)
     {
         using var db = CreateInMemoryDb();
         var restId = Guid.NewGuid();
@@ -244,7 +246,7 @@ public class ThermalPrintingTests
         db.Categories.AddRange(foodCat, bevCat);
 
         var pasta = new MenuItem { Id = Guid.NewGuid(), RestaurantId = restId, CategoryId = foodCat.Id, Name = "Pasta Alfredo", Price = 280, IsAvailable = true };
-        var mocktail = new MenuItem { Id = Guid.NewGuid(), RestaurantId = restId, CategoryId = bevCat.Id, Name = "Virgin Mojito", Price = 120, IsAvailable = true };
+        var mocktail = new MenuItem { Id = Guid.NewGuid(), RestaurantId = restId, CategoryId = bevCat.Id, Name = "Virgin Mojito", Price = 120, IsAvailable = true, KitchenStationId = itemOverride ? bevStation.Id : null };
         db.MenuItems.AddRange(pasta, mocktail);
 
         var table = new RestaurantTable { Id = Guid.NewGuid(), RestaurantId = restId, TableNumber = 7, QRToken = "token7" };
