@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { getEmployees } from "@/services/api";
+import { useEmployeeCounts } from "@/hooks/use-staff";
+import { getEmployees, type EmployeeStatusFilter } from "@/services/api";
 import { AppLayout } from "@/components/app-layout";
 import { EmployeeMenuAccess } from "@/components/employee-menu-access";
 import { Button } from "@/components/ui/button";
@@ -45,19 +46,37 @@ function MenuAccessPage() {
 }
 function MenuAccessWorkspace() {
   const { user } = useAuth();
-  const query = useQuery({
-    queryKey: ["menu-access-employees", user?.restaurantId, user?.id],
-    queryFn: getEmployees,
-  });
+  const [statusFilter, setStatusFilter] = useState<EmployeeStatusFilter>("active");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const query = useQuery({
+    queryKey: ["menu-access-employees", user?.restaurantId, user?.id, statusFilter],
+    queryFn: () => getEmployees(statusFilter),
+  });
+  const countsQuery = useEmployeeCounts();
+
   const employees = (query.data || []).filter((employee) => employee.role !== "SuperAdmin");
-  const selected = employees.find((employee) => employee.id === selectedId);
+  const normalizedSearch = search.trim().toLowerCase();
   const filtered = employees.filter((employee) =>
     `${employee.firstName} ${employee.lastName} ${employee.email} ${employee.role}`
       .toLowerCase()
-      .includes(search.toLowerCase()),
+      .includes(normalizedSearch),
   );
+  const selected = filtered.find((employee) => employee.id === selectedId);
+
+  useEffect(() => {
+    if (selectedId && !query.isPending && !filtered.some((employee) => employee.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [selectedId, query.isPending, filtered]);
+
+  const filterOptions: { value: EmployeeStatusFilter; label: string; count?: number }[] = [
+    { value: "active", label: "Active", count: countsQuery.data?.active },
+    { value: "inactive", label: "Inactive", count: countsQuery.data?.inactive },
+    { value: "all", label: "All", count: countsQuery.data?.all },
+  ];
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-8">
       <header>
@@ -76,11 +95,46 @@ function MenuAccessWorkspace() {
           </Button>
         </div>
       ) : (
-        <div className="grid items-start gap-6 md:grid-cols-[280px_1fr]">
+        <div className="grid items-start gap-6 md:grid-cols-[300px_1fr]">
           <section
             aria-label="Employees"
             className="space-y-3 rounded-2xl border border-border bg-card p-4"
           >
+            <div
+              role="group"
+              aria-label="Filter employees by status"
+              className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-secondary/40 p-1"
+            >
+              {filterOptions.map((opt) => {
+                const isSelected = statusFilter === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={isSelected}
+                    data-status-filter={opt.value}
+                    onClick={() => setStatusFilter(opt.value)}
+                    className={`flex items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-background hover:text-foreground"
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {typeof opt.count === "number" && (
+                      <span
+                        className={`rounded-full px-1 text-[10px] font-bold ${
+                          isSelected ? "bg-white/20 text-primary-foreground" : "bg-background text-foreground"
+                        }`}
+                      >
+                        {opt.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
             <label className="block text-sm font-medium">
               Search employees
               <input
@@ -113,7 +167,26 @@ function MenuAccessWorkspace() {
                 </button>
               ))}
               {filtered.length === 0 && (
-                <p className="py-4 text-sm text-muted-foreground">No employees found.</p>
+                <div className="py-4 text-sm text-muted-foreground">
+                  <p>
+                    {normalizedSearch
+                      ? `No ${statusFilter === "all" ? "" : `${statusFilter} `}employees match "${search.trim()}".`
+                      : statusFilter === "active"
+                        ? "No active employees found."
+                        : statusFilter === "inactive"
+                          ? "No inactive employees found."
+                          : "No employees found."}
+                  </p>
+                  {normalizedSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      className="mt-2 text-xs font-semibold text-primary underline"
+                    >
+                      Clear search
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </section>

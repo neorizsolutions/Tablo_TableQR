@@ -22,7 +22,7 @@ public sealed class NavigationAccessFilter(ApplicationDbContext db, ISubscriptio
         if (action.ControllerName is "Auth" or "Subscriptions" or "SystemAdmin" or "SupportAdmin") { await next(); return; }
 
         var employee = await db.Employees.AsNoTracking().Include(e => e.Role).FirstOrDefaultAsync(e =>
-            e.Id == user.GetUserId() && e.RestaurantId == user.GetRestaurantId() && e.IsActive);
+            e.Id == user.GetUserId() && e.RestaurantId == user.GetRestaurantId() && !e.IsDeleted && e.IsActive);
         if (employee == null) { context.Result = new ForbidResult(); return; }
         if (!user.IsInRole(employee.Role.Name)) { context.Result = new ForbidResult(); return; }
 

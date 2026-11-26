@@ -112,7 +112,7 @@ function DashboardInner() {
   const search = Route.useSearch();
   const role = roles[0] || user?.role || "";
   const allowedIds = useMemo(
-    () => new Set(getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []).map((item) => item.id)),
+    () => new Set(getEmployeeNavItems(role, permissions.data ? permissions.data.allowedMenuIds : []).map((item) => item.id)),
     [role, permissions.data?.allowedMenuIds],
   );
   const currentTab = getDashboardTab(search.tab, user?.role, permissions.data?.allowedMenuIds);

@@ -81,7 +81,7 @@ builder.Services.AddAuthentication(options =>
             {
                 var db = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
                 var employee = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == employeeId);
-                if (employee == null || !employee.IsActive)
+                if (employee == null || employee.IsDeleted || !employee.IsActive)
                 {
                     context.Fail("Account is inactive or disabled.");
                     return;

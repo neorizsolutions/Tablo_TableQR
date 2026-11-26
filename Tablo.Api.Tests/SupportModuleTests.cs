@@ -338,6 +338,10 @@ public class SupportModuleTests
         Assert.Equal(0, await worker.ProcessDueEscalationsAsync());
         Assert.Single(host.Emails.Sent);
 
+        // The worker used its own scope, as a background dispatch does between HTTP requests.
+        // Start the next request with fresh persisted state rather than a stale tracked IsEscalated flag.
+        db.ChangeTracker.Clear();
+
         // 5. T+12m: Super Admin replies -> ends waiting period & transitions to AwaitingRestaurant
         host.Clock.SetUtcNow(t0.AddMinutes(12));
         var saReply = await support.AddSuperAdminReplyAsync(convId, "Tablo Support", "superadmin@tablo.local", new CreateSupportMessageDto
@@ -444,6 +448,7 @@ public class SupportModuleTests
             Message = "Simulate transient SMTP failures",
             ClientOperationId = Guid.NewGuid()
         });
+        Assert.Single(db.ChangeTracker.Entries<Restaurant>().Where(e => e.Entity.Id == host.RestaurantA));
         int failCalls = 0;
         host.Emails.FailureRule = _ => (++failCalls <= 2) ? new HttpRequestException("503 Brevo transient failure") : null;
         host.Clock.Advance(TimeSpan.FromMinutes(10));

@@ -82,6 +82,6 @@ public class CashierAccessTests
         Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/employees/{cashierId}", new { firstName = "Cash", lastName = "Desk", email = "cashier@example.test", roleName = "Waiter" })).StatusCode);
         using var finalScope = host.Services.CreateScope();
         Assert.Null((await finalScope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Employees.SingleAsync(e => e.Id == cashierId)).AllowedMenuIds);
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.GetAsync(root + "tables")).StatusCode); // stale role token
+        Assert.Equal(HttpStatusCode.Unauthorized, (await cashier.GetAsync(root + "tables")).StatusCode); // role change rotates the security stamp
     }
 }

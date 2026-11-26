@@ -83,7 +83,7 @@ public sealed class OrderConnectionRegistry(
             reason
         });
 
-        if (employee.IsActive && NavigationAccess.Allows(employee, OrderHubMenus))
+        if (!employee.IsDeleted && employee.IsActive && NavigationAccess.Allows(employee, OrderHubMenus))
         {
             return;
         }
@@ -140,6 +140,7 @@ public class OrderHub(ApplicationDbContext db, OrderConnectionRegistry? registry
             .FirstOrDefaultAsync(e =>
                 e.Id == user.GetUserId() &&
                 e.RestaurantId == user.GetRestaurantId() &&
+                !e.IsDeleted &&
                 e.IsActive);
 
         if (employee == null || !user.IsInRole(employee.Role.Name))
@@ -173,6 +174,7 @@ public class OrderHub(ApplicationDbContext db, OrderConnectionRegistry? registry
             .FirstOrDefaultAsync(e =>
                 e.Id == user.GetUserId() &&
                 e.RestaurantId == user.GetRestaurantId() &&
+                !e.IsDeleted &&
                 e.IsActive);
 
         if (employee == null || !user.IsInRole(employee.Role.Name))

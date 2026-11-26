@@ -24,9 +24,9 @@ public class SubscriptionService : ISubscriptionService
         var employee = await _context.Employees
             .Include(e => e.Role)
             .Include(e => e.Restaurant)
-            .FirstOrDefaultAsync(e => e.Id == employeeId && e.RestaurantId == restaurantId);
+            .FirstOrDefaultAsync(e => e.Id == employeeId && e.RestaurantId == restaurantId && !e.IsDeleted);
 
-        if (employee == null || !employee.IsActive)
+        if (employee == null || employee.IsDeleted || !employee.IsActive)
         {
             return null;
         }
@@ -391,7 +391,7 @@ public class SubscriptionService : ISubscriptionService
         if (adminRole != null)
         {
             activeRestaurants = await _context.Employees
-                .Where(e => e.RoleId == adminRole.Id && e.IsActive)
+                .Where(e => e.RoleId == adminRole.Id && !e.IsDeleted && e.IsActive)
                 .Select(e => e.RestaurantId)
                 .Distinct()
                 .CountAsync();
@@ -418,7 +418,7 @@ public class SubscriptionService : ISubscriptionService
             .GroupBy(s => s.Plan.Code)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        var totalEmployees = await _context.Employees.CountAsync(e => e.IsActive);
+        var totalEmployees = await _context.Employees.CountAsync(e => !e.IsDeleted && e.IsActive);
 
         return new SuperAdminOverviewDto
         {

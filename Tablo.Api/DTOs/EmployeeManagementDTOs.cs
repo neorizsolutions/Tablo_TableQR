@@ -60,4 +60,19 @@ namespace Tablo.Api.DTOs
         [MinLength(6)]
         public string NewPassword { get; set; } = string.Empty;
     }
+
+    public class EmployeeStatusCountsDto
+    {
+        public int Active { get; set; }
+        public int Inactive { get; set; }
+        public int All { get; set; }
+    }
+
+    public class DeleteEmployeeResponseDto
+    {
+        public string Message { get; set; } = string.Empty;
+        public Guid EmployeeId { get; set; }
+        public bool AlreadyDeleted { get; set; }
+        public DateTime? DeletedAtUtc { get; set; }
+    }
 }

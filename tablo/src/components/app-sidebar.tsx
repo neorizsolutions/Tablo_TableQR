@@ -5,7 +5,15 @@ import { useNavigationAccess } from "@/hooks/use-navigation-access";
 import { useAuth } from "@/hooks/use-auth";
 import { useEffectiveAccess } from "@/hooks/use-effective-access";
 import { useSupportUnreadCount } from "@/hooks/use-support";
-import { getDashboardTab, getEmployeeNavItems, isNavigationItemActive, SUPER_ADMIN_NAVIGATION } from "@/config/navigation";
+import {
+  getDashboardTab,
+  getEmployeeNavItems,
+  getMenuRequiredPlanLabel,
+  isNavigationItemActive,
+  SUPER_ADMIN_NAVIGATION,
+  type NavItem,
+  type SuperAdminNavItem,
+} from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -15,14 +23,22 @@ import { FeatureLockedModal } from "./feature-locked-modal";
 import { SubscriptionDetailsModal } from "./subscription-details-modal";
 
 const STORAGE_KEY = "tablo-sidebar-collapsed";
-const sections = [
-  ["main", "Workspace"],
-  ["operations", "Floor & Operations"],
-  ["management", "Restaurant Management"],
-  ["inventory", "Inventory & Supply"],
-  ["analytics", "Analytics & Reports"],
+const workspaceSections = [
+  ["operations", "Daily Operations"],
+  ["inventory", "Inventory & Stock"],
+  ["analytics", "Reports & Analytics"],
+  ["management", "Restaurant Administration"],
+] as const;
+
+const platformSections = [
   ["platform", "Platform Administration"],
 ] as const;
+
+type SidebarRenderableItem = (NavItem | SuperAdminNavItem) & {
+  tabParam?: string;
+  isDefault?: boolean;
+  requiredCapabilities?: string[];
+};
 
 interface AppSidebarProps {
   selectedOutletId?: string;
@@ -66,7 +82,7 @@ export function AppSidebar({ selectedOutletId, onSelectOutlet }: AppSidebarProps
   const tab = typeof rawTab === "string" ? rawTab : undefined;
   const activeTab = platform
     ? SUPER_ADMIN_NAVIGATION.find((item) => item.tab === tab)?.tab ?? "overview"
-    : location.pathname === "/dashboard" ? getDashboardTab(tab, role) : tab;
+    : location.pathname === "/dashboard" ? getDashboardTab(tab, role, permissions.data?.allowedMenuIds) : tab;
   const items = platform
     ? SUPER_ADMIN_NAVIGATION.map((item) => ({
         ...item,
@@ -102,8 +118,74 @@ export function AppSidebar({ selectedOutletId, onSelectOutlet }: AppSidebarProps
     }
   }
 
+  function renderNavItem(item: SidebarRenderableItem, rail: boolean) {
+    const active = isNavigationItemActive(item, location.pathname, activeTab);
+    const locked = Boolean(item.requiredCapabilities?.length && !item.requiredCapabilities.some(hasCapability));
+    const planLabel = getMenuRequiredPlanLabel(item);
+    const plan: "Plus" | "Premium" = planLabel?.includes("Premium") ? "Premium" : "Plus";
+    const Icon = item.icon;
+    const unreadCount = (item.id === "support" || item.id === "sa-support-inbox") ? supportUnreadCount : 0;
+    const className = cn(
+      "relative flex h-10 items-center rounded-xl text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
+      rail ? "mx-auto w-10 justify-center" : "w-full gap-2.5 overflow-hidden px-3 text-left",
+      active ? "bg-emerald-700 font-semibold text-white" : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
+    );
+    const content = (
+      <>
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
+        {!rail && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
+        {unreadCount > 0 && !locked ? (
+          <span
+            data-testid={`sidebar-unread-${item.id}`}
+            className={cn(
+              "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-4",
+              active ? "bg-white text-emerald-700" : "bg-primary text-primary-foreground",
+              rail && "absolute right-0.5 top-0.5 h-4 min-w-4 px-1",
+            )}
+          >
+            {unreadCount}
+          </span>
+        ) : null}
+        {locked ? <Lock className={cn("size-3 shrink-0", rail && "absolute right-1 top-1")} aria-hidden="true" /> : null}
+      </>
+    );
+
+    return (
+      <RailTooltip key={item.id} enabled={rail} label={locked ? `${item.label} · ${plan}` : item.label}>
+        {locked ? (
+          <button
+            type="button"
+            aria-label={`${item.label}, requires ${plan}`}
+            className={className}
+            onClick={() => {
+              setMobileOpen(false);
+              setLockedFeature({ label: item.label, plan });
+            }}
+          >
+            {content}
+          </button>
+        ) : (
+          <Link
+            to={item.to}
+            search={item.search}
+            aria-label={item.label}
+            aria-current={active ? "page" : undefined}
+            activeOptions={{ exact: true, includeSearch: Boolean(item.tabParam) }}
+            activeProps={{}}
+            className={className}
+            onClick={() => setMobileOpen(false)}
+          >
+            {content}
+          </Link>
+        )}
+      </RailTooltip>
+    );
+  }
+
   function renderSidebar(rail: boolean, mobile = false) {
-    const actionClass = cn("h-9 shrink-0 rounded-xl", rail ? "w-10 px-0" : "w-full justify-start gap-3 px-3");
+    const actionClass = cn("h-9 shrink-0 rounded-xl", rail ? "w-10 px-0" : "w-full justify-start gap-2.5 px-3");
+    const activeSections = platform ? platformSections : workspaceSections;
+    const utilityLinks = platform ? [] : items.filter((item) => item.section === "utility");
     return (
       <>
         <div className={cn("flex h-16 shrink-0 items-center gap-2.5", rail ? "justify-center" : "px-3", mobile && "pr-10")}>
@@ -159,101 +241,53 @@ export function AppSidebar({ selectedOutletId, onSelectOutlet }: AppSidebarProps
         )}
 
         <nav aria-label={platform ? "Platform navigation" : "Workspace navigation"} className={cn("min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden py-2", rail ? "px-0" : "px-3")}>
-          {sections.map(([section, label]) => {
+          {activeSections.map(([section, label]) => {
             const links = items.filter((item) => item.section === section);
             if (!links.length) return null;
 
             return (
               <div key={section} role="group" aria-label={label} className="space-y-1">
-                {section !== "main" && (rail
+                {rail
                   ? <div aria-hidden="true" className="mx-auto mb-2 w-5 border-t border-border" />
-                  : <div className="truncate px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-                )}
-                {links.map((item) => {
-                  const active = isNavigationItemActive(item, location.pathname, activeTab);
-                  const locked = item.requiredCapabilities?.length && !item.requiredCapabilities.some(hasCapability);
-                  const plan = section === "inventory" ? "Premium" : "Plus";
-                  const Icon = item.icon;
-                  const unreadCount = (item.id === "support" || item.id === "sa-support-inbox") ? supportUnreadCount : 0;
-                  const className = cn(
-                    "relative flex h-10 items-center rounded-xl text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
-                    rail ? "mx-auto w-10 justify-center" : "w-full gap-2.5 overflow-hidden px-3 text-left",
-                    active ? "bg-emerald-700 font-semibold text-white" : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
-                  );
-                  const content = (
-                    <>
-                      <Icon className="size-4 shrink-0" aria-hidden="true" />
-                      {!rail && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
-                      {unreadCount > 0 && !locked ? (
-                        <span
-                          data-testid={`sidebar-unread-${item.id}`}
-                          className={cn(
-                            "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-4",
-                            active ? "bg-white text-emerald-700" : "bg-primary text-primary-foreground",
-                            rail && "absolute right-0.5 top-0.5 h-4 min-w-4 px-1",
-                          )}
-                        >
-                          {unreadCount}
-                        </span>
-                      ) : null}
-                      {locked ? <Lock className={cn("size-3 shrink-0", rail && "absolute right-1 top-1")} aria-hidden="true" /> : null}
-                    </>
-                  );
-
-                  return (
-                    <RailTooltip key={item.id} enabled={rail} label={locked ? `${item.label} · ${plan}` : item.label}>
-                      {locked ? (
-                        <button
-                          type="button"
-                          aria-label={`${item.label}, requires ${plan}`}
-                          className={className}
-                          onClick={() => {
-                            setMobileOpen(false);
-                            setLockedFeature({ label: item.label, plan });
-                          }}
-                        >
-                          {content}
-                        </button>
-                      ) : (
-                        <Link
-                          to={item.to}
-                          search={item.search}
-                          aria-label={item.label}
-                          aria-current={active ? "page" : undefined}
-                          activeOptions={{ exact: true, includeSearch: Boolean(item.tabParam) }}
-                          activeProps={{}}
-                          className={className}
-                          onClick={() => setMobileOpen(false)}
-                        >
-                          {content}
-                        </Link>
-                      )}
-                    </RailTooltip>
-                  );
-                })}
+                  : <div className="truncate px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>}
+                {links.map((item) => renderNavItem(item, rail))}
               </div>
             );
           })}
-          {!platform && (
+        </nav>
+
+        {!platform && (
+          <div
+            aria-label="Workspace utilities"
+            className={cn(
+              "shrink-0 space-y-1 border-t border-border py-2",
+              rail ? "flex flex-col items-center px-0" : "px-3",
+            )}
+          >
+            {utilityLinks.map((item) => renderNavItem(item, rail))}
             <RailTooltip enabled={rail} label="Subscription & Entitlements">
               <Button
                 type="button"
                 variant="ghost"
-                className={cn(actionClass, "text-muted-foreground", rail && "mx-auto flex")}
+                className={cn(
+                  actionClass,
+                  "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
+                  rail && "mx-auto flex w-10 justify-center",
+                )}
                 aria-label="Subscription & Entitlements"
                 onClick={() => {
                   setMobileOpen(false);
                   setSubscriptionOpen(true);
                 }}
               >
-                <ShieldCheck className="h-4 w-4" />
+                <ShieldCheck className="size-4 shrink-0" />
                 {!rail && "Subscription"}
               </Button>
             </RailTooltip>
-          )}
-        </nav>
+          </div>
+        )}
 
-        <footer className={cn("flex shrink-0 flex-col gap-2 border-t border-border p-3", rail && "items-center px-0")}>
+        <footer className={cn("flex shrink-0 flex-col gap-2.5 border-t border-border p-3", rail && "items-center px-0")}>
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary" title={rail ? profileName : undefined} aria-label={rail ? profileName : undefined}>
               {profileName.charAt(0).toUpperCase()}
@@ -269,7 +303,7 @@ export function AppSidebar({ selectedOutletId, onSelectOutlet }: AppSidebarProps
             <Button
               type="button"
               variant="outline"
-              className={actionClass}
+              className={cn("h-9 shrink-0 rounded-xl", rail ? "w-10 justify-center px-0" : "w-full justify-start gap-2.5 px-3")}
               aria-label="Logout"
               onClick={() => void signOut(platform ? "/super-admin" : undefined)}
             >

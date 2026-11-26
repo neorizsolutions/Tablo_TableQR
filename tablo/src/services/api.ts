@@ -400,8 +400,28 @@ export interface Employee {
   isActive?: boolean;
 }
 
-export async function getEmployees(): Promise<Employee[]> {
-  return apiClient<Employee[]>('/employees');
+export type EmployeeStatusFilter = 'active' | 'inactive' | 'all';
+
+export interface EmployeeStatusCounts {
+  active: number;
+  inactive: number;
+  all: number;
+}
+
+export interface DeleteEmployeeResponse {
+  message: string;
+  employeeId: string;
+  alreadyDeleted: boolean;
+  deletedAtUtc?: string | null;
+}
+
+export async function getEmployees(status?: EmployeeStatusFilter): Promise<Employee[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return apiClient<Employee[]>(`/employees${query}`);
+}
+
+export async function getEmployeeCounts(): Promise<EmployeeStatusCounts> {
+  return apiClient<EmployeeStatusCounts>('/employees/counts');
 }
 
 export async function getEmployee(id: string): Promise<Employee> {
@@ -426,6 +446,12 @@ export async function updateEmployeeStatus(id: string, isActive: boolean): Promi
   return apiClient<any>(`/employees/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ isActive }),
+  });
+}
+
+export async function deleteEmployee(id: string): Promise<DeleteEmployeeResponse> {
+  return apiClient<DeleteEmployeeResponse>(`/employees/${id}`, {
+    method: 'DELETE',
   });
 }
 
