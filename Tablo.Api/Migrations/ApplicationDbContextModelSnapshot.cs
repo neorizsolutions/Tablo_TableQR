@@ -3495,7 +3495,7 @@ namespace Tablo.Api.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<Guid>("RestaurantId")
+                    b.Property<Guid?>("RestaurantId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("SubscriptionId")
@@ -5443,8 +5443,7 @@ namespace Tablo.Api.Migrations
                     b.HasOne("Tablo.Api.Entities.Restaurant", "Restaurant")
                         .WithMany("SubscriptionAuditLogs")
                         .HasForeignKey("RestaurantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("Tablo.Api.Entities.Subscription", "Subscription")
                         .WithMany("AuditLogs")

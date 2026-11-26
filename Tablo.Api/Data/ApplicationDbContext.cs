@@ -81,6 +81,9 @@ namespace Tablo.Api.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<SubscriptionAuditLog>()
+                .HasOne(a => a.Restaurant).WithMany(r => r.SubscriptionAuditLogs)
+                .HasForeignKey(a => a.RestaurantId).OnDelete(DeleteBehavior.Cascade);
             
             // Apply all configurations from the current assembly
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
