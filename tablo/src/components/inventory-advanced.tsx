@@ -1,3 +1,4 @@
+import { confirmClose } from "@/lib/confirmation";
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -260,7 +261,7 @@ function CreateSupplierModal({ restaurantId, onClose, onSuccess }: { restaurantI
       <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-glow">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <h2 className="font-display text-lg font-bold">Add New Supplier</h2>
-          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-sm">
           <div>
@@ -292,7 +293,7 @@ function CreateSupplierModal({ restaurantId, onClose, onSuccess }: { restaurantI
             <textarea rows={2} value={address} onChange={e => setAddress(e.target.value)} placeholder="Market Road, Calicut..." className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5" />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={loading} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-primary px-5 py-2 font-semibold text-primary-foreground">
               {loading && <Loader2 className="h-4 w-4 animate-spin" />} Save Supplier
             </button>
@@ -356,7 +357,7 @@ function SupplierIngredientsModal({ restaurantId, supplier, ingredients, onClose
             <h2 className="font-display text-lg font-bold">Supplier Packs & Rates: {supplier.name}</h2>
             <p className="text-xs text-muted-foreground">Configure standard pack sizes (e.g. 25 kg sack) and purchase pricing.</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
         <form onSubmit={handleAddPack} className="mt-4 rounded-2xl border border-border bg-secondary/30 p-4 space-y-3">
@@ -449,7 +450,7 @@ function SupplierIngredientsModal({ restaurantId, supplier, ingredients, onClose
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button onClick={onClose} className="rounded-full bg-secondary px-5 py-2 text-xs font-semibold">Close</button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full bg-secondary px-5 py-2 text-xs font-semibold">Close</button>
         </div>
       </div>
     </div>
@@ -474,7 +475,7 @@ function PriceComparisonModal({ restaurantId, ingredientId, onClose }: { restaur
               {data ? `${data.ingredientName} (normalized to INR / ${data.baseUnit})` : "Loading..."}
             </p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
         <div className="mt-4">
@@ -506,7 +507,7 @@ function PriceComparisonModal({ restaurantId, ingredientId, onClose }: { restaur
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button onClick={onClose} className="rounded-full bg-secondary px-5 py-2 text-xs font-semibold">Close</button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full bg-secondary px-5 py-2 text-xs font-semibold">Close</button>
         </div>
       </div>
     </div>
@@ -835,7 +836,7 @@ function CreatePurchaseOrderModal({ restaurantId, suppliers, ingredients, onClos
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-glow">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <h2 className="font-display text-lg font-bold">New Purchase Order</h2>
-          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
           <div className="grid grid-cols-2 gap-3">
@@ -940,7 +941,7 @@ function CreatePurchaseOrderModal({ restaurantId, suppliers, ingredients, onClos
           <div className="flex items-center justify-between border-t border-border pt-4">
             <span className="font-mono text-base font-bold">Total: ₹{total.toFixed(2)}</span>
             <div className="flex gap-2">
-              <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+              <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
               <button type="submit" disabled={loading} className="rounded-full bg-gradient-primary px-5 py-2 font-semibold text-primary-foreground">
                 {loading ? "Creating…" : "Save Draft PO"}
               </button>
@@ -1058,7 +1059,7 @@ function ReceiveGoodsModal({ restaurantId, po, suppliers, ingredients, onClose, 
               {po ? `Receiving against ${po.orderNumber} (${po.supplierName})` : "Direct Purchase Receipt without PO"}
             </p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
         <form onSubmit={handleReceive} className="mt-4 space-y-4 text-xs">
@@ -1196,7 +1197,7 @@ function ReceiveGoodsModal({ restaurantId, po, suppliers, ingredients, onClose, 
               <p className="text-[11px] text-muted-foreground">Subtotal: ₹{subtotal.toFixed(2)} + Freight: ₹{shippingCharges.toFixed(2)}</p>
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+              <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
               <button type="submit" disabled={loading} className="rounded-full bg-emerald-600 px-5 py-2 font-semibold text-white hover:bg-emerald-700">
                 {loading ? "Posting Goods Receipt…" : "Post Goods Receipt & Update Stock"}
               </button>
@@ -1253,7 +1254,7 @@ function CreatePurchaseReturnModal({ restaurantId, invoice, onClose, onSuccess }
             <h2 className="font-display text-lg font-bold">Return Goods to Supplier</h2>
             <p className="text-xs text-muted-foreground">Invoice #{invoice.invoiceNumber} · {invoice.supplierName}</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
@@ -1321,7 +1322,7 @@ function CreatePurchaseReturnModal({ restaurantId, invoice, onClose, onSuccess }
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={loading || returnQty <= 0} className="rounded-full bg-destructive px-5 py-2 font-semibold text-destructive-foreground">
               {loading ? "Processing…" : "Confirm Return & Reverse Stock"}
             </button>
@@ -1522,7 +1523,7 @@ function SavePreparationRecipeModal({ restaurantId, ingredients, onClose, onSucc
       <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-glow">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <h2 className="font-display text-lg font-bold">Define Preparation Recipe</h2>
-          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
@@ -1610,7 +1611,7 @@ function SavePreparationRecipeModal({ restaurantId, ingredients, onClose, onSucc
           </div>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={saving || !outputId} className="rounded-full bg-gradient-primary px-5 py-2 font-semibold text-primary-foreground">
               {saving ? "Saving…" : "Save Preparation Recipe"}
             </button>
@@ -1667,7 +1668,7 @@ function RecordBatchModal({ restaurantId, recipe, onClose, onSuccess }: {
             <h2 className="font-display text-lg font-bold">Cook / Prepare Batch</h2>
             <p className="text-xs text-muted-foreground">{recipe.outputIngredientName} (Standard: {recipe.expectedYieldQuantity} {recipe.outputBaseUnit})</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
@@ -1744,7 +1745,7 @@ function RecordBatchModal({ restaurantId, recipe, onClose, onSuccess }: {
           </div>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={saving} className="rounded-full bg-gradient-primary px-5 py-2 font-semibold text-primary-foreground">
               {saving ? "Posting Batch…" : "Confirm Production & Update Stock"}
             </button>
@@ -1947,7 +1948,7 @@ function QuarantineLotModal({ restaurantId, lot, onClose, onSuccess }: {
             <input required value={reason} onChange={e => setReason(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-sm" />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={loading} className="rounded-full bg-amber-600 px-5 py-2 font-semibold text-white hover:bg-amber-700">
               {loading ? "Quarantining…" : "Confirm Quarantine"}
             </button>
@@ -2022,7 +2023,7 @@ function WriteOffLotModal({ restaurantId, lot, onClose, onSuccess }: {
             <span className="font-mono text-sm font-bold text-destructive">₹{(quantity * lot.unitCost).toFixed(2)}</span>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={loading || quantity <= 0} className="rounded-full bg-destructive px-5 py-2 font-semibold text-destructive-foreground">
               {loading ? "Writing off…" : "Confirm Loss Write-Off"}
             </button>
@@ -2263,7 +2264,7 @@ export function TransfersTab({ restaurantId, ingredients }: { restaurantId: stri
                 </p>
               </div>
               <button
-                onClick={() => setShortageAuditOpen(false)}
+                onClick={() => void confirmClose(() => setShortageAuditOpen(false))}
                 className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
               >
                 <X className="h-5 w-5" />
@@ -2328,7 +2329,7 @@ export function TransfersTab({ restaurantId, ingredients }: { restaurantId: stri
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setShortageAuditOpen(false)}
+                onClick={() => void confirmClose(() => setShortageAuditOpen(false))}
                 className="rounded-full border border-border px-4 py-2 text-xs font-semibold"
               >
                 Close
@@ -2396,7 +2397,7 @@ function CreateOutletModal({ restaurantId, onClose, onSuccess }: { restaurantId:
             <input value={address} onChange={e => setAddress(e.target.value)} placeholder="Street address..." className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-sm" />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={saving} className="rounded-full bg-gradient-primary px-5 py-2 font-semibold text-primary-foreground">
               {saving ? "Saving…" : "Save Outlet"}
             </button>
@@ -2498,7 +2499,7 @@ function CreateTransferModal({ restaurantId, outlets, ingredients, onClose, onSu
           </div>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={saving} className="rounded-full bg-gradient-primary px-5 py-2 font-semibold text-primary-foreground">
               {saving ? "Creating…" : "Create Transfer Request"}
             </button>
@@ -2562,7 +2563,7 @@ function DispatchModal({ restaurantId, transfer, onClose, onSuccess }: {
             ))}
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={saving} className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white hover:bg-blue-700">
               {saving ? "Dispatching…" : "Confirm Dispatch"}
             </button>
@@ -2655,7 +2656,7 @@ function ReceiveTransferModal({ restaurantId, transfer, onClose, onSuccess }: {
             })}
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={saving} className="rounded-full bg-emerald-600 px-5 py-2 font-semibold text-white hover:bg-emerald-700">
               {saving ? "Posting Receipt…" : "Confirm Receipt & Post Inward Stock"}
             </button>
@@ -2703,7 +2704,7 @@ export function InventorySettingsModal({ restaurantId, onClose }: { restaurantId
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-glow">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <h2 className="font-display text-lg font-bold">Inventory & Costing Configuration</h2>
-          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
@@ -2775,7 +2776,7 @@ export function InventorySettingsModal({ restaurantId, onClose }: { restaurantId
           </div>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={saving} className="rounded-full bg-gradient-primary px-5 py-2 font-semibold text-primary-foreground">
               {saving ? "Saving…" : "Save Settings"}
             </button>

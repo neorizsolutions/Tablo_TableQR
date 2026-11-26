@@ -1,3 +1,4 @@
+import { confirmClose, confirmAction } from "@/lib/confirmation";
 import { useEffect, useState } from "react";
 import { 
   Printer, 
@@ -227,7 +228,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
 
   // Consolidate stations
   const handleConsolidate = async (targetId: string) => {
-    if (!confirm("Are you sure you want to consolidate all routing into this single station? Secondary stations will be deactivated without losing historical tickets.")) {
+    if (!await confirmAction("Are you sure you want to consolidate all routing into this single station? Secondary stations will be deactivated without losing historical tickets.")) {
       return;
     }
     try {
@@ -267,6 +268,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
 
   // Cancel Print Job
   const handleCancelJob = async (jobId: string) => {
+    if (!await confirmAction({ title: "Cancel print job?", description: "This queued job will no longer print.", confirmLabel: "Cancel job", destructive: true })) return;
     try {
       await printingService.cancelJob(restaurantId, jobId);
       toast.success("Print job cancelled.");
@@ -308,7 +310,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
             </div>
           </div>
           <button 
-            onClick={onClose}
+            onClick={() => void confirmClose(onClose)}
             className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground transition"
           >
             <X className="h-5 w-5" />
@@ -538,7 +540,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
                           )}
                           {!station.isDefault && station.isActive && (
                             <button
-                              onClick={() => printingService.deactivateStation(restaurantId, station.id).then(() => { toast.success("Station deactivated."); fetchData(); })}
+                              onClick={async () => { if (await confirmAction({ title: "Deactivate kitchen?", description: "New orders will no longer route to this kitchen. Review category assignments before continuing.", confirmLabel: "Deactivate", destructive: true })) { try { await printingService.deactivateStation(restaurantId, station.id); toast.success("Station deactivated."); fetchData(); } catch (error: any) { toast.error(error.message); } } }}
                               className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition"
                             >
                               Deactivate
@@ -555,7 +557,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
                       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
                         <div className="flex items-center justify-between border-b border-border pb-3">
                           <h4 className="font-bold">Add Kitchen Station</h4>
-                          <button onClick={() => setShowAddStation(false)}><X className="h-4 w-4" /></button>
+                          <button onClick={() => void confirmClose(() => setShowAddStation(false))}><X className="h-4 w-4" /></button>
                         </div>
                         <form onSubmit={handleCreateStation} className="mt-4 space-y-3">
                           <div>
@@ -606,7 +608,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
                           <div className="flex justify-end gap-2 pt-4">
                             <button 
                               type="button" 
-                              onClick={() => setShowAddStation(false)} 
+                              onClick={() => void confirmClose(() => setShowAddStation(false))}
                               className="rounded-full border border-border px-4 py-2 text-xs font-semibold"
                             >
                               Cancel
@@ -683,7 +685,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
                       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
                         <div className="flex items-center justify-between border-b border-border pb-3">
                           <h4 className="font-bold">Register Thermal Printer</h4>
-                          <button onClick={() => setShowAddPrinter(false)}><X className="h-4 w-4" /></button>
+                          <button onClick={() => void confirmClose(() => setShowAddPrinter(false))}><X className="h-4 w-4" /></button>
                         </div>
                         <form onSubmit={handleCreatePrinter} className="mt-4 space-y-3">
                           <div>
@@ -768,7 +770,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
                           <div className="flex justify-end gap-2 pt-4">
                             <button 
                               type="button" 
-                              onClick={() => setShowAddPrinter(false)} 
+                              onClick={() => void confirmClose(() => setShowAddPrinter(false))}
                               className="rounded-full border border-border px-4 py-2 text-xs font-semibold"
                             >
                               Cancel
@@ -897,14 +899,14 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
                       <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl">
                         <div className="flex items-center justify-between border-b border-border pb-3">
                           <h4 className="font-bold text-sm">Ticket Preview — {selectedTicketPreview.number}</h4>
-                          <button onClick={() => setSelectedTicketPreview(null)}><X className="h-4 w-4" /></button>
+                          <button onClick={() => void confirmClose(() => setSelectedTicketPreview(null))}><X className="h-4 w-4" /></button>
                         </div>
                         <div className="mt-4 max-h-[60vh] overflow-y-auto rounded-xl bg-black p-4 font-mono text-xs text-emerald-400 whitespace-pre shadow-inner">
                           {selectedTicketPreview.text}
                         </div>
                         <div className="mt-4 flex justify-end">
                           <button 
-                            onClick={() => setSelectedTicketPreview(null)}
+                            onClick={() => void confirmClose(() => setSelectedTicketPreview(null))}
                             className="rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground shadow"
                           >
                             Close
@@ -920,7 +922,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
                       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
                         <div className="flex items-center justify-between border-b border-border pb-3">
                           <h4 className="font-bold">Authorize Ticket Reprint</h4>
-                          <button onClick={() => setReprintingTicketId(null)}><X className="h-4 w-4" /></button>
+                          <button onClick={() => void confirmClose(() => setReprintingTicketId(null))}><X className="h-4 w-4" /></button>
                         </div>
                         <p className="mt-2 text-xs text-muted-foreground">
                           Reprints are logged in the audit trail and explicitly marked as <span className="font-bold text-red-600">*** REPRINT ***</span> on the printed ticket.
@@ -939,7 +941,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
                         <div className="mt-4 flex justify-end gap-2">
                           <button 
                             type="button" 
-                            onClick={() => setReprintingTicketId(null)}
+                            onClick={() => void confirmClose(() => setReprintingTicketId(null))}
                             className="rounded-full border border-border px-4 py-2 text-xs font-semibold"
                           >
                             Cancel
@@ -1036,7 +1038,7 @@ export function KitchenPrintingSettingsModal({ restaurantId, onClose }: Props) {
                               </p>
                             </div>
                             <button
-                              onClick={() => printingService.revokeAgent(restaurantId, ag.id).then(() => { toast.success("Agent revoked."); fetchData(); })}
+                              onClick={async () => { if (await confirmAction({ title: "Revoke print agent?", description: "This agent will lose access to print jobs.", confirmLabel: "Revoke", destructive: true })) { try { await printingService.revokeAgent(restaurantId, ag.id); toast.success("Agent revoked."); fetchData(); } catch (error: any) { toast.error(error.message); } } }}
                               className="rounded-full border border-red-200 px-3 py-1 text-red-600 hover:bg-red-50"
                             >
                               Revoke

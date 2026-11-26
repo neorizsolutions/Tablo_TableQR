@@ -19,6 +19,9 @@ namespace Tablo.Api.Repositories
             _context = context;
         }
 
+        public Task<bool> IsActiveKitchenStationAsync(Guid restaurantId, Guid stationId, CancellationToken cancellationToken = default)
+            => _context.KitchenStations.AnyAsync(s => s.Id == stationId && s.RestaurantId == restaurantId && s.IsActive, cancellationToken);
+
         public async Task<bool> RestaurantExistsAsync(Guid restaurantId, CancellationToken cancellationToken = default)
         {
             return await _context.Restaurants
