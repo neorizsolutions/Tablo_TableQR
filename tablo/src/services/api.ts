@@ -258,10 +258,10 @@ export async function getAdminMenu(restaurantId: string): Promise<{categories: a
   return { categories, flatMenu };
 }
 
-export async function createCategory(restaurantId: string, name: string): Promise<any> {
+export async function createCategory(restaurantId: string, name: string, kitchenStationId: string | null = null): Promise<any> {
   return await apiClient<any>(`/restaurants/${restaurantId}/categories`, {
     method: 'POST',
-    body: JSON.stringify({ name })
+    body: JSON.stringify({ name, kitchenStationId })
   });
 }
 
@@ -324,10 +324,10 @@ export async function regenerateTableQR(restaurantId: string, tableId: string): 
   });
 }
 
-export async function updateCategory(categoryId: string, name: string): Promise<any> {
+export async function updateCategory(categoryId: string, name: string, kitchenStationId: string | null = null): Promise<any> {
   return await apiClient<any>(`/categories/${categoryId}`, {
     method: 'PUT',
-    body: JSON.stringify({ name })
+    body: JSON.stringify({ name, kitchenStationId })
   });
 }
 

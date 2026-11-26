@@ -8,6 +8,7 @@ namespace Tablo.Api.Interfaces
 {
     public interface IMenuRepository
     {
+        Task<bool> IsActiveKitchenStationAsync(Guid restaurantId, Guid stationId, CancellationToken cancellationToken = default);
         Task<bool> RestaurantExistsAsync(Guid restaurantId, CancellationToken cancellationToken = default);
         Task<List<Category>> GetMenuCategoriesAsync(Guid restaurantId, CancellationToken cancellationToken = default);
         Task<List<Category>> GetAdminMenuCategoriesAsync(Guid restaurantId, CancellationToken cancellationToken = default);

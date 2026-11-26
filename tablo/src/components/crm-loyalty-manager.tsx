@@ -1,3 +1,4 @@
+import { confirmClose } from "@/lib/confirmation";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -653,7 +654,7 @@ export function CrmLoyaltyManager({ restaurantId, userRole = "Admin" }: CrmLoyal
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setIsCreateOpen(false)}>
+            <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setIsCreateOpen(false))}>
               Cancel
             </Button>
             <Button
@@ -719,7 +720,7 @@ export function CrmLoyaltyManager({ restaurantId, userRole = "Admin" }: CrmLoyal
           )}
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setIsRedeemOpen(false)}>
+            <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setIsRedeemOpen(false))}>
               Cancel
             </Button>
             <Button
