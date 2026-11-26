@@ -59,14 +59,15 @@ public class SubscriptionService : ISubscriptionService
             }
         }
 
-        // Effective capabilities = Intersection of (Role Permitted Capabilities) AND (Plan Features)
+        // Effective capabilities = Intersection of (Role or Custom Menu Permitted Capabilities) AND (Plan Features)
         // If subscription is Suspended or Expired, no new operational capabilities are allowed
-        var roleCapabilities = GetRoleCapabilities(employee.Role.Name);
+        var permittedCapabilities = NavigationAccess.WorkspaceCapabilitiesForMenus(employee)
+            ?? GetRoleCapabilities(employee.Role.Name);
         var effectiveCaps = new List<string>();
 
         if (subStatus == SubscriptionStatus.Active || subStatus == SubscriptionStatus.Trial)
         {
-            effectiveCaps = roleCapabilities.Where(c => planFeatures.Contains(c, StringComparer.OrdinalIgnoreCase)).ToList();
+            effectiveCaps = permittedCapabilities.Where(c => planFeatures.Contains(c, StringComparer.OrdinalIgnoreCase)).ToList();
         }
 
         return new EffectiveAccessDto

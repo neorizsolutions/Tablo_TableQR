@@ -21,7 +21,7 @@ export function EmployeeMenuLink({
   const permissions = useNavigationAccess();
   const entitlement = useEffectiveAccess();
   if (!user || permissions.isError || entitlement.isError || !permissions.data) return null;
-  const target = getRouteMenuItem(to, search?.tab, user.role);
+  const target = getRouteMenuItem(to, search?.tab, user.role, permissions.data.allowedMenuIds);
   const allowed = getEmployeeNavItems(user.role, permissions.data.allowedMenuIds);
   if (
     !target ||

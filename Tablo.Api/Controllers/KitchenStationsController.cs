@@ -13,7 +13,7 @@ using Tablo.Api.Services.Printing;
 namespace Tablo.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin,Owner,SuperAdmin")]
+[Authorize(Roles = "Admin,Owner,SuperAdmin,Waiter,Kitchen,Cashier")]
 [Route("api/restaurants/{restaurantId:guid}/kitchen-stations")]
 public class KitchenStationsController : ControllerBase
 {

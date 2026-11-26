@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Tablo.Api.DTOs;
+using Tablo.Api.Extensions;
 using Tablo.Api.Services;
 
 namespace Tablo.Api.Controllers;
 
 [ApiController]
+[Authorize(Roles = "Admin,Owner,Waiter,Kitchen,Cashier")]
 [Route("api/restaurants/{restaurantId}/modifiers")]
 public class ModifiersController : ControllerBase
 {
@@ -15,11 +18,31 @@ public class ModifiersController : ControllerBase
         _modifierService = modifierService;
     }
 
+    private bool TryResolveRestaurantId(Guid restaurantId, out Guid effectiveRestaurantId)
+    {
+        var userRestaurantId = User.GetRestaurantId();
+        if (userRestaurantId == Guid.Empty)
+        {
+            effectiveRestaurantId = Guid.Empty;
+            return false;
+        }
+
+        if (restaurantId != Guid.Empty && restaurantId != userRestaurantId)
+        {
+            effectiveRestaurantId = Guid.Empty;
+            return false;
+        }
+
+        effectiveRestaurantId = userRestaurantId;
+        return true;
+    }
+
     [HttpGet]
     [HttpGet("groups")]
     public async Task<ActionResult<List<ModifierGroupDto>>> GetGroups(Guid restaurantId)
     {
-        var groups = await _modifierService.GetGroupsAsync(restaurantId);
+        if (!TryResolveRestaurantId(restaurantId, out var effectiveRestaurantId)) return Forbid();
+        var groups = await _modifierService.GetGroupsAsync(effectiveRestaurantId);
         return Ok(groups);
     }
 
@@ -27,15 +50,17 @@ public class ModifiersController : ControllerBase
     [HttpPost("groups")]
     public async Task<ActionResult<ModifierGroupDto>> CreateGroup(Guid restaurantId, [FromBody] CreateModifierGroupDto dto)
     {
-        var created = await _modifierService.CreateGroupAsync(restaurantId, dto);
-        return CreatedAtAction(nameof(GetGroups), new { restaurantId }, created);
+        if (!TryResolveRestaurantId(restaurantId, out var effectiveRestaurantId)) return Forbid();
+        var created = await _modifierService.CreateGroupAsync(effectiveRestaurantId, dto);
+        return CreatedAtAction(nameof(GetGroups), new { restaurantId = effectiveRestaurantId }, created);
     }
 
     [HttpPut("groups/{groupId}")]
     [HttpPut("/api/modifiers/{groupId}")]
     public async Task<ActionResult<ModifierGroupDto>> UpdateGroup(Guid restaurantId, Guid groupId, [FromBody] UpdateModifierGroupDto dto)
     {
-        var updated = await _modifierService.UpdateGroupAsync(restaurantId, groupId, dto);
+        if (!TryResolveRestaurantId(restaurantId, out var effectiveRestaurantId)) return Forbid();
+        var updated = await _modifierService.UpdateGroupAsync(effectiveRestaurantId, groupId, dto);
         return Ok(updated);
     }
 
@@ -43,7 +68,8 @@ public class ModifiersController : ControllerBase
     [HttpDelete("/api/modifiers/{groupId}")]
     public async Task<IActionResult> DeleteGroup(Guid restaurantId, Guid groupId)
     {
-        await _modifierService.DeleteGroupAsync(restaurantId, groupId);
+        if (!TryResolveRestaurantId(restaurantId, out var effectiveRestaurantId)) return Forbid();
+        await _modifierService.DeleteGroupAsync(effectiveRestaurantId, groupId);
         return NoContent();
     }
 
@@ -51,7 +77,8 @@ public class ModifiersController : ControllerBase
     [HttpPost("/api/modifiers/{groupId}/options")]
     public async Task<ActionResult<ModifierOptionDto>> AddOption(Guid restaurantId, Guid groupId, [FromBody] CreateModifierOptionDto dto)
     {
-        var created = await _modifierService.AddOptionAsync(restaurantId, groupId, dto);
+        if (!TryResolveRestaurantId(restaurantId, out var effectiveRestaurantId)) return Forbid();
+        var created = await _modifierService.AddOptionAsync(effectiveRestaurantId, groupId, dto);
         return Ok(created);
     }
 
@@ -59,7 +86,8 @@ public class ModifiersController : ControllerBase
     [HttpPut("/api/modifiers/options/{optionId}")]
     public async Task<ActionResult<ModifierOptionDto>> UpdateOption(Guid restaurantId, Guid optionId, [FromBody] UpdateModifierOptionDto dto)
     {
-        var updated = await _modifierService.UpdateOptionAsync(restaurantId, optionId, dto);
+        if (!TryResolveRestaurantId(restaurantId, out var effectiveRestaurantId)) return Forbid();
+        var updated = await _modifierService.UpdateOptionAsync(effectiveRestaurantId, optionId, dto);
         return Ok(updated);
     }
 
@@ -67,7 +95,8 @@ public class ModifiersController : ControllerBase
     [HttpDelete("/api/modifiers/options/{optionId}")]
     public async Task<IActionResult> DeleteOption(Guid restaurantId, Guid optionId)
     {
-        await _modifierService.DeleteOptionAsync(restaurantId, optionId);
+        if (!TryResolveRestaurantId(restaurantId, out var effectiveRestaurantId)) return Forbid();
+        await _modifierService.DeleteOptionAsync(effectiveRestaurantId, optionId);
         return NoContent();
     }
 
@@ -75,7 +104,8 @@ public class ModifiersController : ControllerBase
     [HttpPost("/api/menu-items/{menuItemId}/modifier-groups")]
     public async Task<IActionResult> AssignGroupsToMenuItem(Guid restaurantId, Guid menuItemId, [FromBody] AssignModifierGroupsRequestDto dto)
     {
-        await _modifierService.AssignGroupsToMenuItemAsync(restaurantId, menuItemId, dto.ModifierGroupIds);
+        if (!TryResolveRestaurantId(restaurantId, out var effectiveRestaurantId)) return Forbid();
+        await _modifierService.AssignGroupsToMenuItemAsync(effectiveRestaurantId, menuItemId, dto.ModifierGroupIds);
         return Ok(new { message = "Modifier groups assigned to menu item successfully." });
     }
 
@@ -83,7 +113,8 @@ public class ModifiersController : ControllerBase
     [HttpGet("/api/menu-items/{menuItemId}/modifier-groups")]
     public async Task<ActionResult<List<ModifierGroupDto>>> GetMenuItemGroups(Guid restaurantId, Guid menuItemId)
     {
-        var groups = await _modifierService.GetMenuItemGroupsAsync(restaurantId, menuItemId);
+        if (!TryResolveRestaurantId(restaurantId, out var effectiveRestaurantId)) return Forbid();
+        var groups = await _modifierService.GetMenuItemGroupsAsync(effectiveRestaurantId, menuItemId);
         return Ok(groups);
     }
 }

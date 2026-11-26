@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Lock, LogOut, Menu, QrCode, ShieldCheck, Sto
 import { useNavigationAccess } from "@/hooks/use-navigation-access";
 import { useAuth } from "@/hooks/use-auth";
 import { useEffectiveAccess } from "@/hooks/use-effective-access";
+import { useSupportUnreadCount } from "@/hooks/use-support";
 import { getDashboardTab, getEmployeeNavItems, isNavigationItemActive, SUPER_ADMIN_NAVIGATION } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -73,9 +74,12 @@ export function AppSidebar({ selectedOutletId, onSelectOutlet }: AppSidebarProps
         isDefault: item.tab === "overview",
         requiredCapabilities: undefined,
       }))
-    : getEmployeeNavItems(role, permissions.isError || !permissions.data ? [] : permissions.data.allowedMenuIds).filter((item) =>
-        !item.requiredRoles || item.requiredRoles.some((allowed) => allowed.toLowerCase() === role.toLowerCase()),
-      );
+    : getEmployeeNavItems(role, permissions.isError || !permissions.data ? [] : permissions.data.allowedMenuIds);
+  const canUseRestaurantSupport = !platform && items.some((item) => item.id === "support");
+  const supportUnreadCount = useSupportUnreadCount(
+    platform ? "superadmin" : "restaurant",
+    platform || canUseRestaurantSupport,
+  );
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -170,6 +174,7 @@ export function AppSidebar({ selectedOutletId, onSelectOutlet }: AppSidebarProps
                   const locked = item.requiredCapabilities?.length && !item.requiredCapabilities.some(hasCapability);
                   const plan = section === "inventory" ? "Premium" : "Plus";
                   const Icon = item.icon;
+                  const unreadCount = (item.id === "support" || item.id === "sa-support-inbox") ? supportUnreadCount : 0;
                   const className = cn(
                     "relative flex h-10 items-center rounded-xl text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
                     rail ? "mx-auto w-10 justify-center" : "w-full gap-2.5 overflow-hidden px-3 text-left",
@@ -179,6 +184,18 @@ export function AppSidebar({ selectedOutletId, onSelectOutlet }: AppSidebarProps
                     <>
                       <Icon className="size-4 shrink-0" aria-hidden="true" />
                       {!rail && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
+                      {unreadCount > 0 && !locked ? (
+                        <span
+                          data-testid={`sidebar-unread-${item.id}`}
+                          className={cn(
+                            "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-4",
+                            active ? "bg-white text-emerald-700" : "bg-primary text-primary-foreground",
+                            rail && "absolute right-0.5 top-0.5 h-4 min-w-4 px-1",
+                          )}
+                        >
+                          {unreadCount}
+                        </span>
+                      ) : null}
                       {locked ? <Lock className={cn("size-3 shrink-0", rail && "absolute right-1 top-1")} aria-hidden="true" /> : null}
                     </>
                   );

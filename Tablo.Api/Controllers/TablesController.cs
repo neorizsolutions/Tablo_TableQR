@@ -11,7 +11,7 @@ using Tablo.Api.Extensions;
 namespace Tablo.Api.Controllers
 {
     [ApiController]
-    [Authorize(Roles = "Admin,Owner,Cashier")]
+    [Authorize(Roles = "Admin,Owner,Waiter,Kitchen,Cashier")]
     public class TablesController : ControllerBase
     {
         private readonly ITableService _tableService;

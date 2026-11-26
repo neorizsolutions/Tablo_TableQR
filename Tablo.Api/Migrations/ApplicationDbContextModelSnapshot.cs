@@ -3269,6 +3269,344 @@ namespace Tablo.Api.Migrations
                 {
                     b.Navigation("Orders");
                 });
+
+            modelBuilder.Entity("Tablo.Api.Entities.SupportConversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AwaitingSupportSinceUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ClientOperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CurrentWaitingPeriodId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("EscalatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EscalationDeadlineUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsEscalated")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime>("LastActivityAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LastMessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LastMessagePreview")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int?>("LastMessageSenderType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ResolvedBy")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("RestaurantLastReadAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RestaurantUnreadCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("SuperAdminLastReadAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SuperAdminUnreadCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EscalationDeadlineUtc");
+
+                    b.HasIndex("RestaurantId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("RestaurantId", "ClientOperationId")
+                        .IsUnique()
+                        .HasFilter("\"ClientOperationId\" IS NOT NULL");
+
+                    b.HasIndex("RestaurantId", "CreatedByEmployeeId");
+
+                    b.HasIndex("RestaurantId", "LastActivityAtUtc");
+
+                    b.ToTable("SupportConversations", (string)null);
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.SupportMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ClientOperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid?>("SenderEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SenderEmail")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("SenderName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("SenderType")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SequenceNumber")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientOperationId");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("SenderEmployeeId");
+
+                    b.HasIndex("ConversationId", "ClientOperationId")
+                        .IsUnique()
+                        .HasFilter("\"ClientOperationId\" IS NOT NULL");
+
+                    b.HasIndex("ConversationId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.ToTable("SupportMessages", (string)null);
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.SupportEscalationLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("ClaimedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ClaimedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DispatchedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EscalationTargetEmail")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTime?>("LastAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("NextRetryAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProviderMessageId")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("ScheduledDeadlineUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WaitingPeriodId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("WaitingPeriodId");
+
+                    b.HasIndex("ConversationId", "WaitingPeriodId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "ScheduledDeadlineUtc");
+
+                    b.ToTable("SupportEscalationLogs", (string)null);
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.SupportAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("ActorType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("TimestampUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("ConversationId", "TimestampUtc");
+
+                    b.ToTable("SupportAuditLogs", (string)null);
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.SupportConversation", b =>
+                {
+                    b.HasOne("Tablo.Api.Entities.Restaurant", "Restaurant")
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tablo.Api.Entities.Employee", "CreatedByEmployee")
+                        .WithMany()
+                        .HasForeignKey("RestaurantId", "CreatedByEmployeeId")
+                        .HasPrincipalKey("RestaurantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByEmployee");
+
+                    b.Navigation("Restaurant");
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.SupportMessage", b =>
+                {
+                    b.HasOne("Tablo.Api.Entities.SupportConversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tablo.Api.Entities.Employee", "SenderEmployee")
+                        .WithMany()
+                        .HasForeignKey("SenderEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("SenderEmployee");
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.SupportEscalationLog", b =>
+                {
+                    b.HasOne("Tablo.Api.Entities.SupportConversation", "Conversation")
+                        .WithMany("EscalationLogs")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.SupportAuditLog", b =>
+                {
+                    b.HasOne("Tablo.Api.Entities.SupportConversation", "Conversation")
+                        .WithMany("AuditLogs")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+                });
+
+            modelBuilder.Entity("Tablo.Api.Entities.SupportConversation", b =>
+                {
+                    b.Navigation("AuditLogs");
+
+                    b.Navigation("EscalationLogs");
+
+                    b.Navigation("Messages");
+                });
 #pragma warning restore 612, 618
         }
     }

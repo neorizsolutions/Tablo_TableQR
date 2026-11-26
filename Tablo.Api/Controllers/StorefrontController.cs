@@ -678,7 +678,7 @@ public class StorefrontController : ControllerBase
     }
 
     [HttpPut("admin/outlets/{outletId}")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Waiter,Kitchen,Cashier")]
     public async Task<ActionResult<StorefrontOutletSummaryDto>> UpdateOutletSettings(string outletId, [FromBody] UpdateOutletStorefrontSettingsDto dto)
     {
         if (!Guid.TryParse(outletId, out var gOutletId) || gOutletId == Guid.Empty)

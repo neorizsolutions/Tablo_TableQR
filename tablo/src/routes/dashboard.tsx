@@ -4,11 +4,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Bell, Check, ChefHat, Filter, Flame, Loader2, LogIn, LogOut, PackageCheck, Printer, Search, ShieldAlert, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
-import { getDashboardTab } from "@/config/navigation";
+import { getDashboardTab, getEmployeeNavItems } from "@/config/navigation";
 import { AppLayout } from "@/components/app-layout";
 import { ServiceDesk } from "@/components/service-desk";
 import { KitchenPrintingSettingsModal } from "@/components/kitchen-printing-settings";
 import { useAuth } from "@/hooks/use-auth";
+import { useNavigationAccess } from "@/hooks/use-navigation-access";
 import { formatINR, relativeTime } from "@/lib/mock-data";
 import { Order, OrderStatus } from "@/types";
 import { useOrders, useUpdateOrderStatus } from "@/hooks/use-orders";
@@ -56,7 +57,6 @@ function DashboardPage() {
   }
 
   if (!user) return <SignInGate />;
-  if (user.role === "Cashier") return <Navigate to="/cashier" replace />;
   if (!isStaff && user.role !== "Owner") return <NoAccessGate roles={roles} onSignOut={signOut} />;
 
   return <DashboardInner />;
@@ -107,19 +107,29 @@ function NoAccessGate({ roles, onSignOut }: { roles: string[]; onSignOut: () => 
 }
 
 function DashboardInner() {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
+  const permissions = useNavigationAccess();
   const search = Route.useSearch();
-  const currentTab = getDashboardTab(search.tab, user?.role);
+  const role = roles[0] || user?.role || "";
+  const allowedIds = useMemo(
+    () => new Set(getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []).map((item) => item.id)),
+    [role, permissions.data?.allowedMenuIds],
+  );
+  const currentTab = getDashboardTab(search.tab, user?.role, permissions.data?.allowedMenuIds);
   const searchTable = search.table;
   const searchGroup = search.group;
   const [showServiceDesk, setShowServiceDesk] = useState(false);
-  const canManageBills = user?.role === "Admin" || user?.role === "Waiter" || user?.role === "Owner";
+  const canTakeOrders = allowedIds.has("staff-order-taking");
+  const canViewFloor = allowedIds.has("orders-servicedesk");
+  const canManageBills = allowedIds.has("table-billing") || allowedIds.has("orders-servicedesk");
 
   const { data: orders = [], isLoading: loadingOrders } = useOrders(user?.restaurantId || null);
   const { mutateAsync: updateStatus } = useUpdateOrderStatus();
   const queryClient = useQueryClient();
 
-  const { data: serviceRequests = [] } = useActiveServiceRequests(user?.restaurantId || null);
+  const { data: serviceRequests = [] } = useActiveServiceRequests(
+    canViewFloor || allowedIds.has("overview") ? (user?.restaurantId || null) : null,
+  );
   const { mutate: manageServiceReq } = useManageServiceRequest();
 
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
@@ -262,7 +272,7 @@ function DashboardInner() {
           </div>
 
           {/* 1. DEDICATED STAFF ORDER TAKING WORKSPACE */}
-          {currentTab === "order" && canManageBills && user?.restaurantId && (
+          {currentTab === "order" && canTakeOrders && user?.restaurantId && (
             <div className="mt-6">
               <ServiceDesk
                 restaurantId={user.restaurantId}

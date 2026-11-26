@@ -41,6 +41,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
+import { SupportInboxPane } from "@/components/super-admin/support-inbox";
 import { SUPER_ADMIN_NAVIGATION } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ import {
 export const Route = createFileRoute("/super-admin")({
   validateSearch: (search: Record<string, unknown>) => ({
     tab: typeof search.tab === "string" ? search.tab : undefined,
+    conversationId: typeof search.conversationId === "string" ? search.conversationId : undefined,
   }),
   component: SuperAdminPage,
   head: () => ({
@@ -64,7 +66,7 @@ export const Route = createFileRoute("/super-admin")({
   }),
 });
 
-type TabType = "overview" | "tenants" | "plans" | "subscriptions" | "audit";
+type TabType = "overview" | "tenants" | "plans" | "subscriptions" | "audit" | "inbox";
 
 function SuperAdminPage() {
   const { user, signIn, signOut } = useAuth();
@@ -188,6 +190,7 @@ function SuperAdminWorkspace() {
     <AppLayout>
       <div className="min-h-full p-4 sm:p-6">
         {activeTab === "overview" && <OverviewPane onNavigateTab={setActiveTab} />}
+        {activeTab === "inbox" && <SupportInboxPane initialConversationId={search.conversationId} />}
         {activeTab === "tenants" && <TenantsPane onManageSub={() => setActiveTab("subscriptions")} />}
         {activeTab === "plans" && <PlansPane />}
         {activeTab === "subscriptions" && <SubscriptionsPane />}

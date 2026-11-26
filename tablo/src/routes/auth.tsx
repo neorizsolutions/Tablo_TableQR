@@ -4,6 +4,8 @@ import { ChefHat, Eye, EyeOff, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { apiClient } from "@/services/apiClient";
+import { getNavigationAccess } from "@/services/navigation-access";
+import { getEmployeeNavItems } from "@/config/navigation";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -24,7 +26,35 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (user && !loading) navigate({ to: user.role === "Cashier" ? "/cashier" : "/dashboard" });
+    if (!user || loading) return;
+    if (user.role === "SuperAdmin") {
+      navigate({ to: "/super-admin" });
+      return;
+    }
+    let cancelled = false;
+    const fallbackTo = user.role === "Cashier" ? "/cashier" : "/dashboard";
+    void getNavigationAccess()
+      .then((access) => {
+        if (cancelled) return;
+        const allowed = getEmployeeNavItems(user.role, access.allowedMenuIds);
+        const hasFallbackAccess = allowed.some((item) =>
+          user.role === "Cashier"
+            ? item.id === "cashier-billing"
+            : ["orders-servicedesk", "staff-order-taking", "kitchen-queue", "table-billing"].includes(item.id),
+        );
+        if (hasFallbackAccess || allowed.length === 0) {
+          navigate({ to: fallbackTo });
+          return;
+        }
+        const first = allowed[0];
+        navigate({ to: first.to as any, search: first.search as any });
+      })
+      .catch(() => {
+        if (!cancelled) navigate({ to: fallbackTo });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user, loading, navigate]);
 
   const submit = async (e: React.FormEvent) => {

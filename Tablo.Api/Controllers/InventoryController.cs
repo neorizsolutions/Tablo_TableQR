@@ -9,7 +9,7 @@ using Tablo.Api.Services;
 namespace Tablo.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin,Owner")]
+[Authorize(Roles = "Admin,Owner,Waiter,Kitchen,Cashier")]
 [RequireCapability(Capabilities.InventoryCore)]
 [Route("api/restaurants/{restaurantId:guid}/inventory")]
 public class InventoryController(InventoryService inventory, InventoryReportService reports) : ControllerBase
