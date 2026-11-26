@@ -1,4 +1,4 @@
-import { confirmClose, confirmAction } from "@/lib/confirmation";
+import { confirmAction } from "@/lib/confirmation";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Eye, EyeOff, Loader2, ShieldAlert, LogIn, LogOut, Plus, Pencil, Power, PowerOff, Trash2, Search, AlertTriangle, X } from "lucide-react";
@@ -500,14 +500,14 @@ function EmployeeModal({ employee, onClose }: { employee: Employee | null; onClo
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
-      <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(onClose)} />
+      <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => onClose()} />
       <div className="relative w-full max-w-md animate-float-up rounded-3xl bg-card p-6 shadow-glow">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs uppercase tracking-wider text-muted-foreground">{employee ? "Edit employee account" : "New employee"}</p>
             <h2 className="font-display text-xl font-bold">{employee ? `${employee.firstName} ${employee.lastName}` : "Add Staff"}</h2>
           </div>
-          <button onClick={() => void confirmClose(onClose)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary transition hover:bg-border"><X className="h-4 w-4" /></button>
+          <button onClick={() => onClose()} className="grid h-8 w-8 place-items-center rounded-full bg-secondary transition hover:bg-border"><X className="h-4 w-4" /></button>
         </div>
         
         <div className="mt-5 space-y-4">
@@ -562,7 +562,7 @@ function EmployeeModal({ employee, onClose }: { employee: Employee | null; onClo
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
-          <button onClick={() => void confirmClose(onClose)} className="rounded-full border border-border px-4 py-2 text-sm font-semibold transition hover:bg-secondary">Cancel</button>
+          <button onClick={() => onClose()} className="rounded-full border border-border px-4 py-2 text-sm font-semibold transition hover:bg-secondary">Cancel</button>
           <button onClick={save} disabled={busy} className="inline-flex items-center gap-2 rounded-full bg-gradient-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-soft disabled:opacity-60 transition hover:opacity-90">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />} {employee ? "Save changes" : "Create employee"}
           </button>
