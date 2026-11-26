@@ -188,9 +188,9 @@ namespace Tablo.Api.Hubs
                     continue;
                 }
 
-                if (emp.RestaurantId != conn.RestaurantId || !emp.IsActive)
+                if (emp.RestaurantId != conn.RestaurantId || emp.IsDeleted || !emp.IsActive)
                 {
-                    await RevokeConnectionAsync(conn.ConnectionId, "Account deactivated or disabled.", cancellationToken);
+                    await RevokeConnectionAsync(conn.ConnectionId, "Account deactivated or removed.", cancellationToken);
                     continue;
                 }
 
@@ -291,7 +291,7 @@ namespace Tablo.Api.Hubs
                 .Include(e => e.Role)
                 .FirstOrDefaultAsync(e => e.Id == userId && e.RestaurantId == restaurantId, Context.ConnectionAborted);
 
-            if (employee == null || !employee.IsActive)
+            if (employee == null || employee.IsDeleted || !employee.IsActive)
             {
                 return new(false, false, null, "", "Account is inactive or disabled.");
             }

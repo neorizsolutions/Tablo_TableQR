@@ -19,8 +19,15 @@ namespace Tablo.Api.Configurations
             builder.Property(e => e.ManagerPinHash).HasMaxLength(255);
             builder.Property(e => e.FailedPinAttempts).HasDefaultValue(0);
 
-            builder.HasIndex(e => e.Email).IsUnique();
+            builder.Property(e => e.IsDeleted)
+                .HasDefaultValue(false);
+
+            builder.HasIndex(e => e.Email)
+                .IsUnique()
+                .HasFilter("\"IsDeleted\" = false");
+
             builder.HasIndex(e => e.RestaurantId);
+            builder.HasIndex(e => new { e.RestaurantId, e.IsDeleted, e.IsActive });
 
             builder.HasOne(e => e.Restaurant)
                 .WithMany(r => r.Employees)

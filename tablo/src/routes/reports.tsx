@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { Loader2, LogIn, LogOut, Search, X, FileText, ChevronLeft, ChevronRight, TrendingUp, ShoppingBag, DollarSign, Receipt, Download } from "lucide-react";
+import { Loader2, LogIn, Search, X, FileText, ChevronLeft, ChevronRight, TrendingUp, ShoppingBag, DollarSign, Receipt, Download } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
 import { PaymentReports } from "@/components/payment-reports";
 import { useAuth } from "@/hooks/use-auth";
 import { useNavigationAccess } from "@/hooks/use-navigation-access";
+import { useEffectiveAccess } from "@/hooks/use-effective-access";
 import { getEmployeeNavItems } from "@/config/navigation";
 import { useReports, useAnalyticsSummary, useSalesOverTime, useTopItems } from "@/hooks/use-reports";
 import { exportOrderHistory } from "@/services/api";
@@ -26,10 +27,11 @@ export const Route = createFileRoute("/reports")({
 });
 
 function ReportsPage() {
-  const { user, roles, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const permissions = useNavigationAccess();
+  const entitlement = useEffectiveAccess();
 
-  if (authLoading || (!!user && permissions.isPending)) {
+  if (authLoading) {
     return (
       <div className="grid min-h-screen place-items-center bg-secondary/40">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -39,27 +41,24 @@ function ReportsPage() {
 
   if (!user) return <SignInGate />;
 
-  const role = roles[0] || user.role;
-  const allowedItems = getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []);
   const canAccessReports =
     !permissions.isError &&
-    allowedItems.some((item) => item.id === "financial-reports");
-  if (!canAccessReports) {
-    if (allowedItems.length > 0) {
-      return (
-        <AppLayout>
-          <NoAccessGate roles={roles} onSignOut={signOut} />
-        </AppLayout>
-      );
-    }
-    return <NoAccessGate roles={roles} onSignOut={signOut} />;
-  }
+    !entitlement.isError &&
+    getEmployeeNavItems(
+      user.role,
+      permissions.data ? permissions.data.allowedMenuIds : [],
+    ).some(
+      (item) =>
+        item.id === "financial-reports" &&
+        (!item.requiredCapabilities?.length ||
+          item.requiredCapabilities.some(entitlement.hasCapability)),
+    );
 
-  // We need the restaurant ID. The hook fetches for current tenant automatically via the API backend anyway.
-  // Wait, useTables requires restaurantId? Yes. useTables usually takes `user.restaurantId` or we get it from auth.
-  // Let's check how admin gets it. `admin.tsx` gets it from `useRestaurant("saffron-sage")` currently.
-  // But our backend infers tenant from JWT for tables now if we use a specific endpoint, or we just pass the ID.
-  return <ReportsInner />;
+  return (
+    <AppLayout>
+      {canAccessReports && <ReportsInner />}
+    </AppLayout>
+  );
 }
 
 function SignInGate() {
@@ -79,33 +78,6 @@ function SignInGate() {
             <Link to="/auth" className="rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:bg-primary/90">
               Sign in
             </Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NoAccessGate({ roles, onSignOut }: { roles: string[]; onSignOut: () => void }) {
-  return (
-    <div className="min-h-screen bg-secondary/40">
-      <SiteHeader />
-      <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <div className="rounded-3xl border border-border bg-card p-10 shadow-card">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-red-500/10 text-red-500">
-            <LogOut className="h-5 w-5" />
-          </span>
-          <h1 className="mt-4 font-display text-2xl font-bold">Access Denied</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Your account is signed in as <span className="font-semibold">{roles.join(", ") || "staff"}</span>. You must be an <span className="font-semibold">Admin</span> or <span className="font-semibold">Owner</span> to access this page.
-          </p>
-          <div className="mt-6 flex flex-col gap-3">
-            <Link to="/dashboard" className="rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:bg-primary/90">
-              Go to Dashboard
-            </Link>
-            <button onClick={onSignOut} className="rounded-full border border-border bg-background px-4 py-2.5 text-sm font-semibold hover:bg-secondary">
-              Sign out
-            </button>
           </div>
         </div>
       </div>
@@ -177,7 +149,7 @@ function ReportsInner() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="min-h-screen bg-secondary/40">
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {restaurantId && <PaymentReports restaurantId={restaurantId} />}
@@ -574,6 +546,6 @@ function ReportsInner() {
         </div>
       )}
       </div>
-    </AppLayout>
+    </>
   );
 }

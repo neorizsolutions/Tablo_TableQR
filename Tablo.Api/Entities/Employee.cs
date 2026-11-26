@@ -35,6 +35,10 @@ namespace Tablo.Api.Entities
 
         public bool IsActive { get; set; } = true;
 
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAtUtc { get; set; }
+        public Guid? DeletedByEmployeeId { get; set; }
+
         [MaxLength(100)]
         public string? SecurityStamp { get; set; }
 

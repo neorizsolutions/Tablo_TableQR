@@ -32,7 +32,7 @@ public class ManagerAuthService
         // 1. Validate caller identity
         var caller = await _db.Employees
             .Include(e => e.Role)
-            .FirstOrDefaultAsync(e => e.Id == callerEmployeeId && e.RestaurantId == restaurantId && e.IsActive);
+            .FirstOrDefaultAsync(e => e.Id == callerEmployeeId && e.RestaurantId == restaurantId && !e.IsDeleted && e.IsActive);
 
         if (caller == null)
         {
@@ -84,7 +84,7 @@ public class ManagerAuthService
         {
             targetManager = await _db.Employees
                 .Include(e => e.Role)
-                .FirstOrDefaultAsync(e => e.Id == specificManagerId.Value && e.RestaurantId == restaurantId && e.IsActive);
+                .FirstOrDefaultAsync(e => e.Id == specificManagerId.Value && e.RestaurantId == restaurantId && !e.IsDeleted && e.IsActive);
 
             if (targetManager == null || !IsManagerOrAdmin(targetManager.Role.Name))
             {
@@ -120,7 +120,7 @@ public class ManagerAuthService
         {
             var eligibleManagers = await _db.Employees
                 .Include(e => e.Role)
-                .Where(e => e.RestaurantId == restaurantId && e.IsActive && !string.IsNullOrEmpty(e.ManagerPinHash))
+                .Where(e => e.RestaurantId == restaurantId && !e.IsDeleted && e.IsActive && !string.IsNullOrEmpty(e.ManagerPinHash))
                 .ToListAsync();
 
             foreach (var mgr in eligibleManagers.Where(m => IsManagerOrAdmin(m.Role.Name)))
@@ -387,13 +387,13 @@ public class ManagerAuthService
 
     public async Task<bool> IsManagerOrAdminAsync(Guid restaurantId, Guid employeeId)
     {
-        var emp = await _db.Employees.Include(e => e.Role).FirstOrDefaultAsync(e => e.Id == employeeId && e.RestaurantId == restaurantId && e.IsActive);
+        var emp = await _db.Employees.Include(e => e.Role).FirstOrDefaultAsync(e => e.Id == employeeId && e.RestaurantId == restaurantId && !e.IsDeleted && e.IsActive);
         return emp != null && IsManagerOrAdmin(emp.Role.Name);
     }
 
     public async Task<bool> SetPinAsync(Guid restaurantId, Guid employeeId, string pin)
     {
-        var emp = await _db.Employees.Include(e => e.Role).FirstOrDefaultAsync(e => e.Id == employeeId && e.RestaurantId == restaurantId && e.IsActive);
+        var emp = await _db.Employees.Include(e => e.Role).FirstOrDefaultAsync(e => e.Id == employeeId && e.RestaurantId == restaurantId && !e.IsDeleted && e.IsActive);
         if (emp == null || !IsManagerOrAdmin(emp.Role.Name)) return false;
         emp.ManagerPinHash = HashPin(pin);
         emp.FailedPinAttempts = 0;

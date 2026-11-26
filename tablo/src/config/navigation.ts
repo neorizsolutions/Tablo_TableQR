@@ -76,26 +76,26 @@ export interface NavItem {
   tabParam?: string;
   isDefault?: boolean;
   icon: LucideIcon;
-  section: "main" | "operations" | "management" | "inventory" | "analytics";
+  section: "operations" | "inventory" | "analytics" | "management" | "utility";
   requiredRoles?: ("Admin" | "Owner" | "Waiter" | "Kitchen" | "Cashier")[];
   requiredCapabilities?: string[];
   adminOnly?: boolean;
 }
 
 export const MENU_SECTIONS: NavItem["section"][] = [
-  "main",
   "operations",
-  "management",
   "inventory",
   "analytics",
+  "management",
+  "utility",
 ];
 
 export const MENU_SECTION_LABELS: Record<NavItem["section"], string> = {
-  main: "Overview",
   operations: "Daily Operations",
-  management: "Restaurant Management",
   inventory: "Inventory & Stock",
   analytics: "Reports & Analytics",
+  management: "Restaurant Administration",
+  utility: "Support & Utilities",
 };
 
 const CAPABILITY_MIN_PLAN: Record<string, "Basic" | "Plus" | "Premium"> = {
@@ -201,37 +201,14 @@ export function getDashboardTab(
 }
 
 export const NAVIGATION_REGISTRY: NavItem[] = [
-  // 1. MAIN / DASHBOARD
+  // 1. DAILY OPERATIONS (Ordered by daily floor/service frequency)
   {
     id: "overview",
     label: "Overview",
     to: "/",
     icon: LayoutDashboard,
-    section: "main",
+    section: "operations",
     requiredRoles: ["Admin", "Owner", "Waiter", "Kitchen"],
-  },
-
-  {
-    id: "cashier-billing",
-    label: "Cashier",
-    to: "/cashier",
-    icon: CreditCard,
-    section: "operations",
-    requiredRoles: ["Admin", "Owner", "Cashier"],
-    requiredCapabilities: [CAPABILITIES.StandardBilling],
-  },
-  // 2. OPERATIONS (Floor, Orders, Kitchen, Billing & Parcel)
-  {
-    id: "orders-servicedesk",
-    label: "Floor & Orders",
-    to: "/dashboard",
-    search: { tab: "floor" },
-    tabParam: "floor",
-    isDefault: true,
-    icon: UtensilsCrossed,
-    section: "operations",
-    requiredRoles: ["Admin", "Owner", "Waiter"],
-    requiredCapabilities: [CAPABILITIES.StandardBilling],
   },
   {
     id: "staff-order-taking",
@@ -245,6 +222,18 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     requiredCapabilities: [CAPABILITIES.StaffOrdering, CAPABILITIES.StandardBilling],
   },
   {
+    id: "orders-servicedesk",
+    label: "Floor & Orders",
+    to: "/dashboard",
+    search: { tab: "floor" },
+    tabParam: "floor",
+    isDefault: true,
+    icon: UtensilsCrossed,
+    section: "operations",
+    requiredRoles: ["Admin", "Owner", "Waiter"],
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
+  },
+  {
     id: "kitchen-queue",
     label: "Kitchen Queue",
     to: "/dashboard",
@@ -254,6 +243,15 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     section: "operations",
     requiredRoles: ["Admin", "Owner", "Kitchen"],
     requiredCapabilities: [CAPABILITIES.KitchenDisplay],
+  },
+  {
+    id: "cashier-billing",
+    label: "Cashier",
+    to: "/cashier",
+    icon: CreditCard,
+    section: "operations",
+    requiredRoles: ["Admin", "Owner", "Cashier"],
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
   },
   {
     id: "table-billing",
@@ -277,71 +275,6 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     requiredRoles: ["Admin", "Owner"],
     requiredCapabilities: [CAPABILITIES.StandardBilling],
   },
-
-  // 3. RESTAURANT MANAGEMENT (Menu, Tables, Staff, CRM, Storefront, Marketplace)
-  {
-    id: "menu-management",
-    label: "Menu & Categories",
-    to: "/admin",
-    search: { tab: "menu" },
-    tabParam: "menu",
-    isDefault: true,
-    icon: Receipt,
-    section: "management",
-    requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.MenuManagement],
-  },
-  {
-    id: "tables-qr",
-    label: "Tables & QR Codes",
-    to: "/admin",
-    search: { tab: "tables" },
-    tabParam: "tables",
-    icon: QrCode,
-    section: "management",
-    requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.TablesAndQr],
-  },
-  {
-    id: "staff-management",
-    label: "Staff & Roles",
-    to: "/staff",
-    icon: Users,
-    section: "management",
-    requiredRoles: ["Admin", "Owner"],
-    adminOnly: true,
-  },
-  {
-    id: "staff-menu-access",
-    label: "Staff Menu Access",
-    to: "/menu-access",
-    icon: ShieldCheck,
-    section: "management",
-    requiredRoles: ["Admin", "Owner"],
-    adminOnly: true,
-  },
-  {
-    id: "crm-loyalty",
-    label: "Customer CRM & Loyalty",
-    to: "/admin",
-    search: { tab: "crm" },
-    tabParam: "crm",
-    icon: Users,
-    section: "management",
-    requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.StandardBilling],
-  },
-  {
-    id: "storefront-settings",
-    label: "Storefront & Outlets",
-    to: "/admin",
-    search: { tab: "storefront" },
-    tabParam: "storefront",
-    icon: Store,
-    section: "management",
-    requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.StandardBilling],
-  },
   {
     id: "marketplace-automation",
     label: "Marketplace Orders",
@@ -349,21 +282,12 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     search: { tab: "marketplace" },
     tabParam: "marketplace",
     icon: ShoppingBag,
-    section: "management",
+    section: "operations",
     requiredRoles: ["Admin", "Owner"],
     requiredCapabilities: [CAPABILITIES.StandardBilling],
   },
-  {
-    id: "support",
-    label: "Support",
-    to: "/support",
-    icon: LifeBuoy,
-    section: "management",
-    requiredRoles: ["Admin", "Owner"],
-    adminOnly: true,
-  },
 
-  // 4. INVENTORY & SUPPLY (ERP)
+  // 2. INVENTORY & STOCK (ERP)
   {
     id: "inventory-stock",
     label: "Ingredients & Stock",
@@ -388,6 +312,17 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     requiredCapabilities: [CAPABILITIES.RecipesCosting],
   },
   {
+    id: "inventory-preparations",
+    label: "Preparations",
+    to: "/inventory",
+    search: { tab: "preparations" },
+    tabParam: "preparations",
+    icon: ChefHat,
+    section: "inventory",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.Preparations],
+  },
+  {
     id: "purchasing-orders",
     label: "Purchasing & POs",
     to: "/inventory",
@@ -408,17 +343,6 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     section: "inventory",
     requiredRoles: ["Admin", "Owner"],
     requiredCapabilities: [CAPABILITIES.Purchasing],
-  },
-  {
-    id: "inventory-preparations",
-    label: "Preparations",
-    to: "/inventory",
-    search: { tab: "preparations" },
-    tabParam: "preparations",
-    icon: ChefHat,
-    section: "inventory",
-    requiredRoles: ["Admin", "Owner"],
-    requiredCapabilities: [CAPABILITIES.Preparations],
   },
   {
     id: "inventory-movements",
@@ -476,7 +400,7 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     requiredCapabilities: [CAPABILITIES.Preparations, CAPABILITIES.OutletTransfers],
   },
 
-  // 5. ANALYTICS & REPORTS
+  // 3. ANALYTICS & REPORTS
   {
     id: "financial-reports",
     label: "Payment Reports",
@@ -507,6 +431,82 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     section: "analytics",
     requiredRoles: ["Admin", "Owner"],
     requiredCapabilities: [CAPABILITIES.StockProfitReports],
+  },
+
+  // 4. RESTAURANT ADMINISTRATION
+  {
+    id: "menu-management",
+    label: "Menu & Categories",
+    to: "/admin",
+    search: { tab: "menu" },
+    tabParam: "menu",
+    isDefault: true,
+    icon: Receipt,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.MenuManagement],
+  },
+  {
+    id: "tables-qr",
+    label: "Tables & QR Codes",
+    to: "/admin",
+    search: { tab: "tables" },
+    tabParam: "tables",
+    icon: QrCode,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.TablesAndQr],
+  },
+  {
+    id: "crm-loyalty",
+    label: "Customer CRM & Loyalty",
+    to: "/admin",
+    search: { tab: "crm" },
+    tabParam: "crm",
+    icon: Users,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
+  },
+  {
+    id: "storefront-settings",
+    label: "Storefront & Outlets",
+    to: "/admin",
+    search: { tab: "storefront" },
+    tabParam: "storefront",
+    icon: Store,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
+    requiredCapabilities: [CAPABILITIES.StandardBilling],
+  },
+  {
+    id: "staff-management",
+    label: "Staff & Roles",
+    to: "/staff",
+    icon: Users,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
+    adminOnly: true,
+  },
+  {
+    id: "staff-menu-access",
+    label: "Staff Menu Access",
+    to: "/menu-access",
+    icon: ShieldCheck,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
+    adminOnly: true,
+  },
+
+  // 5. BOTTOM UTILITY SECTION
+  {
+    id: "support",
+    label: "Support",
+    to: "/support",
+    icon: LifeBuoy,
+    section: "utility",
+    requiredRoles: ["Admin", "Owner"],
+    adminOnly: true,
   },
 ];
 

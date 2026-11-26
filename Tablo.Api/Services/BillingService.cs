@@ -26,7 +26,7 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
     internal static async Task RequireActorAsync(ApplicationDbContext db, Guid restaurantId, Guid actorId)
     {
         if (restaurantId == Guid.Empty || actorId == Guid.Empty || !await db.Employees.AnyAsync(e =>
-            e.Id == actorId && e.RestaurantId == restaurantId && e.IsActive &&
+            e.Id == actorId && e.RestaurantId == restaurantId && !e.IsDeleted && e.IsActive &&
             (e.Role.Name == "Admin" || e.Role.Name == "Owner" || e.Role.Name == "Cashier" || e.Role.Name == "Waiter" || e.Role.Name == "Kitchen")))
             throw new UnauthorizedAccessException("An active restaurant billing account is required.");
     }
