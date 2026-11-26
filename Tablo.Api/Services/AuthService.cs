@@ -34,7 +34,7 @@ namespace Tablo.Api.Services
             var employee = await _context.Employees
                 .Include(e => e.Role)
                 .Include(e => e.Restaurant)
-                .FirstOrDefaultAsync(e => e.Email == request.Email);
+                .FirstOrDefaultAsync(e => e.Email == request.Email && !e.IsDeleted);
 
             if (employee == null)
             {
@@ -140,7 +140,7 @@ namespace Tablo.Api.Services
 
         public async Task ChangePasswordAsync(Guid employeeId, string oldPassword, string newPassword)
         {
-            var employee = await _context.Employees.FindAsync(employeeId);
+            var employee = await _context.Employees.FirstOrDefaultAsync(e => e.Id == employeeId && !e.IsDeleted && e.IsActive);
             if (employee == null)
             {
                 throw new Exception("User not found.");
@@ -166,7 +166,7 @@ namespace Tablo.Api.Services
             var employee = await _context.Employees
                 .Include(e => e.Role)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
+                .FirstOrDefaultAsync(e => e.Email == email && !e.IsDeleted && e.IsActive);
             // Self-service password reset is strictly restricted to Restaurant Admin
             if (employee == null || employee.Role == null || employee.Role.Name != "Admin") return;
 
@@ -177,7 +177,7 @@ namespace Tablo.Api.Services
             var expiresAt = now.AddMinutes(10);
             var cooldownCutoff = expiresAt.AddMinutes(-1);
             var updated = await _context.Employees
-                .Where(e => e.Id == employee.Id && e.IsActive &&
+                .Where(e => e.Id == employee.Id && !e.IsDeleted && e.IsActive &&
                     (e.ResetOtpExpiration == null || e.ResetOtpExpiration <= cooldownCutoff))
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(e => e.ResetOtpHash, otpHash)
@@ -222,7 +222,7 @@ Tablo";
             var employee = await _context.Employees
                 .Include(e => e.Role)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
+                .FirstOrDefaultAsync(e => e.Email == email && !e.IsDeleted && e.IsActive);
             if (employee == null || employee.Role == null || employee.Role.Name != "Admin" || employee.ResetOtpHash == null)
             {
                 throw new Exception("Invalid OTP.");
@@ -240,7 +240,7 @@ Tablo";
 
             var now = DateTime.UtcNow;
             var challenge = _context.Employees.Where(e =>
-                e.Id == employee.Id && e.IsActive && e.ResetOtpHash == employee.ResetOtpHash &&
+                e.Id == employee.Id && !e.IsDeleted && e.IsActive && e.ResetOtpHash == employee.ResetOtpHash &&
                 e.ResetOtpExpiration > now && e.ResetOtpAttempts < 5);
             if (!BCrypt.Net.BCrypt.Verify(otp, employee.ResetOtpHash))
             {
@@ -269,7 +269,7 @@ Tablo";
             var employee = await _context.Employees
                 .Include(e => e.Role)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
+                .FirstOrDefaultAsync(e => e.Email == email && !e.IsDeleted && e.IsActive);
             if (employee == null || employee.Role == null || employee.Role.Name != "Admin" || employee.ResetTokenHash == null ||
                 employee.ResetOtpExpiration is null || employee.ResetOtpExpiration < DateTime.UtcNow)
             {
@@ -286,7 +286,7 @@ Tablo";
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             var newSecurityStamp = Guid.NewGuid().ToString("N");
             var updated = await _context.Employees
-                .Where(e => e.Id == employee.Id && e.IsActive &&
+                .Where(e => e.Id == employee.Id && !e.IsDeleted && e.IsActive &&
                     e.ResetTokenHash == tokenHash && e.ResetOtpExpiration > now)
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(e => e.PasswordHash, passwordHash)

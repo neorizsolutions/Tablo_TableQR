@@ -48,7 +48,7 @@ function AdminPage() {
   if (!user) return <SignInGate />;
 
   const role = roles[0] || user.role;
-  const allowedItems = getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []);
+  const allowedItems = getEmployeeNavItems(role, permissions.data ? permissions.data.allowedMenuIds : []);
   const targetMenu = getRouteMenuItem("/admin", search.tab, role, permissions.data?.allowedMenuIds);
   const canOpen =
     !permissions.isError &&

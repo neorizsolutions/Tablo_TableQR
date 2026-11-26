@@ -35,7 +35,7 @@ function CashierPage() {
       </div>
     );
   const role = roles[0] || user.role;
-  const allowedItems = getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []);
+  const allowedItems = getEmployeeNavItems(role, permissions.data ? permissions.data.allowedMenuIds : []);
   const canCashier =
     !!user.restaurantId &&
     allowedItems.some((item) => item.id === "cashier-billing") &&

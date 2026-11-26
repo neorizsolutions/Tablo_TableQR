@@ -6,7 +6,7 @@ import {
 } from "../src/config/navigation.ts";
 
 export const EXPECTED_ROLE_DEFAULTS = {
-  Waiter: ["overview", "orders-servicedesk", "staff-order-taking", "table-billing"],
+  Waiter: ["overview", "staff-order-taking", "orders-servicedesk", "table-billing"],
   Kitchen: ["overview", "kitchen-queue"],
   Cashier: ["cashier-billing"],
   Admin: NAVIGATION_REGISTRY.map((item) => item.id),

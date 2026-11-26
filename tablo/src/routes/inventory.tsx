@@ -115,7 +115,7 @@ function InventoryPage() {
   }
 
   const role = roles[0] || user.role;
-  const allowedItems = getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []);
+  const allowedItems = getEmployeeNavItems(role, permissions.data ? permissions.data.allowedMenuIds : []);
   const targetMenu = getRouteMenuItem("/inventory", search.tab, role, permissions.data?.allowedMenuIds);
   const canOpen =
     !permissions.isError &&
@@ -171,7 +171,7 @@ const [settingsOpen, setSettingsOpen] = useState(false);
   const permissions = useNavigationAccess();
   const role = roles[0] || user?.role || "";
   const allowedIds = useMemo(
-    () => new Set(getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []).map((item) => item.id)),
+    () => new Set(getEmployeeNavItems(role, permissions.data ? permissions.data.allowedMenuIds : []).map((item) => item.id)),
     [role, permissions.data?.allowedMenuIds],
   );
   const canSeeRecipes =
