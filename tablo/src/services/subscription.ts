@@ -66,7 +66,7 @@ export interface SubscriptionItem {
 
 export interface SubscriptionAuditLogItem {
   id: string;
-  restaurantId: string;
+  restaurantId: string | null;
   restaurantName: string;
   actorEmail: string;
   action: string;
