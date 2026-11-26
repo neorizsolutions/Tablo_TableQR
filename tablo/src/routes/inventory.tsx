@@ -1,3 +1,4 @@
+import { confirmClose } from "@/lib/confirmation";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -480,7 +481,7 @@ function CreateIngredientModal({ restaurantId, onClose, onSuccess }: { restauran
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-card">
         <div className="flex items-center justify-between pb-4 border-b border-border">
           <h2 className="font-display text-lg font-bold">Add New Ingredient</h2>
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-sm">
           <div>
@@ -577,7 +578,7 @@ function CreateIngredientModal({ restaurantId, onClose, onSuccess }: { restauran
           </div>
 
           <div className="mt-6 flex justify-end gap-2 pt-4 border-t border-border">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={busy} className="rounded-full bg-primary px-5 py-2 font-semibold text-primary-foreground disabled:opacity-50">
               {busy ? "Saving…" : "Save Ingredient"}
             </button>
@@ -628,7 +629,7 @@ function RecordMovementModal({ restaurantId, ingredient, onClose, onSuccess }: {
             <h2 className="font-display text-lg font-bold">Record Stock Movement</h2>
             <p className="text-xs text-muted-foreground">{ingredient.name} · Current on hand: {ingredient.onHandQuantity} {ingredient.baseUnit} (Avg cost: ₹{ingredient.currentAverageCost.toFixed(4)}/{ingredient.baseUnit})</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-sm">
           <div>
@@ -741,7 +742,7 @@ function RecordMovementModal({ restaurantId, ingredient, onClose, onSuccess }: {
           </div>
 
           <div className="mt-6 flex justify-end gap-2 pt-4 border-t border-border">
-            <button type="button" onClick={onClose} className="rounded-full px-4 py-2 font-semibold hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 font-semibold hover:bg-secondary">Cancel</button>
             <button type="submit" disabled={busy} className="rounded-full bg-primary px-5 py-2 font-semibold text-primary-foreground disabled:opacity-50">
               {busy ? "Recording…" : "Post Movement"}
             </button>
@@ -969,7 +970,7 @@ function EditRecipeModal({ restaurantId, recipe, ingredients, onClose, onSuccess
             <h2 className="font-display text-lg font-bold">Configure Recipe: {recipe.menuItemName}</h2>
             <p className="text-xs text-muted-foreground">{recipe.categoryName} · Selling Price: {formatINR(recipe.price)}</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 flex-1 flex flex-col overflow-hidden text-sm">
@@ -1059,7 +1060,7 @@ function EditRecipeModal({ restaurantId, recipe, ingredients, onClose, onSuccess
               </p>
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={onClose} className="rounded-full px-4 py-2 text-xs font-semibold hover:bg-secondary">Cancel</button>
+              <button type="button" onClick={() => void confirmClose(onClose)} className="rounded-full px-4 py-2 text-xs font-semibold hover:bg-secondary">Cancel</button>
               <button type="submit" disabled={busy} className="rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">
                 {busy ? "Saving…" : "Save Recipe"}
               </button>

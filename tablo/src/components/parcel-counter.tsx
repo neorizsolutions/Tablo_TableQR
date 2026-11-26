@@ -1,3 +1,4 @@
+import { confirmClose, showNotice } from "@/lib/confirmation";
 import React, { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { UpiQrResponseDto } from "@/services/parcel";
@@ -235,11 +236,11 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
     if (cartItems.length === 0) return;
     const isDelivery = orderChannel === "Delivery";
     if (isDelivery && !externalOrderReference.trim()) {
-      alert("External order reference is required for marketplace delivery orders.");
+      void showNotice("External order reference is required for marketplace delivery orders.");
       return;
     }
     if (isDelivery && deliveryProvider === "Other Delivery" && !customProviderName.trim()) {
-      alert("Please specify the provider name for Other Delivery.");
+      void showNotice("Please specify the provider name for Other Delivery.");
       return;
     }
 
@@ -299,7 +300,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
       setGeneralNotes("");
       loadOrders();
     } catch (err: any) {
-      alert(err.message || "Failed to create parcel order.");
+      void showNotice(err.message || "Failed to create parcel order.");
     } finally {
       setSubmitting(false);
     }
@@ -331,7 +332,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
 
   const handleRecordPayout = async () => {
     if (!payoutRef.trim()) {
-      alert("Payout Reference is required.");
+      void showNotice("Payout Reference is required.");
       return;
     }
     const gross = parseFloat(payoutGross) || 0;
@@ -353,7 +354,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
         netAmount: net,
         notes: payoutNotes.trim() || undefined,
       });
-      alert("Marketplace payout recorded successfully.");
+      void showNotice("Marketplace payout recorded successfully.");
       setPayoutModalOpen(false);
       setPayoutRef("");
       setPayoutGross("");
@@ -364,7 +365,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
       setPayoutNotes("");
       loadPayouts();
     } catch (e: any) {
-      alert(e.message || "Failed to record payout.");
+      void showNotice(e.message || "Failed to record payout.");
     } finally {
       setSavingPayout(false);
     }
@@ -375,7 +376,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
       await parcelApi.releaseScheduledOrderNow(restaurantId, orderId);
       loadOrders();
     } catch (err: any) {
-      alert(err.message || "Failed to release scheduled order.");
+      void showNotice(err.message || "Failed to release scheduled order.");
     }
   };
 
@@ -384,7 +385,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
       await parcelApi.deliverCarOrder(restaurantId, orderId, { operationId: crypto.randomUUID() });
       loadOrders();
     } catch (err: any) {
-      alert(err.message || "Failed to deliver car order.");
+      void showNotice(err.message || "Failed to deliver car order.");
     }
   };
 
@@ -400,7 +401,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
       setRescheduleOrderModal(null);
       loadOrders();
     } catch (err: any) {
-      alert(err.message || "Failed to reschedule order.");
+      void showNotice(err.message || "Failed to reschedule order.");
     } finally {
       setRescheduling(false);
     }
@@ -585,9 +586,9 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
     try {
       const res = await parcelApi.printReceipt(restaurantId, paymentModalOrder.orderId, "Takeaway receipt");
       setSettledReceiptText(res.readableText);
-      alert("Receipt print queued to counter printer.");
+      void showNotice("Receipt print queued to counter printer.");
     } catch (err: any) {
-      alert(err.message || "Failed to print receipt.");
+      void showNotice(err.message || "Failed to print receipt.");
     } finally {
       setPrintingReceipt(false);
     }
@@ -602,11 +603,11 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
         reprintModalJob.orderId,
         reprintReason || "Customer reprint"
       );
-      alert("Receipt print queued to counter printer.");
+      void showNotice("Receipt print queued to counter printer.");
       setReprintModalJob(null);
       setReprintReason("");
     } catch (err: any) {
-      alert(err.message || "Print request failed.");
+      void showNotice(err.message || "Print request failed.");
     } finally {
       setReprinting(false);
     }
@@ -615,10 +616,10 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
   const handleRetryKot = async (orderId: string) => {
     try {
       const res = await parcelApi.retryKot(restaurantId, orderId);
-      alert(res.message || "KOT retry queued.");
+      void showNotice(res.message || "KOT retry queued.");
       loadOrders();
     } catch (err: any) {
-      alert(err.message || "KOT retry failed.");
+      void showNotice(err.message || "KOT retry failed.");
     }
   };
 
@@ -633,9 +634,9 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
         taxRate: editTaxRate,
       });
       setSettings(updated);
-      alert("Packaging charge settings saved.");
+      void showNotice("Packaging charge settings saved.");
     } catch (err: any) {
-      alert(err.message || "Failed to update packaging settings.");
+      void showNotice(err.message || "Failed to update packaging settings.");
     } finally {
       setSavingSettings(false);
     }
@@ -701,7 +702,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
             <Button
               variant="ghost"
               size="sm"
-              onClick={onClose}
+              onClick={() => void confirmClose(onClose)}
               className="ml-2 text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4 mr-1" />
@@ -1660,7 +1661,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
           </div>
 
           <DialogFooter className="flex sm:justify-between gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPayoutModalOpen(false)}>
+            <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setPayoutModalOpen(false))}>
               Cancel
             </Button>
             <Button size="sm" disabled={savingPayout || !payoutRef} onClick={handleRecordPayout}>
@@ -1816,7 +1817,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
             >
               Collect Payment Now
             </Button>
-            <Button size="sm" onClick={() => setCreatedOrder(null)}>
+            <Button size="sm" onClick={() => void confirmClose(() => setCreatedOrder(null))}>
               Done
             </Button>
           </DialogFooter>
@@ -2178,7 +2179,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
           })()}
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setPaymentModalOrder(null)}>
+            <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setPaymentModalOrder(null))}>
               Close
             </Button>
           </DialogFooter>
@@ -2211,7 +2212,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setReprintModalJob(null)}>
+            <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setReprintModalJob(null))}>
               Cancel
             </Button>
             <Button size="sm" onClick={handleReprintReceipt} disabled={reprinting} className="font-bold">
@@ -2257,7 +2258,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
             </div>
           </div>
           <DialogFooter className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setRescheduleOrderModal(null)}>
+            <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setRescheduleOrderModal(null))}>
               Cancel
             </Button>
             <Button
