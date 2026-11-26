@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
 import { useAuth } from "@/hooks/use-auth";
+import { useNavigationAccess } from "@/hooks/use-navigation-access";
+import { getEmployeeNavItems, getRouteMenuItem } from "@/config/navigation";
 import { formatINR } from "@/lib/mock-data";
 import { Category, MenuItem } from "@/types";
 import { useAdminMenu, useUpdateMenuItem, useCreateMenuItem, useDeleteMenuItem, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/hooks/use-menu";
@@ -32,8 +34,10 @@ export const Route = createFileRoute("/admin")({
 
 function AdminPage() {
   const { user, roles, loading: authLoading, signOut } = useAuth();
+  const permissions = useNavigationAccess();
+  const search = Route.useSearch();
 
-  if (authLoading) {
+  if (authLoading || (!!user && permissions.isPending)) {
     return (
       <div className="grid min-h-screen place-items-center bg-secondary/40">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -43,8 +47,23 @@ function AdminPage() {
 
   if (!user) return <SignInGate />;
 
-  const isAdmin = roles.includes("Admin") || roles.includes("Owner");
-  if (!isAdmin) return <NoAccessGate roles={roles} onSignOut={signOut} />;
+  const role = roles[0] || user.role;
+  const allowedItems = getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []);
+  const targetMenu = getRouteMenuItem("/admin", search.tab, role, permissions.data?.allowedMenuIds);
+  const canOpen =
+    !permissions.isError &&
+    !!targetMenu &&
+    allowedItems.some((item) => item.id === targetMenu.id);
+  if (!canOpen) {
+    if (allowedItems.length > 0) {
+      return (
+        <AppLayout>
+          <NoAccessGate roles={roles} onSignOut={signOut} />
+        </AppLayout>
+      );
+    }
+    return <NoAccessGate roles={roles} onSignOut={signOut} />;
+  }
 
   return <AdminInner />;
 }
@@ -109,7 +128,10 @@ function AdminInner() {
   const isMarketplaceTab = currentTab === "marketplace";
   const isStorefrontTab = currentTab === "storefront";
   const isMenuTab = currentTab === "menu";
-  const { data: menuData, isLoading: loadingMenu } = useAdminMenu(user?.restaurantId || null);
+  const { data: menuData, isLoading: loadingMenu } = useAdminMenu(
+    user?.restaurantId || null,
+    isMenuTab || isParcelTab,
+  );
 
   const categoriesList = menuData?.categories || [];
   const items = menuData?.flatMenu || [];
@@ -133,7 +155,10 @@ function AdminInner() {
   const [manageModifiers, setManageModifiers] = useState(false);
   const [viewParcelCounter, setViewParcelCounter] = useState(false);
 
-  const { data: tables = [] } = useTables(user?.restaurantId || null);
+  const { data: tables = [] } = useTables(
+    user?.restaurantId || null,
+    isTablesTab || isMenuTab,
+  );
   const activeTables = tables.filter((t: any) => t.isActive);
   const activeTablesCount = activeTables.length;
   const previewLink = activeTables.length > 0 ? `/t/${activeTables[0].qrToken}` : "#";
@@ -306,7 +331,7 @@ function AdminInner() {
               <div className="mt-6">
                 <CrmLoyaltyManager
                   restaurantId={user!.restaurantId!}
-                  userRole={user!.role}
+                  userRole="Admin"
                 />
               </div>
             ) : isMarketplaceTab ? (

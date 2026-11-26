@@ -35,7 +35,8 @@ import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useEffectiveAccess } from "@/hooks/use-effective-access";
-import { CAPABILITIES } from "@/config/navigation";
+import { useNavigationAccess } from "@/hooks/use-navigation-access";
+import { CAPABILITIES, getEmployeeNavItems } from "@/config/navigation";
 import { publicPricingPlans } from "@/config/public-pricing";
 import { useOrders } from "@/hooks/use-orders";
 import { useActiveServiceRequests } from "@/hooks/use-service-requests";
@@ -69,7 +70,6 @@ function RootIndexPage() {
   const { user, isStaff, loading } = useAuth();
 
   if (loading) return null;
-  if (user?.role === "Cashier") return <Navigate to="/cashier" replace />;
 
   // If user is authenticated as restaurant staff/admin/owner, show Executive Operational Overview
   if (user && (isStaff || user.role === "Owner")) {
@@ -85,19 +85,38 @@ function RootIndexPage() {
    Surfaces active orders, kitchen delays, bill requests, and low stock
    ========================================================================== */
 function OperationalOverview() {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
+  const permissions = useNavigationAccess();
   const { hasCapability } = useEffectiveAccess();
-  const showStockAlerts = (user?.role === "Admin" || user?.role === "Owner") &&
+  const role = roles[0] || user?.role || "";
+  const allowedIds = useMemo(
+    () => new Set(getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []).map((item) => item.id)),
+    [role, permissions.data?.allowedMenuIds],
+  );
+  const canViewOrders =
+    allowedIds.has("overview") ||
+    allowedIds.has("orders-servicedesk") ||
+    allowedIds.has("kitchen-queue") ||
+    allowedIds.has("staff-order-taking") ||
+    allowedIds.has("table-billing");
+  const canViewServiceRequests = allowedIds.has("overview") || allowedIds.has("orders-servicedesk");
+  const canViewFloorTables =
+    allowedIds.has("orders-servicedesk") ||
+    allowedIds.has("staff-order-taking") ||
+    allowedIds.has("table-billing") ||
+    allowedIds.has("cashier-billing");
+  const showStockAlerts = allowedIds.has("inventory-stock") &&
     hasCapability(CAPABILITIES.InventoryCore);
   const restaurantId = user?.restaurantId || "22222222-0000-0000-0000-000000000001";
 
-  const { data: orders = [], refetch: refetchOrders } = useOrders(restaurantId);
-  const { data: serviceRequests = [] } = useActiveServiceRequests(restaurantId);
+  const { data: orders = [], refetch: refetchOrders } = useOrders(canViewOrders ? restaurantId : null);
+  const { data: serviceRequests = [] } = useActiveServiceRequests(canViewServiceRequests ? restaurantId : null);
 
   const tablesQuery = useQuery({
     queryKey: ["serviceTables", restaurantId],
     queryFn: () => getServiceTables(restaurantId),
     refetchInterval: 15000,
+    enabled: canViewFloorTables,
   });
 
   const ingredientsQuery = useQuery({
@@ -351,6 +370,7 @@ function OperationalOverview() {
           </div>
 
           {/* Quick Floor Status Glance (10 Tables) */}
+          {canViewFloorTables && (
           <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -395,6 +415,7 @@ function OperationalOverview() {
               })}
             </div>
           </div>
+          )}
         </main>
       </div>
     </AppLayout>
@@ -452,7 +473,6 @@ function LandingPage() {
   }, [user, roles, loading, router]);
 
   if (loading) return null;
-  if (user?.role === "Cashier") return <Navigate to="/cashier" replace />;
 
   return (
     <div className="min-h-screen bg-background text-foreground scroll-smooth">

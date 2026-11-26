@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-11-25T15:35:57.038Z",
+  "results": [
+    {
+      "name": "Dual concurrent Tablo.Api workers started against PostgreSQL",
+      "status": "PASS",
+      "details": "smtpPort=55662"
+    },
+    {
+      "name": "First restaurant message starts 10-minute waiting period (600s)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Additional restaurant message preserves original deadline & log",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Pre-deadline period sends zero escalation emails",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Dual concurrent workers escalate ONCE at deadline without counting as reply",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Super Admin reply ends waiting period; subsequent reply starts new period; timely reply cancels",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Resolution cancels pending escalation; Reopen with message starts new period",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Worker recovers stale Processing claim after simulated crash/restart",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Worker pre-dispatch recheck cancels mismatched log without sending email",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Transient SMTP failure records errors, retries with backoff, and succeeds on Attempt 3",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Permanent SMTP failure stops strictly at MaxAttempts=5 with NextRetryAtUtc=NULL",
+      "status": "PASS",
+      "details": ""
+    }
+  ]
+}

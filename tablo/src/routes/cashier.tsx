@@ -1,5 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
+import { useNavigationAccess } from "@/hooks/use-navigation-access";
+import { useEffectiveAccess } from "@/hooks/use-effective-access";
+import { CAPABILITIES, getEmployeeNavItems } from "@/config/navigation";
 import { AppLayout } from "@/components/app-layout";
 import { ServiceDesk } from "@/components/service-desk";
 
@@ -12,9 +15,11 @@ export const Route = createFileRoute("/cashier")({
   component: CashierPage,
 });
 function CashierPage() {
-  const { user, loading } = useAuth();
+  const { user, roles, loading } = useAuth();
+  const permissions = useNavigationAccess();
+  const entitlement = useEffectiveAccess();
   const search = Route.useSearch();
-  if (loading)
+  if (loading || (!!user && permissions.isPending))
     return (
       <p className="p-8" role="status">
         Loading…
@@ -29,9 +34,15 @@ function CashierPage() {
         </Link>
       </div>
     );
+  const role = roles[0] || user.role;
+  const allowedItems = getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []);
+  const canCashier =
+    !!user.restaurantId &&
+    allowedItems.some((item) => item.id === "cashier-billing") &&
+    entitlement.hasCapability(CAPABILITIES.StandardBilling);
   return (
     <AppLayout>
-      {["Admin", "Owner", "Cashier"].includes(user.role) && user.restaurantId ? (
+      {canCashier && user.restaurantId ? (
         <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-8">
           <header>
             <h1 className="text-2xl font-semibold">Cashier</h1>

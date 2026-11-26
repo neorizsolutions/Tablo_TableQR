@@ -6,6 +6,8 @@ import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
 import { PaymentReports } from "@/components/payment-reports";
 import { useAuth } from "@/hooks/use-auth";
+import { useNavigationAccess } from "@/hooks/use-navigation-access";
+import { getEmployeeNavItems } from "@/config/navigation";
 import { useReports, useAnalyticsSummary, useSalesOverTime, useTopItems } from "@/hooks/use-reports";
 import { exportOrderHistory } from "@/services/api";
 import { formatINR } from "@/lib/mock-data";
@@ -25,8 +27,9 @@ export const Route = createFileRoute("/reports")({
 
 function ReportsPage() {
   const { user, roles, loading: authLoading, signOut } = useAuth();
-  
-  if (authLoading) {
+  const permissions = useNavigationAccess();
+
+  if (authLoading || (!!user && permissions.isPending)) {
     return (
       <div className="grid min-h-screen place-items-center bg-secondary/40">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -35,9 +38,22 @@ function ReportsPage() {
   }
 
   if (!user) return <SignInGate />;
-  
-  const isAdmin = roles.includes("Admin") || roles.includes("Owner");
-  if (!isAdmin) return <NoAccessGate roles={roles} onSignOut={signOut} />;
+
+  const role = roles[0] || user.role;
+  const allowedItems = getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []);
+  const canAccessReports =
+    !permissions.isError &&
+    allowedItems.some((item) => item.id === "financial-reports");
+  if (!canAccessReports) {
+    if (allowedItems.length > 0) {
+      return (
+        <AppLayout>
+          <NoAccessGate roles={roles} onSignOut={signOut} />
+        </AppLayout>
+      );
+    }
+    return <NoAccessGate roles={roles} onSignOut={signOut} />;
+  }
 
   // We need the restaurant ID. The hook fetches for current tenant automatically via the API backend anyway.
   // Wait, useTables requires restaurantId? Yes. useTables usually takes `user.restaurantId` or we get it from auth.

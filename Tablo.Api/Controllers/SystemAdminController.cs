@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Tablo.Api.Data;
 using Tablo.Api.DTOs;
 using Tablo.Api.Entities;
+using Tablo.Api.Hubs;
 using Tablo.Api.Interfaces;
 
 namespace Tablo.Api.Controllers
@@ -17,17 +18,20 @@ namespace Tablo.Api.Controllers
         private readonly IConfiguration _configuration;
         private readonly ApplicationDbContext _context;
         private readonly ISubscriptionService _subscriptionService;
+        private readonly ISupportConnectionRevoker? _revoker;
 
         public SystemAdminController(
             IAuthService authService,
             IConfiguration configuration,
             ApplicationDbContext context,
-            ISubscriptionService subscriptionService)
+            ISubscriptionService subscriptionService,
+            ISupportConnectionRevoker? revoker = null)
         {
             _authService = authService;
             _configuration = configuration;
             _context = context;
             _subscriptionService = subscriptionService;
+            _revoker = revoker;
         }
 
         [HttpPost("login")]
@@ -224,9 +228,18 @@ namespace Tablo.Api.Controllers
             foreach (var emp in allEmployees)
             {
                 emp.IsActive = newState;
+                if (!newState)
+                {
+                    emp.SecurityStamp = Guid.NewGuid().ToString("N");
+                }
             }
 
             await _context.SaveChangesAsync();
+
+            if (!newState && _revoker != null)
+            {
+                await _revoker.RevokeRestaurantConnectionsAsync(restaurantId, "Tenant access suspended.");
+            }
 
             return Ok(new { message = $"Tenant status updated to {(newState ? "Active" : "Disabled")}.", isActive = newState });
         }

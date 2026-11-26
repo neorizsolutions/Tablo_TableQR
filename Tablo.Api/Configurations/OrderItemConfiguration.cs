@@ -17,7 +17,7 @@ namespace Tablo.Api.Configurations
             builder.Property(oi => oi.SpecialInstructions).HasMaxLength(500);
             builder.Property(oi => oi.ReleaseState).HasMaxLength(30).IsRequired().HasDefaultValue("Fired");
             builder.Property(oi => oi.PackingIntent).HasMaxLength(30).IsRequired().HasDefaultValue("DineIn");
-            builder.Property(oi => oi.PackagingFeeApplied).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            builder.Property(oi => oi.PackagingFeeApplied).HasColumnType("decimal(18,2)");
             builder.Property(oi => oi.IsPackagingWaived).HasDefaultValue(false);
             builder.Property(oi => oi.PackagingWaiverReason).HasMaxLength(200);
             builder.Property(oi => oi.PackagingWaivedBy).HasMaxLength(100);

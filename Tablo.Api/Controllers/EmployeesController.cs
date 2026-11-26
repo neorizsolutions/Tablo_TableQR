@@ -5,6 +5,7 @@ using Tablo.Api.Data;
 using Tablo.Api.DTOs;
 using Tablo.Api.Entities;
 using Tablo.Api.Extensions;
+using Tablo.Api.Hubs;
 using System.Text.RegularExpressions;
 
 namespace Tablo.Api.Controllers
@@ -15,10 +16,17 @@ namespace Tablo.Api.Controllers
     public class EmployeesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly ISupportConnectionRevoker? _revoker;
+        private readonly IOrderConnectionRevoker? _orderRevoker;
 
-        public EmployeesController(ApplicationDbContext context)
+        public EmployeesController(
+            ApplicationDbContext context,
+            ISupportConnectionRevoker? revoker = null,
+            IOrderConnectionRevoker? orderRevoker = null)
         {
             _context = context;
+            _revoker = revoker;
+            _orderRevoker = orderRevoker;
         }
 
         [HttpGet]
@@ -176,13 +184,19 @@ namespace Tablo.Api.Controllers
 
             employee.FirstName = request.FirstName;
             employee.LastName = request.LastName;
+            bool roleChanged = employee.RoleId != newRole.Id;
             // A prior role's custom menu list can otherwise leave a new role unusable.
-            if (employee.RoleId != newRole.Id) employee.AllowedMenuIds = null;
+            if (roleChanged)
+            {
+                employee.AllowedMenuIds = null;
+                employee.SecurityStamp = Guid.NewGuid().ToString("N");
+            }
             employee.RoleId = newRole.Id;
 
-            if (!string.IsNullOrWhiteSpace(request.NewPassword))
+            bool passwordChanged = !string.IsNullOrWhiteSpace(request.NewPassword);
+            if (passwordChanged)
             {
-                if (request.NewPassword.Length < 6)
+                if (request.NewPassword!.Length < 6)
                 {
                     return BadRequest("New password must be at least 6 characters.");
                 }
@@ -194,6 +208,17 @@ namespace Tablo.Api.Controllers
             }
 
             await _context.SaveChangesAsync();
+
+            if (_revoker != null && (passwordChanged || (roleChanged && request.RoleName is not ("Admin" or "Owner"))))
+            {
+                await _revoker.RevokeEmployeeConnectionsAsync(employee.Id,
+                    passwordChanged ? "Session invalidated due to password reset." : "Role permissions changed.");
+            }
+            if (_orderRevoker != null && (passwordChanged || roleChanged))
+            {
+                await _orderRevoker.SyncEmployeePermissionsAsync(employee,
+                    passwordChanged ? "Session invalidated due to password reset." : "Role permissions changed.");
+            }
 
             return Ok(new EmployeeDto
             {
@@ -232,6 +257,11 @@ namespace Tablo.Api.Controllers
             employee.ResetOtpExpiration = null;
 
             await _context.SaveChangesAsync();
+
+            if (_revoker != null)
+            {
+                await _revoker.RevokeEmployeeConnectionsAsync(employee.Id, "Session invalidated due to password reset.");
+            }
 
             return Ok(new { message = "Password updated successfully and previous sessions invalidated." });
         }
@@ -276,6 +306,15 @@ namespace Tablo.Api.Controllers
             }
             await _context.SaveChangesAsync();
 
+            if (!request.IsActive && _revoker != null)
+            {
+                await _revoker.RevokeEmployeeConnectionsAsync(employee.Id, "Account deactivated.");
+            }
+            if (!request.IsActive && _orderRevoker != null)
+            {
+                await _orderRevoker.SyncEmployeePermissionsAsync(employee, "Account deactivated.");
+            }
+
             return Ok(new { message = request.IsActive ? "Employee activated." : "Employee deactivated." });
         }
 
@@ -293,7 +332,13 @@ namespace Tablo.Api.Controllers
             }
 
             employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            employee.SecurityStamp = Guid.NewGuid().ToString("N");
             await _context.SaveChangesAsync();
+
+            if (_revoker != null)
+            {
+                await _revoker.RevokeEmployeeConnectionsAsync(employee.Id, "Session invalidated due to password reset.");
+            }
 
             return Ok(new { message = "Password reset successfully." });
         }
@@ -313,7 +358,7 @@ namespace Tablo.Api.Controllers
             return Ok(new { message = "Manager PIN set successfully." });
         }
 
-        [Authorize(Roles = "Admin,Owner,Waiter,Kitchen")]
+        [Authorize(Roles = "Admin,Owner,Waiter,Kitchen,Cashier")]
         [HttpPost("verify-pin")]
         public async Task<IActionResult> VerifyManagerPin([FromBody] VerifyManagerPinRequestDto request, [FromServices] Services.ManagerAuthService managerAuth)
         {

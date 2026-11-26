@@ -2,11 +2,14 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { LogIn, LogOut, QrCode, Menu, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useNavigationAccess } from "@/hooks/use-navigation-access";
+import { getEmployeeNavItems } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export function SiteHeader() {
   const { user, roles, signOut } = useAuth();
+  const permissions = useNavigationAccess();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const publicNavLinks = [
@@ -15,10 +18,14 @@ export function SiteHeader() {
     { href: "/#pricing", label: "Pricing" },
   ];
 
+  const firstAllowed =
+    user && user.role !== "SuperAdmin"
+      ? getEmployeeNavItems(roles[0] || user.role, permissions.data?.allowedMenuIds ?? null)[0]
+      : undefined;
   const appDestination =
-    roles.includes("Admin") || roles.includes("Owner")
-      ? "/admin"
-      : "/dashboard";
+    user?.role === "SuperAdmin"
+      ? "/super-admin"
+      : firstAllowed?.to || (roles.includes("Admin") || roles.includes("Owner") ? "/admin" : "/dashboard");
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">

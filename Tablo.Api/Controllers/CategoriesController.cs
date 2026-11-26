@@ -12,7 +12,7 @@ using Tablo.Api.Extensions;
 namespace Tablo.Api.Controllers
 {
     [ApiController]
-    [Authorize(Roles = "Admin,Owner")]
+    [Authorize(Roles = "Admin,Owner,Waiter,Kitchen,Cashier")]
     [Route("api/categories/{categoryId:guid}")]
     public class CategoriesController : ControllerBase
     {

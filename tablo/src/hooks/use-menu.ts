@@ -51,13 +51,13 @@ export function useMenu(restaurantId: string | null) {
   return query;
 }
 
-export function useAdminMenu(restaurantId: string | null) {
+export function useAdminMenu(restaurantId: string | null, enabled = true) {
   const queryKey = ["adminMenu", restaurantId];
 
   return useQuery({
     queryKey,
     queryFn: () => import("@/services/api").then(m => m.getAdminMenu(restaurantId!)),
-    enabled: !!restaurantId,
+    enabled: !!restaurantId && enabled,
   });
 }
 

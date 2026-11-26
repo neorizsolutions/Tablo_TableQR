@@ -72,6 +72,10 @@ namespace Tablo.Api.Data
         public DbSet<MarketplaceItemMapping> MarketplaceItemMappings { get; set; } = null!;
         public DbSet<MarketplaceInboundEvent> MarketplaceInboundEvents { get; set; } = null!;
         public DbSet<MarketplaceOutboundUpdate> MarketplaceOutboundUpdates { get; set; } = null!;
+        public DbSet<SupportConversation> SupportConversations { get; set; } = null!;
+        public DbSet<SupportMessage> SupportMessages { get; set; } = null!;
+        public DbSet<SupportEscalationLog> SupportEscalationLogs { get; set; } = null!;
+        public DbSet<SupportAuditLog> SupportAuditLogs { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

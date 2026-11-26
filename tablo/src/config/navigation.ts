@@ -21,6 +21,8 @@ import {
   Factory,
   ClipboardCheck,
   FileSpreadsheet,
+  LifeBuoy,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 
@@ -77,6 +79,97 @@ export interface NavItem {
   section: "main" | "operations" | "management" | "inventory" | "analytics";
   requiredRoles?: ("Admin" | "Owner" | "Waiter" | "Kitchen" | "Cashier")[];
   requiredCapabilities?: string[];
+  adminOnly?: boolean;
+}
+
+export const MENU_SECTIONS: NavItem["section"][] = [
+  "main",
+  "operations",
+  "management",
+  "inventory",
+  "analytics",
+];
+
+export const MENU_SECTION_LABELS: Record<NavItem["section"], string> = {
+  main: "Overview",
+  operations: "Daily Operations",
+  management: "Restaurant Management",
+  inventory: "Inventory & Stock",
+  analytics: "Reports & Analytics",
+};
+
+const CAPABILITY_MIN_PLAN: Record<string, "Basic" | "Plus" | "Premium"> = {
+  [CAPABILITIES.QrOrdering]: "Basic",
+  [CAPABILITIES.KitchenDisplay]: "Basic",
+  [CAPABILITIES.StandardBilling]: "Basic",
+  [CAPABILITIES.BasicReports]: "Basic",
+  [CAPABILITIES.MenuManagement]: "Basic",
+  [CAPABILITIES.TablesAndQr]: "Basic",
+  [CAPABILITIES.StaffOrdering]: "Plus",
+  [CAPABILITIES.DiningGroups]: "Plus",
+  [CAPABILITIES.SplitBilling]: "Plus",
+  [CAPABILITIES.MixedPayments]: "Plus",
+  [CAPABILITIES.TableTransfers]: "Plus",
+  [CAPABILITIES.AdvancedPaymentReports]: "Plus",
+  [CAPABILITIES.ThermalPrinting]: "Plus",
+  [CAPABILITIES.ParcelCounter]: "Plus",
+  [CAPABILITIES.HoldFireCourses]: "Plus",
+  [CAPABILITIES.ItemModifiers]: "Plus",
+  [CAPABILITIES.FreeRefills]: "Plus",
+  [CAPABILITIES.ManagerWasteCancellation]: "Plus",
+  [CAPABILITIES.ScheduledPickup]: "Plus",
+  [CAPABILITIES.HybridDineInParcel]: "Plus",
+  [CAPABILITIES.CarSideOrdering]: "Plus",
+  [CAPABILITIES.DynamicUpiQr]: "Plus",
+  [CAPABILITIES.MultipleKitchenStations]: "Premium",
+  [CAPABILITIES.InventoryCore]: "Premium",
+  [CAPABILITIES.RecipesCosting]: "Premium",
+  [CAPABILITIES.Stocktakes]: "Premium",
+  [CAPABILITIES.Purchasing]: "Premium",
+  [CAPABILITIES.LotsAndExpiry]: "Premium",
+  [CAPABILITIES.Preparations]: "Premium",
+  [CAPABILITIES.OutletTransfers]: "Premium",
+  [CAPABILITIES.StockProfitReports]: "Premium",
+  [CAPABILITIES.AutoAvailability]: "Premium",
+};
+
+export const ADMIN_ONLY_MENU_IDS = new Set([
+  "staff-management",
+  "staff-menu-access",
+  "support",
+]);
+
+export const RECOVERY_MENU_IDS = new Set([
+  "staff-management",
+  "staff-menu-access",
+]);
+
+export function isAdminRole(role?: string | null): boolean {
+  const lower = (role || "").toLowerCase();
+  return lower === "admin" || lower === "owner";
+}
+
+export function isMenuAssignableToRole(item: Pick<NavItem, "id" | "adminOnly">, role: string): boolean {
+  return (!item.adminOnly && !ADMIN_ONLY_MENU_IDS.has(item.id)) || isAdminRole(role);
+}
+
+export function getAssignableMenuItems(role: string): NavItem[] {
+  return NAVIGATION_REGISTRY.filter((item) => isMenuAssignableToRole(item, role));
+}
+
+export function getMenuRequiredPlanLabel(item: Pick<NavItem, "requiredCapabilities">): string | null {
+  if (!item.requiredCapabilities?.length) return null;
+  const ranks = { Basic: 1, Plus: 2, Premium: 3 } as const;
+  let lowest: "Basic" | "Plus" | "Premium" = "Premium";
+  let lowestRank = 99;
+  for (const cap of item.requiredCapabilities) {
+    const plan = CAPABILITY_MIN_PLAN[cap] ?? "Premium";
+    if (ranks[plan] < lowestRank) {
+      lowestRank = ranks[plan];
+      lowest = plan;
+    }
+  }
+  return `Requires ${lowest} plan`;
 }
 
 export function isNavigationItemActive(
@@ -87,9 +180,23 @@ export function isNavigationItemActive(
   return pathname === item.to && (!item.tabParam || item.tabParam === tab || (!tab && !!item.isDefault));
 }
 
-export function getDashboardTab(tab?: string, role?: string) {
+export function getDashboardTab(
+  tab?: string,
+  role?: string,
+  allowedMenuIds?: string[] | null,
+): "floor" | "order" | "kitchen" | "billing" {
+  if (tab === "floor" || tab === "order" || tab === "kitchen" || tab === "billing") {
+    return tab;
+  }
+  if (allowedMenuIds !== undefined && role) {
+    const allowed = new Set(getEmployeeNavItems(role, allowedMenuIds).map((item) => item.id));
+    if (role === "Kitchen" && allowed.has("kitchen-queue")) return "kitchen";
+    if (allowed.has("orders-servicedesk")) return "floor";
+    if (allowed.has("staff-order-taking")) return "order";
+    if (allowed.has("kitchen-queue")) return "kitchen";
+    if (allowed.has("table-billing")) return "billing";
+  }
   if (role === "Kitchen") return "kitchen";
-  if (tab === "order" || tab === "kitchen" || tab === "billing") return tab;
   return "floor";
 }
 
@@ -202,6 +309,7 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     icon: Users,
     section: "management",
     requiredRoles: ["Admin", "Owner"],
+    adminOnly: true,
   },
   {
     id: "staff-menu-access",
@@ -210,6 +318,7 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     icon: ShieldCheck,
     section: "management",
     requiredRoles: ["Admin", "Owner"],
+    adminOnly: true,
   },
   {
     id: "crm-loyalty",
@@ -243,6 +352,15 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
     section: "management",
     requiredRoles: ["Admin", "Owner"],
     requiredCapabilities: [CAPABILITIES.StandardBilling],
+  },
+  {
+    id: "support",
+    label: "Support",
+    to: "/support",
+    icon: LifeBuoy,
+    section: "management",
+    requiredRoles: ["Admin", "Owner"],
+    adminOnly: true,
   },
 
   // 4. INVENTORY & SUPPLY (ERP)
@@ -395,7 +513,7 @@ export const NAVIGATION_REGISTRY: NavItem[] = [
 export interface SuperAdminNavItem {
   id: string;
   label: string;
-  tab: "overview" | "tenants" | "plans" | "subscriptions" | "audit";
+  tab: "overview" | "tenants" | "plans" | "subscriptions" | "audit" | "inbox";
   to: string;
   search: { tab: string };
   icon: LucideIcon;
@@ -410,6 +528,15 @@ export const SUPER_ADMIN_NAVIGATION: SuperAdminNavItem[] = [
     to: "/super-admin",
     search: { tab: "overview" },
     icon: LayoutDashboard,
+    section: "platform",
+  },
+  {
+    id: "sa-support-inbox",
+    label: "Support Inbox",
+    tab: "inbox",
+    to: "/super-admin",
+    search: { tab: "inbox" },
+    icon: Inbox,
     section: "platform",
   },
   {
@@ -481,15 +608,30 @@ class HashSetCI {
 }
 
 export function getEmployeeNavItems(role: string, allowedMenuIds: string[] | null): NavItem[] {
-  const allowed = allowedMenuIds === null ? null : new Set(allowedMenuIds);
-  return NAVIGATION_REGISTRY.filter(item =>
-    (!item.requiredRoles || item.requiredRoles.some(r => r.toLowerCase() === role.toLowerCase())) &&
-    (allowed === null || allowed.has(item.id) || (["staff-management", "staff-menu-access"].includes(item.id) && ["admin", "owner"].includes(role.toLowerCase()))),
+  if (allowedMenuIds === null) {
+    return NAVIGATION_REGISTRY.filter(
+      (item) =>
+        !item.requiredRoles ||
+        item.requiredRoles.some((r) => r.toLowerCase() === role.toLowerCase()),
+    );
+  }
+  const allowed = new Set(allowedMenuIds);
+  const adminRecovery = isAdminRole(role);
+  return NAVIGATION_REGISTRY.filter(
+    (item) =>
+      (adminRecovery && RECOVERY_MENU_IDS.has(item.id)) ||
+      (isMenuAssignableToRole(item, role) && allowed.has(item.id)),
   );
 }
 
-export function getRouteMenuItem(pathname: string, tab: string | undefined, role: string): NavItem | undefined {
-  const resolvedTab = pathname === "/dashboard" ? getDashboardTab(tab, role) : tab;
+export function getRouteMenuItem(
+  pathname: string,
+  tab: string | undefined,
+  role: string,
+  allowedMenuIds?: string[] | null,
+): NavItem | undefined {
+  const resolvedTab =
+    pathname === "/dashboard" ? getDashboardTab(tab, role, allowedMenuIds) : tab;
   // Unknown tabs must never inherit access from a default tab.
   if (pathname === "/dashboard" && tab && !["floor", "order", "kitchen", "billing"].includes(tab)) return undefined;
   return NAVIGATION_REGISTRY.find(item => isNavigationItemActive(item, pathname, resolvedTab));

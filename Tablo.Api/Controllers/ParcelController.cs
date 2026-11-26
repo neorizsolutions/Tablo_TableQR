@@ -15,7 +15,7 @@ namespace Tablo.Api.Controllers;
 
 [ApiController]
 [Route("api/restaurants/{restaurantId:guid}/parcel")]
-[Authorize(Roles = "Admin,Owner,SuperAdmin,Waiter,Cashier")]
+[Authorize(Roles = "Admin,Owner,SuperAdmin,Waiter,Cashier,Kitchen")]
 public class ParcelController : ControllerBase
 {
     private readonly IParcelOrderService _parcelService;
@@ -364,7 +364,7 @@ public class ParcelController : ControllerBase
     }
 
     [HttpPut("settings")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Waiter,Cashier,Kitchen")]
     public async Task<IActionResult> UpdateSettings(Guid restaurantId, [FromBody] UpdateParcelSettingsRequestDto dto)
     {
         var updated = await _parcelService.UpdateParcelSettingsAsync(restaurantId, dto);
@@ -372,7 +372,7 @@ public class ParcelController : ControllerBase
     }
 
     [HttpPost("marketplace-payouts")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin,Cashier")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Cashier,Waiter,Kitchen")]
     public async Task<IActionResult> RecordMarketplacePayout(Guid restaurantId, [FromBody] RecordMarketplacePayoutDto request)
     {
         var actorId = GetActorId();
@@ -392,7 +392,7 @@ public class ParcelController : ControllerBase
     }
 
     [HttpGet("marketplace-payouts")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin,Cashier")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Cashier,Waiter,Kitchen")]
     public async Task<IActionResult> GetMarketplacePayouts(Guid restaurantId, [FromQuery] string? deliveryProvider = null)
     {
         var payouts = await _parcelService.GetMarketplacePayoutsAsync(restaurantId, deliveryProvider);
