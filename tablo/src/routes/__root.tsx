@@ -1,3 +1,4 @@
+import { ConfirmationHost } from "@/components/confirmation-host";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -78,6 +79,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
+        <ConfirmationHost />
         <Toaster position="top-center" />
       </AuthProvider>
     </QueryClientProvider>

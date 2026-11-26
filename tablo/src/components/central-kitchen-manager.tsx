@@ -1,3 +1,4 @@
+import { confirmClose } from "@/lib/confirmation";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -384,7 +385,7 @@ export function CentralKitchenManager({ restaurantId }: { restaurantId: string }
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsBatchModalOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => void confirmClose(() => setIsBatchModalOpen(false))}>Cancel</Button>
             <Button onClick={() => createBatchMutation.mutate()}>Post Batch</Button>
           </DialogFooter>
         </DialogContent>
@@ -437,7 +438,7 @@ export function CentralKitchenManager({ restaurantId }: { restaurantId: string }
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReceivingTransfer(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => void confirmClose(() => setReceivingTransfer(null))}>Cancel</Button>
             <Button onClick={() => receiveTransferMutation.mutate()}>Confirm Receipt</Button>
           </DialogFooter>
         </DialogContent>
@@ -489,7 +490,7 @@ export function CentralKitchenManager({ restaurantId }: { restaurantId: string }
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPublishModalOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => void confirmClose(() => setIsPublishModalOpen(false))}>Cancel</Button>
             <Button onClick={() => executePublishMutation.mutate()}>Broadcast to 2 Outlets</Button>
           </DialogFooter>
         </DialogContent>

@@ -1,3 +1,4 @@
+import { confirmClose } from "@/lib/confirmation";
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { parcelApi, type UpiQrResponseDto } from "@/services/parcel";
@@ -439,7 +440,7 @@ function BillCard({
             <button
               type="button"
               className="text-xs text-muted-foreground hover:text-foreground font-bold"
-              onClick={() => setUpiQr(null)}
+              onClick={() => void confirmClose(() => setUpiQr(null))}
             >
               ✕ Close
             </button>

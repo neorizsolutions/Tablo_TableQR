@@ -1,3 +1,4 @@
+import { confirmClose } from "@/lib/confirmation";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -568,7 +569,7 @@ function DashboardInner() {
                     <div className="flex justify-end gap-3 pt-2">
                       <button
                         type="button"
-                        onClick={() => setCancelItemModal(null)}
+                        onClick={() => void confirmClose(() => setCancelItemModal(null))}
                         className="rounded-full px-4 py-2 text-xs font-semibold hover:bg-secondary"
                       >
                         Close
@@ -619,7 +620,7 @@ function DashboardInner() {
                     </div>
 
                     <div className="mt-6 flex justify-end gap-3">
-                      <button onClick={() => { setExceptionModal(null); setExceptionReason(""); }} className="rounded-full px-4 py-2 text-sm font-semibold hover:bg-secondary">
+                      <button onClick={() => void confirmClose(() => { setExceptionModal(null); setExceptionReason(""); })} className="rounded-full px-4 py-2 text-sm font-semibold hover:bg-secondary">
                         Back
                       </button>
                       <button

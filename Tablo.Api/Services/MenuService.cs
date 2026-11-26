@@ -158,11 +158,18 @@ namespace Tablo.Api.Services
             return response;
         }
 
+        private async Task ValidateCategoryKitchenAsync(Guid restaurantId, Guid? stationId, CancellationToken cancellationToken)
+        {
+            if (stationId.HasValue && !await _menuRepository.IsActiveKitchenStationAsync(restaurantId, stationId.Value, cancellationToken))
+                throw new ArgumentException("Choose an active kitchen belonging to this restaurant.");
+        }
+
         public async Task<CategoryDto> CreateCategoryAsync(Guid restaurantId, CreateCategoryRequestDto request, CancellationToken cancellationToken = default)
         {
             var exists = await _menuRepository.RestaurantExistsAsync(restaurantId, cancellationToken);
             if (!exists) throw new ArgumentException("Restaurant not found.");
 
+            await ValidateCategoryKitchenAsync(restaurantId, request.KitchenStationId, cancellationToken);
             // Get existing categories to determine DisplayOrder
             var existingCategories = await _menuRepository.GetAdminMenuCategoriesAsync(restaurantId, cancellationToken);
             
@@ -207,6 +214,7 @@ namespace Tablo.Api.Services
                 throw new ArgumentException($"A category with the name '{request.Name}' already exists in this restaurant.");
             }
 
+            await ValidateCategoryKitchenAsync(category.RestaurantId, request.KitchenStationId, cancellationToken);
             category.Name = request.Name;
             category.KitchenStationId = request.KitchenStationId;
             var updated = await _menuRepository.UpdateCategoryAsync(category, cancellationToken);

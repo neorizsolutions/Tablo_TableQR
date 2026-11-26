@@ -1,3 +1,4 @@
+import { confirmClose } from "@/lib/confirmation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { HubConnectionBuilder } from "@microsoft/signalr";
@@ -1108,7 +1109,7 @@ function NewDiningGroupModal({
           </div>
 
           <DialogFooter className="pt-2">
-            <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" type="button" onClick={() => void confirmClose(() => onOpenChange(false))}>
               Cancel
             </Button>
             <Button disabled={busy || !label.trim()} type="submit">
@@ -1426,7 +1427,7 @@ function SplitBillModal({
         </div>
 
         <DialogFooter className="pt-2 border-t">
-          <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" type="button" onClick={() => void confirmClose(() => onOpenChange(false))}>
             Cancel
           </Button>
           <Button
@@ -1533,7 +1534,7 @@ function StaffCustomizationModal({
             <h3 className="font-bold text-base">{item.name}</h3>
             <p className="text-xs text-muted-foreground">{formatINR(item.price)} base · {item.category}</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-secondary">
+          <button onClick={() => void confirmClose(onClose)} className="rounded-full p-1 hover:bg-secondary">
             ✕
           </button>
         </div>
