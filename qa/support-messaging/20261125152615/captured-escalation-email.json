@@ -1,0 +1,10 @@
+{
+  "messageId": "local:aece709b94c3a338dd64c0003d85f19e546814dc8eed9be9d818a9eada931183",
+  "idempotencyKey": "support-escalation-32fd30b94600401a90e6e9570bc9c729-ab5a6f1eb9794266b2636ac62004831d",
+  "fromEmail": "no-reply@notify.neorizsolutions.com",
+  "fromName": "Tablo Support Escalation",
+  "to": "support@neorizsolutions.com",
+  "subject": "[TABLO Urgent Escalation] Unanswered Support Ticket: Kitchen Printer Offline LIVE QA",
+  "body": "TABLO Support 10-Minute Emergency Escalation\n\nA restaurant support request has gone unanswered for 10\u002B minutes.\n\nRestaurant Name: Hotel City Support QA\nRestaurant ID: 442090a1-e210-4860-bff4-9a4eaf121222\nConversation ID: 32fd30b9-4600-401a-90e6-e9570bc9c729\nSubject: Kitchen Printer Offline LIVE QA\nWaiting Started (UTC): 2026-11-25 15:15:49Z\nWaiting Duration: 11m 0s\n\nOpen in Super Admin Support Inbox:\nhttp://127.0.0.1:4188/super-admin?tab=inbox\u0026conversationId=32fd30b9-4600-401a-90e6-e9570bc9c729\n\nThis escalation alert is automated and does not constitute a reply to the restaurant.",
+  "capturedAtUtc": "2026-11-25T15:26:50.2848686Z"
+}

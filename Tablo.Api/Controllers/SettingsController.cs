@@ -11,7 +11,7 @@ namespace Tablo.Api.Controllers
 {
     [ApiController]
     [Route("api/restaurants/{restaurantId}/settings")]
-    [Authorize(Roles = "Admin,Owner,Cashier")]
+    [Authorize(Roles = "Admin,Owner,Waiter,Kitchen,Cashier")]
     public class SettingsController : ControllerBase
     {
         private readonly ISettingsService _settingsService;

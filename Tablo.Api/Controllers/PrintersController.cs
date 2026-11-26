@@ -36,7 +36,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpGet("api/restaurants/{restaurantId:guid}/printers")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     public async Task<IActionResult> GetPrinters(Guid restaurantId)
     {
         var printers = await _db.ThermalPrinters
@@ -68,7 +68,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpPost("api/restaurants/{restaurantId:guid}/printers")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     [RequireCapability(Capabilities.ThermalPrinting)]
     public async Task<IActionResult> RegisterPrinter(Guid restaurantId, [FromBody] CreateThermalPrinterDto dto)
     {
@@ -117,7 +117,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpPut("api/restaurants/{restaurantId:guid}/printers/{printerId:guid}")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     [RequireCapability(Capabilities.ThermalPrinting)]
     public async Task<IActionResult> UpdatePrinter(Guid restaurantId, Guid printerId, [FromBody] UpdateThermalPrinterDto dto)
     {
@@ -157,7 +157,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpDelete("api/restaurants/{restaurantId:guid}/printers/{printerId:guid}")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     [RequireCapability(Capabilities.ThermalPrinting)]
     public async Task<IActionResult> DeletePrinter(Guid restaurantId, Guid printerId)
     {
@@ -180,7 +180,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpPost("api/restaurants/{restaurantId:guid}/printers/{printerId:guid}/test-print")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     [RequireCapability(Capabilities.ThermalPrinting)]
     public async Task<IActionResult> DispatchTestPrint(Guid restaurantId, Guid printerId)
     {
@@ -226,7 +226,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpGet("api/restaurants/{restaurantId:guid}/printers/jobs")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     public async Task<IActionResult> GetPrintJobs(
         Guid restaurantId,
         [FromQuery] Guid? stationId = null,
@@ -276,7 +276,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpPost("api/restaurants/{restaurantId:guid}/printers/jobs/{jobId:guid}/retry")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     [RequireCapability(Capabilities.ThermalPrinting)]
     public async Task<IActionResult> RetryJob(Guid restaurantId, Guid jobId)
     {
@@ -344,7 +344,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpPost("api/restaurants/{restaurantId:guid}/printers/jobs/{jobId:guid}/cancel")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     public async Task<IActionResult> CancelJob(Guid restaurantId, Guid jobId)
     {
         var job = await _db.PrintJobs.FirstOrDefaultAsync(j => j.Id == jobId && j.RestaurantId == restaurantId);
@@ -363,7 +363,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpPost("api/restaurants/{restaurantId:guid}/printers/tickets/{ticketId:guid}/reprint")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     [RequireCapability(Capabilities.ThermalPrinting)]
     public async Task<IActionResult> ReprintTicket(Guid restaurantId, Guid ticketId, [FromBody] ReprintTicketRequestDto dto)
     {
@@ -385,7 +385,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpGet("api/restaurants/{restaurantId:guid}/printers/tickets/{ticketId:guid}")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     public async Task<IActionResult> GetTicket(Guid restaurantId, Guid ticketId)
     {
         var ticket = await _db.KotTickets
@@ -424,7 +424,7 @@ public class PrintersController : ControllerBase
     // Agent Registration & Management
 
     [HttpPost("api/restaurants/{restaurantId:guid}/printers/agents/register")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     [RequireCapability(Capabilities.ThermalPrinting)]
     public async Task<IActionResult> RegisterAgent(Guid restaurantId, [FromBody] RegisterPrintAgentDto dto)
     {
@@ -468,7 +468,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpGet("api/restaurants/{restaurantId:guid}/printers/agents")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     public async Task<IActionResult> GetAgents(Guid restaurantId)
     {
         var agents = await _db.PrintAgentRegistrations
@@ -490,7 +490,7 @@ public class PrintersController : ControllerBase
     }
 
     [HttpDelete("api/restaurants/{restaurantId:guid}/printers/agents/{agentId:guid}")]
-    [Authorize(Roles = "Admin,Owner,SuperAdmin")]
+    [Authorize(Roles = "Admin,Owner,SuperAdmin,Kitchen,Waiter,Cashier")]
     public async Task<IActionResult> RevokeAgent(Guid restaurantId, Guid agentId)
     {
         var agent = await _db.PrintAgentRegistrations.FirstOrDefaultAsync(a => a.Id == agentId && a.RestaurantId == restaurantId);

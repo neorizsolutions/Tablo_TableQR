@@ -34,8 +34,9 @@ import {
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
-import { CAPABILITIES, NAVIGATION_REGISTRY } from "@/config/navigation";
+import { CAPABILITIES, NAVIGATION_REGISTRY, getEmployeeNavItems, getRouteMenuItem } from "@/config/navigation";
 import { useEffectiveAccess } from "@/hooks/use-effective-access";
+import { useNavigationAccess } from "@/hooks/use-navigation-access";
 import { useAuth } from "@/hooks/use-auth";
 import {
   SuppliersTab,
@@ -85,9 +86,10 @@ export const Route = createFileRoute("/inventory")({
 
 function InventoryPage() {
   const { user, roles, loading: authLoading, signOut } = useAuth();
-  const isAdmin = roles.includes("Admin") || roles.includes("Owner");
+  const permissions = useNavigationAccess();
+  const search = Route.useSearch();
 
-  if (authLoading) {
+  if (authLoading || (!!user && permissions.isPending)) {
     return (
       <div className="grid min-h-screen place-items-center bg-secondary/40">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -95,17 +97,48 @@ function InventoryPage() {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-secondary/40">
         <SiteHeader />
         <div className="mx-auto max-w-md px-4 py-16 text-center">
           <div className="rounded-3xl border border-border bg-card p-10 shadow-card">
             <h1 className="font-display text-2xl font-bold">Admin access required</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Sign in with an admin account to manage restaurant inventory and costing.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Sign in with an account that has inventory menu access.</p>
             <Link to="/auth" className="mt-6 inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
               Sign in
             </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const role = roles[0] || user.role;
+  const allowedItems = getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []);
+  const targetMenu = getRouteMenuItem("/inventory", search.tab, role, permissions.data?.allowedMenuIds);
+  const canOpen =
+    !permissions.isError &&
+    !!targetMenu &&
+    allowedItems.some((item) => item.id === targetMenu.id);
+  if (!canOpen) {
+    if (allowedItems.length > 0) {
+      return (
+        <AppLayout>
+          <div className="p-8 text-sm text-muted-foreground">Redirecting to allowed workspace…</div>
+        </AppLayout>
+      );
+    }
+    return (
+      <div className="min-h-screen bg-secondary/40">
+        <SiteHeader />
+        <div className="mx-auto max-w-md px-4 py-16 text-center">
+          <div className="rounded-3xl border border-border bg-card p-10 shadow-card">
+            <h1 className="font-display text-2xl font-bold">Inventory access required</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Ask a restaurant administrator for inventory menu access.</p>
+            <button onClick={() => void signOut()} className="mt-6 inline-flex items-center justify-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold hover:bg-secondary">
+              Sign out
+            </button>
           </div>
         </div>
       </div>
@@ -134,6 +167,19 @@ function InventoryInner({ restaurantId }: { restaurantId: string }) {
 const [settingsOpen, setSettingsOpen] = useState(false);
   const cache = useQueryClient();
 
+  const { user, roles } = useAuth();
+  const permissions = useNavigationAccess();
+  const role = roles[0] || user?.role || "";
+  const allowedIds = useMemo(
+    () => new Set(getEmployeeNavItems(role, permissions.data?.allowedMenuIds ?? []).map((item) => item.id)),
+    [role, permissions.data?.allowedMenuIds],
+  );
+  const canSeeRecipes =
+    allowedIds.has("inventory-recipes") ||
+    allowedIds.has("stock-valuation-report") ||
+    allowedIds.has("gross-profit-report");
+  const canConfigureCosting =
+    allowedIds.has("inventory-stock") || canSeeRecipes;
   const isInventoryAllowed = hasCapability(CAPABILITIES.InventoryCore);
   const requiredCapabilities = NAVIGATION_REGISTRY.find(
     (item) => item.to === "/inventory" && item.tabParam === tab,
@@ -144,13 +190,13 @@ const [settingsOpen, setSettingsOpen] = useState(false);
   const ingredientsQuery = useQuery({
     queryKey: ["inventory_ingredients", restaurantId],
     queryFn: () => getIngredients(restaurantId),
-    enabled: isInventoryAllowed,
+    enabled: isInventoryAllowed && canOpenTab,
   });
 
   const recipesQuery = useQuery({
     queryKey: ["inventory_recipes", restaurantId],
     queryFn: () => getRecipes(restaurantId),
-    enabled: isInventoryAllowed,
+    enabled: isInventoryAllowed && canOpenTab && canSeeRecipes,
   });
 
 const unconfiguredCount = recipesQuery.data?.filter(r => !r.isConfigured).length || 0;
@@ -203,13 +249,15 @@ const unconfiguredCount = recipesQuery.data?.filter(r => !r.isConfigured).length
               <p className="mt-1 text-sm text-muted-foreground">Manage suppliers, purchase orders, lots, intermediate preps, transfers, recipe yields, and margins.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setSettingsOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft hover:bg-secondary"
-              >
-                <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                Costing & Policy
-              </button>
+              {canConfigureCosting && (
+                <button
+                  onClick={() => setSettingsOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft hover:bg-secondary"
+                >
+                  <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+                  Costing & Policy
+                </button>
+              )}
             </div>
           </div>
 

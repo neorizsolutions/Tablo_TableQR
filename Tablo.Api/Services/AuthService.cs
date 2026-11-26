@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Tablo.Api.Data;
 using Tablo.Api.DTOs;
+using Tablo.Api.Hubs;
 using Tablo.Api.Interfaces;
 
 namespace Tablo.Api.Services
@@ -14,12 +15,18 @@ namespace Tablo.Api.Services
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IEmailService _emailService;
+        private readonly ISupportConnectionRevoker? _revoker;
 
-        public AuthService(ApplicationDbContext context, IConfiguration configuration, IEmailService emailService)
+        public AuthService(
+            ApplicationDbContext context,
+            IConfiguration configuration,
+            IEmailService emailService,
+            ISupportConnectionRevoker? revoker = null)
         {
             _context = context;
             _configuration = configuration;
             _emailService = emailService;
+            _revoker = revoker;
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request)
@@ -148,6 +155,10 @@ namespace Tablo.Api.Services
             employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             employee.SecurityStamp = Guid.NewGuid().ToString("N");
             await _context.SaveChangesAsync();
+            if (_revoker != null)
+            {
+                await _revoker.RevokeEmployeeConnectionsAsync(employee.Id, "Session invalidated due to password change.");
+            }
         }
 
         public async Task ForgotPasswordAsync(string email)
@@ -284,6 +295,11 @@ Tablo";
                     .SetProperty(e => e.ResetOtpExpiration, (DateTime?)null));
             if (updated == 0)
                 throw new Exception("Invalid or expired reset token.");
+
+            if (_revoker != null)
+            {
+                await _revoker.RevokeEmployeeConnectionsAsync(employee.Id, "Session invalidated due to password reset.");
+            }
         }
     }
 }
