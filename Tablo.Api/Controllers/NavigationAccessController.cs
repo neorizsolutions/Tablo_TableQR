@@ -25,7 +25,7 @@ public class NavigationAccessController(
     {
         if (User.IsInRole("SuperAdmin")) return Ok(new MenuAccessDto(null));
         var employee = await db.Employees.AsNoTracking().Include(e => e.Role)
-            .FirstOrDefaultAsync(e => e.Id == User.GetUserId() && e.RestaurantId == User.GetRestaurantId() && e.IsActive);
+            .FirstOrDefaultAsync(e => e.Id == User.GetUserId() && e.RestaurantId == User.GetRestaurantId() && !e.IsDeleted && e.IsActive);
         return employee == null ? Forbid() : Ok(new MenuAccessDto(NavigationAccess.EffectiveOverride(employee)));
     }
 
@@ -34,7 +34,7 @@ public class NavigationAccessController(
     public async Task<ActionResult<MenuAccessDto>> GetEmployee(Guid id)
     {
         var employee = await db.Employees.AsNoTracking().Include(e => e.Role)
-            .FirstOrDefaultAsync(e => e.Id == id && e.RestaurantId == User.GetRestaurantId());
+            .FirstOrDefaultAsync(e => e.Id == id && e.RestaurantId == User.GetRestaurantId() && !e.IsDeleted);
         return employee == null ? NotFound() : Ok(new MenuAccessDto(NavigationAccess.EffectiveOverride(employee)));
     }
 
@@ -45,6 +45,10 @@ public class NavigationAccessController(
         var employee = await db.Employees.Include(e => e.Role)
             .FirstOrDefaultAsync(e => e.Id == id && e.RestaurantId == User.GetRestaurantId());
         if (employee == null) return NotFound();
+        if (employee.IsDeleted)
+        {
+            return BadRequest(new { message = "Menu access cannot be updated for a deleted staff account." });
+        }
 
         var ids = request.AllowedMenuIds?.Distinct(StringComparer.Ordinal).ToArray();
         if (ids != null)

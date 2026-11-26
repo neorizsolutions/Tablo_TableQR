@@ -81,7 +81,7 @@ test("Cashier defaults only to cashier billing while allowing explicit cross-rol
       "parcel-counter",
       "cashier-billing",
     ]).map((item) => item.id),
-    ["overview", "cashier-billing", "staff-order-taking", "parcel-counter"],
+    ["overview", "staff-order-taking", "cashier-billing", "parcel-counter"],
   );
   assert.deepEqual(
     getEmployeeNavItems("Cashier", []).map((item) => item.id),

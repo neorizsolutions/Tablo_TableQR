@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Eye, EyeOff, Loader2, ShieldAlert, LogIn, LogOut, Plus, Pencil, Power, PowerOff, X } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldAlert, LogIn, LogOut, Plus, Pencil, Power, PowerOff, Trash2, Search, AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { AppLayout } from "@/components/app-layout";
 import { useAuth } from "@/hooks/use-auth";
-import { useStaff, useCreateEmployee, useUpdateEmployee, useUpdateEmployeeStatus } from "@/hooks/use-staff";
-import { Employee } from "@/services/api";
+import { useStaff, useEmployeeCounts, useCreateEmployee, useUpdateEmployee, useUpdateEmployeeStatus, useDeleteEmployee } from "@/hooks/use-staff";
+import { Employee, type EmployeeStatusFilter } from "@/services/api";
 
 export const Route = createFileRoute("/staff")({
   head: () => ({
@@ -87,14 +87,35 @@ function NoAccessGate({ roles, onSignOut }: { roles: string[]; onSignOut: () => 
 }
 
 function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
-  const { data: employees, isLoading } = useStaff();
+  const [statusFilter, setStatusFilter] = useState<EmployeeStatusFilter>("active");
+  const [search, setSearch] = useState("");
+
+  const { data: employees, isLoading } = useStaff(statusFilter);
+  const countsQuery = useEmployeeCounts();
   const { mutateAsync: updateStatus } = useUpdateEmployeeStatus();
+  const { mutateAsync: deleteEmp, isPending: isDeleting } = useDeleteEmployee();
 
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
+  const [deleting, setDeleting] = useState<Employee | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredEmployees = (employees || []).filter((emp) => {
+    if (!normalizedSearch) return true;
+    return `${emp.firstName} ${emp.lastName} ${emp.email} ${emp.role}`
+      .toLowerCase()
+      .includes(normalizedSearch);
+  });
+
+  const filterOptions: { value: EmployeeStatusFilter; label: string; count?: number }[] = [
+    { value: "active", label: "Active", count: countsQuery.data?.active },
+    { value: "inactive", label: "Inactive", count: countsQuery.data?.inactive },
+    { value: "all", label: "All", count: countsQuery.data?.all },
+  ];
 
   const toggleStatus = async (employee: Employee) => {
-    if (employee.email === currentUserEmail) {
+    if (employee.email.toLowerCase() === currentUserEmail.toLowerCase()) {
       toast.error("You cannot deactivate your own account.");
       return;
     }
@@ -114,6 +135,29 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
     }
   };
 
+  const requestDelete = (employee: Employee) => {
+    if (employee.email.toLowerCase() === currentUserEmail.toLowerCase()) {
+      toast.error("You cannot delete your own account.");
+      return;
+    }
+    setDeleteError(null);
+    setDeleting(employee);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDeleteError(null);
+    try {
+      await deleteEmp(deleting.id);
+      toast.success(`${deleting.firstName} ${deleting.lastName} deleted from staff lists`);
+      setDeleting(null);
+    } catch (err: any) {
+      const message = err?.message || "Failed to delete employee";
+      setDeleteError(message);
+      toast.error(message);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="min-h-screen bg-secondary/40">
@@ -129,7 +173,57 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
           </button>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <div
+            role="group"
+            aria-label="Filter employees by status"
+            className="inline-flex rounded-full border border-border bg-card p-1 shadow-soft"
+          >
+            {filterOptions.map((opt) => {
+              const selected = statusFilter === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={selected}
+                  data-status-filter={opt.value}
+                  onClick={() => setStatusFilter(opt.value)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                    selected
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  {typeof opt.count === "number" && (
+                    <span
+                      className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${
+                        selected ? "bg-white/20 text-primary-foreground" : "bg-secondary text-foreground"
+                      }`}
+                    >
+                      {opt.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <label className="relative block w-full sm:w-72">
+            <span className="sr-only">Search employees</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, email, or role..."
+              aria-label="Search employees"
+              className="w-full rounded-full border border-border bg-card py-2 pl-9 pr-4 text-sm outline-none transition focus:border-primary"
+            />
+          </label>
+        </div>
+
+        <div className="mt-4">
           <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
             <table className="w-full text-sm">
               <thead className="hidden border-b border-border bg-secondary/50 text-left text-xs uppercase tracking-wider text-muted-foreground md:table-header-group">
@@ -145,8 +239,41 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
                 {isLoading && (
                   <tr><td colSpan={5} className="p-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" /></td></tr>
                 )}
-                {!isLoading && employees?.map((emp) => (
-                  <tr key={emp.id} className="block p-4 md:table-row md:p-0">
+                {!isLoading && filteredEmployees.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-10 text-center">
+                      <p className="font-semibold text-foreground">
+                        {normalizedSearch
+                          ? `No ${statusFilter === "all" ? "" : `${statusFilter} `}staff match "${search.trim()}".`
+                          : statusFilter === "active"
+                            ? "No active employees found."
+                            : statusFilter === "inactive"
+                              ? "No inactive employees found."
+                              : "No employees found."}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {normalizedSearch
+                          ? "Try clearing the search query or switching the status filter."
+                          : statusFilter === "active"
+                            ? "Switch to Inactive or All to review deactivated staff accounts."
+                            : "Deleted accounts are permanently archived from staff lists while historical records stay intact."}
+                      </p>
+                      {normalizedSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setSearch("")}
+                          className="mt-3 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-semibold hover:bg-secondary"
+                        >
+                          Clear search
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && filteredEmployees.map((emp) => {
+                  const isSelf = emp.email.toLowerCase() === currentUserEmail.toLowerCase();
+                  return (
+                  <tr key={emp.id} data-employee-id={emp.id} className="block p-4 md:table-row md:p-0">
                     <td className="md:p-4">
                       <p className="font-semibold">{emp.firstName} {emp.lastName}</p>
                     </td>
@@ -190,9 +317,20 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
                           <><Power className="h-3.5 w-3.5" /> Activate</>
                         )}
                       </button>
+                      <button
+                        type="button"
+                        disabled={isSelf}
+                        aria-label={`Delete ${emp.firstName} ${emp.lastName}`}
+                        title={isSelf ? "You cannot delete your own account" : `Delete ${emp.firstName} ${emp.lastName}`}
+                        onClick={() => requestDelete(emp)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-card px-3 py-1.5 text-xs font-semibold text-destructive transition hover:bg-destructive hover:text-destructive-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card disabled:hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -204,8 +342,105 @@ function StaffInner({ currentUserEmail }: { currentUserEmail: string }) {
           onClose={() => { setCreating(false); setEditing(null); }} 
         />
       )}
+      {deleting && (
+        <DeleteEmployeeDialog
+          employee={deleting}
+          busy={isDeleting}
+          error={deleteError}
+          onCancel={() => { if (!isDeleting) { setDeleting(null); setDeleteError(null); } }}
+          onConfirm={() => void confirmDelete()}
+        />
+      )}
       </div>
     </AppLayout>
+  );
+}
+
+function DeleteEmployeeDialog({
+  employee,
+  busy,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  employee: Employee;
+  busy: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-employee-title"
+      className="fixed inset-0 z-50 grid place-items-center p-4"
+    >
+      <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative w-full max-w-md animate-float-up rounded-3xl bg-card p-6 shadow-glow">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-destructive/10 text-destructive">
+              <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-destructive">Archive Staff Account</p>
+              <h2 id="delete-employee-title" className="font-display text-xl font-bold">
+                Delete {employee.firstName} {employee.lastName}?
+              </h2>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={busy}
+            aria-label="Close delete dialog"
+            onClick={onCancel}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-secondary transition hover:bg-border disabled:opacity-50"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-border bg-secondary/40 p-3.5 text-sm">
+          <p className="font-semibold text-foreground">{employee.firstName} {employee.lastName}</p>
+          <p className="break-all text-xs text-muted-foreground">{employee.email}</p>
+          <span className="mt-1.5 inline-flex rounded-full bg-card px-2 py-0.5 text-[11px] font-semibold text-foreground">
+            {employee.role}
+          </span>
+        </div>
+
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          Deleting this account removes it from active and inactive staff lists and prevents sign-in immediately.
+          Existing orders, bills, payments, support messages, and audit history remain attributed to this employee record.
+        </p>
+
+        {error && (
+          <div role="alert" className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onCancel}
+            className="rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold transition hover:bg-secondary disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onConfirm}
+            className="inline-flex items-center gap-1.5 rounded-full bg-destructive px-4 py-2 text-xs font-semibold text-destructive-foreground transition hover:opacity-90 disabled:opacity-60"
+          >
+            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Delete Staff Account
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

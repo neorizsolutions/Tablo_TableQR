@@ -79,7 +79,7 @@ namespace Tablo.Api.Controllers
         public async Task<IActionResult> Onboard([FromBody] SysAdminOnboardDto request)
         {
             // 1. Check if email already exists
-            if (await _context.Employees.AnyAsync(e => e.Email == request.AdminEmail))
+            if (await _context.Employees.AnyAsync(e => e.Email == request.AdminEmail && !e.IsDeleted))
             {
                 return BadRequest(new { message = "An account with this email already exists." });
             }
@@ -187,7 +187,7 @@ namespace Tablo.Api.Controllers
                     r.ContactEmail,
                     CreatedAt = r.CreatedAt,
                     IsActive = _context.Employees
-                        .Where(e => e.RestaurantId == r.Id && e.RoleId == adminRole.Id)
+                        .Where(e => e.RestaurantId == r.Id && !e.IsDeleted && e.RoleId == adminRole.Id)
                         .Select(e => (bool?)e.IsActive)
                         .FirstOrDefault() ?? false,
                     PlanCode = r.Subscription != null ? r.Subscription.Plan.Code : "none",
@@ -195,7 +195,7 @@ namespace Tablo.Api.Controllers
                     SubscriptionStatus = r.Subscription != null ? r.Subscription.Status.ToString() : "None",
                     OutletsCount = r.Outlets.Count(),
                     ActiveUsers = _context.Employees
-                        .Where(e => e.RestaurantId == r.Id && e.IsActive)
+                        .Where(e => e.RestaurantId == r.Id && !e.IsDeleted && e.IsActive)
                         .Select(e => new {
                             e.FirstName,
                             e.LastName,
@@ -213,7 +213,7 @@ namespace Tablo.Api.Controllers
         [HttpPut("tenants/{restaurantId}/toggle-status")]
         public async Task<IActionResult> ToggleTenantStatus(Guid restaurantId)
         {
-            var allEmployees = await _context.Employees.Where(e => e.RestaurantId == restaurantId).ToListAsync();
+            var allEmployees = await _context.Employees.Where(e => e.RestaurantId == restaurantId && !e.IsDeleted).ToListAsync();
             
             if (!allEmployees.Any())
             {

@@ -76,6 +76,7 @@ namespace Tablo.Api.Data
         public DbSet<SupportMessage> SupportMessages { get; set; } = null!;
         public DbSet<SupportEscalationLog> SupportEscalationLogs { get; set; } = null!;
         public DbSet<SupportAuditLog> SupportAuditLogs { get; set; } = null!;
+        public DbSet<EmployeeAuditLog> EmployeeAuditLogs { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

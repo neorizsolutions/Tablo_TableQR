@@ -56,7 +56,7 @@ namespace Tablo.Api.Services
                 .AsNoTracking()
                 .Include(e => e.Role)
                 .Include(e => e.Restaurant)
-                .FirstOrDefaultAsync(e => e.Id == employeeId && e.RestaurantId == restaurantId && e.IsActive, ct);
+                .FirstOrDefaultAsync(e => e.Id == employeeId && e.RestaurantId == restaurantId && !e.IsDeleted && e.IsActive, ct);
 
             if (employee == null)
                 throw new UnauthorizedAccessException("Account is inactive or not found.");
@@ -300,7 +300,10 @@ namespace Tablo.Api.Services
                 throw;
             }
 
-            conversation.Restaurant = actor.Restaurant;
+            // Keep navigation fixup on the context identity map when this scoped service is reused.
+            // The validated actor is read without tracking and may carry another Restaurant instance.
+            conversation.Restaurant = await db.Restaurants.FindAsync([restaurantId], cancellationToken)
+                ?? throw new KeyNotFoundException("Support restaurant not found.");
             var summaryDto = ToSummaryDto(conversation, now);
             var msgDto = ToMessageDto(message);
 

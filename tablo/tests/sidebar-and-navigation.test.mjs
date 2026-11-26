@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NAVIGATION_REGISTRY, getDashboardTab, isNavigationItemActive } from "../src/config/navigation.ts";
+import {
+  MENU_SECTIONS,
+  MENU_SECTION_LABELS,
+  NAVIGATION_REGISTRY,
+  SUPER_ADMIN_NAVIGATION,
+  getDashboardTab,
+  getEmployeeNavItems,
+  isNavigationItemActive,
+} from "../src/config/navigation.ts";
 
 function computeActiveItem(pathname, search) {
   return NAVIGATION_REGISTRY.filter((item) => isNavigationItemActive(item, pathname, search.tab));
@@ -96,4 +104,63 @@ test("11. Sidebar highlights Payment Reports on /reports", () => {
   assert.equal(active.length, 1);
   assert.equal(active[0].id, "financial-reports");
   assert.equal(active[0].label, "Payment Reports");
+});
+
+test("12. Sidebar and navigation registry follow daily operational priority with zero duplicates", () => {
+  const ids = NAVIGATION_REGISTRY.map((item) => item.id);
+  assert.equal(new Set(ids).size, ids.length, "NAVIGATION_REGISTRY must not contain duplicate IDs");
+
+  assert.deepEqual(MENU_SECTIONS, ["operations", "inventory", "analytics", "management", "utility"]);
+  assert.equal(MENU_SECTION_LABELS.operations, "Daily Operations");
+  assert.equal(MENU_SECTION_LABELS.management, "Restaurant Administration");
+
+  const expectedOrderedIds = [
+    // Daily Operations
+    "overview",
+    "staff-order-taking",
+    "orders-servicedesk",
+    "kitchen-queue",
+    "cashier-billing",
+    "table-billing",
+    "parcel-counter",
+    "marketplace-automation",
+    // Inventory & Stock
+    "inventory-stock",
+    "inventory-recipes",
+    "inventory-preparations",
+    "purchasing-orders",
+    "inventory-suppliers",
+    "inventory-movements",
+    "lots-expiry",
+    "outlet-transfers",
+    "inventory-stocktakes",
+    "central-kitchen",
+    // Reports & Analytics
+    "financial-reports",
+    "stock-valuation-report",
+    "gross-profit-report",
+    // Restaurant Administration
+    "menu-management",
+    "tables-qr",
+    "crm-loyalty",
+    "storefront-settings",
+    "staff-management",
+    "staff-menu-access",
+    // Bottom utility
+    "support",
+  ];
+  assert.deepEqual(ids, expectedOrderedIds);
+});
+
+test("13. Custom overrides and role defaults respect operational priority and Super Admin separation", () => {
+  const customWaiter = getEmployeeNavItems("Waiter", [
+    "menu-management",
+    "cashier-billing",
+    "staff-order-taking",
+  ]);
+  assert.deepEqual(
+    customWaiter.map((x) => x.id),
+    ["staff-order-taking", "cashier-billing", "menu-management"],
+  );
+  assert.ok(SUPER_ADMIN_NAVIGATION.every((item) => item.section === "platform"));
 });

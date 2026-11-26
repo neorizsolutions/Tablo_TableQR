@@ -414,7 +414,7 @@ async function main() {
     assert(basicWaiterList.length === 25, `Expected 25 assignable menus for Waiter, got ${basicWaiterList.length}`);
     assert(!basicWaiterList.some((x) => ["staff-management", "staff-menu-access", "support"].includes(x.id)), "Admin-only menus must not be assignable to Waiter");
     assert(!basicWaiterList.some((x) => x.id.startsWith("sa-")), "SuperAdmin menus must never appear");
-    assert(basicWaiterList.filter((x) => x.checked).map((x) => x.id).join(",") === "overview,orders-servicedesk,staff-order-taking,table-billing", "Waiter defaults incorrect");
+    assert(basicWaiterList.filter((x) => x.checked).map((x) => x.id).join(",") === "overview,staff-order-taking,orders-servicedesk,table-billing", "Waiter defaults incorrect");
     const invItemBasic = basicWaiterList.find((x) => x.id === "inventory-stock");
     assert(invItemBasic && !invItemBasic.planAvailable && invItemBasic.disabled && invItemBasic.text.includes("Requires Premium plan"), `Expected disabled Premium requirement on inventory-stock, got ${JSON.stringify(invItemBasic)}`);
     await capture(adminPage, "01-menu-access-basic-plan-waiter-full-checklist.png");

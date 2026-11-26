@@ -87,6 +87,6 @@ public class NavigationAccessTests
         var employee = await db.Employees.SingleAsync(e => e.Id == host.Actor);
         employee.IsActive = false;
         await db.SaveChangesAsync();
-        Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/navigation-access")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await staff.GetAsync("/api/navigation-access")).StatusCode);
     }
 }
