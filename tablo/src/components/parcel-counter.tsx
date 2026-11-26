@@ -1,4 +1,4 @@
-import { confirmClose, showNotice } from "@/lib/confirmation";
+import { showNotice } from "@/lib/confirmation";
 import React, { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { UpiQrResponseDto } from "@/services/parcel";
@@ -702,7 +702,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => void confirmClose(onClose)}
+              onClick={() => onClose()}
               className="ml-2 text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4 mr-1" />
@@ -1661,7 +1661,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
           </div>
 
           <DialogFooter className="flex sm:justify-between gap-2">
-            <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setPayoutModalOpen(false))}>
+            <Button variant="outline" size="sm" onClick={() => setPayoutModalOpen(false)}>
               Cancel
             </Button>
             <Button size="sm" disabled={savingPayout || !payoutRef} onClick={handleRecordPayout}>
@@ -1817,7 +1817,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
             >
               Collect Payment Now
             </Button>
-            <Button size="sm" onClick={() => void confirmClose(() => setCreatedOrder(null))}>
+            <Button size="sm" onClick={() => setCreatedOrder(null)}>
               Done
             </Button>
           </DialogFooter>
@@ -2179,7 +2179,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
           })()}
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setPaymentModalOrder(null))}>
+            <Button variant="outline" size="sm" onClick={() => setPaymentModalOrder(null)}>
               Close
             </Button>
           </DialogFooter>
@@ -2212,7 +2212,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setReprintModalJob(null))}>
+            <Button variant="outline" size="sm" onClick={() => setReprintModalJob(null)}>
               Cancel
             </Button>
             <Button size="sm" onClick={handleReprintReceipt} disabled={reprinting} className="font-bold">
@@ -2258,7 +2258,7 @@ export function ParcelCounter({ restaurantId, employeeId, onClose }: ParcelCount
             </div>
           </div>
           <DialogFooter className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => void confirmClose(() => setRescheduleOrderModal(null))}>
+            <Button variant="outline" size="sm" onClick={() => setRescheduleOrderModal(null)}>
               Cancel
             </Button>
             <Button

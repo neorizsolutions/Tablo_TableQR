@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { printingService, type KitchenStation } from "@/services/printing";
-import { confirmClose, confirmAction, showNotice } from "@/lib/confirmation";
+import { confirmAction, showNotice } from "@/lib/confirmation";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useId } from "react";
 import { Eye, Languages, Loader2, Pencil, Plus, QrCode, Search, Sparkles, X, Trash2, FolderPlus, LogIn, ShieldAlert, LogOut, Printer, Settings, Sliders } from "lucide-react";
@@ -750,14 +750,14 @@ function AdminInner() {
 
           return (
           <div className="fixed inset-0 z-50 grid place-items-center p-4">
-            <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(onClose)} />
+            <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => onClose()} />
             <div className="relative w-full max-w-2xl animate-float-up rounded-3xl bg-card p-6 shadow-glow max-h-[85vh] flex flex-col">
               <div className="flex items-start justify-between shrink-0">
                 <div>
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">Manage</p>
                   <h2 className="font-display text-xl font-bold">Tables & QR Codes</h2>
                 </div>
-                <button onClick={() => void confirmClose(onClose)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+                <button onClick={() => onClose()} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
               </div>
 
               <div className="mt-4 flex gap-2 shrink-0">
@@ -911,14 +911,14 @@ function AdminInner() {
 
             return (
             <div className="fixed inset-0 z-50 grid place-items-center p-4">
-              <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(onClose)} />
+              <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => onClose()} />
               <div className="relative w-full max-w-lg animate-float-up rounded-3xl bg-card p-6 shadow-glow">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-wider text-muted-foreground">{item ? "Edit item" : "New item"}</p>
                     <h2 className="font-display text-xl font-bold">{item ? item.name : "Create Menu Item"}</h2>
                   </div>
-                  <button onClick={() => void confirmClose(onClose)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+                  <button onClick={() => onClose()} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -971,7 +971,7 @@ function AdminInner() {
                   </div>
                 </div>
                 <div className="mt-5 flex justify-end gap-2">
-                  <button onClick={() => void confirmClose(onClose)} className="rounded-full border border-border px-4 py-2 text-sm font-semibold">Cancel</button>
+                  <button onClick={() => onClose()} className="rounded-full border border-border px-4 py-2 text-sm font-semibold">Cancel</button>
                   <button onClick={save} disabled={busy} className="inline-flex items-center gap-2 rounded-full bg-gradient-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-soft disabled:opacity-60">
                     {busy && <Loader2 className="h-4 w-4 animate-spin" />} {item ? "Save changes" : "Create item"}
                   </button>
@@ -1007,6 +1007,28 @@ function CategoriesModal({ restaurantId, categories, onClose, onCreate, onUpdate
   const [busy, setBusy] = useState(false);
   const stationsQuery = useQuery({ queryKey: ["kitchen-stations", restaurantId], queryFn: () => printingService.getStations(restaurantId) });
   const stations = stationsQuery.data ?? [];
+  const [showKitchenSetup, setShowKitchenSetup] = useState(false);
+  const [kitchenName, setKitchenName] = useState("");
+  const [kitchenCode, setKitchenCode] = useState("");
+  const [kitchenError, setKitchenError] = useState("");
+  const activeStations = stations.filter(station => station.isActive);
+  const createKitchen = async () => {
+    if (!kitchenName.trim() || !kitchenCode.trim() || busy) return;
+    setBusy(true);
+    setKitchenError("");
+    try {
+      const created = await printingService.createStation(restaurantId, {
+        name: kitchenName.trim(), code: kitchenCode.trim().toUpperCase(),
+        isDefault: activeStations.length === 0,
+      });
+      await stationsQuery.refetch();
+      setStationId(created.id);
+      setKitchenName(""); setKitchenCode(""); setShowKitchenSetup(false);
+      toast.success("Kitchen created. It is selected for this category.");
+    } catch (error: any) {
+      setKitchenError(error.message || "Unable to create kitchen.");
+    } finally { setBusy(false); }
+  };
   const unavailable = !!stationId && !stations.some(station => station.id === stationId && station.isActive);
   const reset = () => { setName(""); setStationId(""); setEditingId(null); };
   const save = async () => {
@@ -1019,19 +1041,31 @@ function CategoriesModal({ restaurantId, categories, onClose, onCreate, onUpdate
     } catch { /* Parent reports the error. Keep the form for retry. */ }
     finally { setBusy(false); }
   };
-  return <div role="dialog" aria-modal="true" aria-labelledby="categories-title" className="fixed inset-0 z-50 grid place-items-center p-4" onKeyDown={event => { if (event.key === "Escape" && !busy) void confirmClose(onClose); }}>
-    <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => { if (!busy) void confirmClose(onClose); }} />
+  return <div role="dialog" aria-modal="true" aria-labelledby="categories-title" className="fixed inset-0 z-50 grid place-items-center p-4" onKeyDown={event => { if (event.key === "Escape" && !busy) onClose(); }}>
+    <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => { if (!busy) onClose(); }} />
     <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-y-auto rounded-3xl bg-card p-6 shadow-glow">
-      <div className="flex items-center justify-between"><h2 id="categories-title" className="text-xl font-bold">Categories</h2><button type="button" aria-label="Close categories" disabled={busy} onClick={() => void confirmClose(onClose)}><X className="h-5 w-5" /></button></div>
+      <div className="flex items-center justify-between"><h2 id="categories-title" className="text-xl font-bold">Categories</h2><button type="button" aria-label="Close categories" disabled={busy} onClick={() => onClose()}><X className="h-5 w-5" /></button></div>
       <div className="mt-4 rounded-2xl border p-4">
         <h3 className="font-semibold">{editingId ? "Edit category" : "Add category"}</h3>
         <label className="mt-3 block text-sm">Category name<input aria-label="Category name" disabled={busy} value={name} onChange={event => setName(event.target.value)} className="mt-1 w-full rounded-xl border bg-background px-3 py-2" /></label>
-        {stationsQuery.isPending ? <p className="mt-3 text-sm">Loading kitchens…</p> : stationsQuery.isError ? <div className="mt-3 text-sm text-destructive">Unable to load kitchens. <button onClick={() => void stationsQuery.refetch()}>Retry</button></div> : <KitchenChoices stations={stations} value={stationId} onChange={setStationId} disabled={busy} />}
-        <div className="mt-4 flex justify-end gap-3">{editingId && <button disabled={busy} onClick={() => void confirmClose(reset)} className="rounded-full border px-4 py-2 text-sm">Cancel edit</button>}<button disabled={busy || !name.trim() || unavailable || !stationsQuery.isSuccess} onClick={save} className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Saving…" : editingId ? "Save category" : "Add category"}</button></div>
+        {stationsQuery.isPending ? <p className="mt-3 text-sm">Loading kitchens…</p> : stationsQuery.isError ? <div className="mt-3 text-sm text-destructive">Unable to load kitchens. <button onClick={() => void stationsQuery.refetch()}>Retry</button></div> : <>
+          <KitchenChoices stations={stations} value={stationId} onChange={setStationId} disabled={busy} />
+          {activeStations.length === 0 && <p role="status" className="mt-3 rounded-xl bg-secondary p-3 text-sm">No active kitchens are configured for this restaurant. Create a kitchen below to choose where this category is prepared.</p>}
+          {(showKitchenSetup || activeStations.length === 0) ? <div className="mt-3 space-y-3 rounded-xl border p-3">
+            <h4 className="text-sm font-semibold">Add a kitchen</h4>
+            <div className="flex flex-wrap gap-2">{[{ name: "Food Kitchen", code: "FOOD" }, { name: "Beverage Station", code: "BEV" }].map(suggestion => <button type="button" key={suggestion.code} disabled={busy} onClick={() => { setKitchenName(suggestion.name); setKitchenCode(suggestion.code); }} className="rounded-full border px-3 py-1 text-xs">{suggestion.name}</button>)}</div>
+            <label className="block text-sm">Kitchen name<input aria-label="Kitchen name" maxLength={100} disabled={busy} value={kitchenName} onChange={event => setKitchenName(event.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2" /></label>
+            <label className="block text-sm">Kitchen code<input aria-label="Kitchen code" maxLength={20} disabled={busy} value={kitchenCode} onChange={event => setKitchenCode(event.target.value.toUpperCase())} placeholder="e.g. FOOD or BEV" className="mt-1 w-full rounded-lg border bg-background px-3 py-2" /></label>
+            {kitchenError && <p role="alert" className="text-sm text-destructive">{kitchenError}</p>}
+            <p className="text-xs text-muted-foreground">Your plan must include kitchen printing and allow the number of kitchens. Enable separate routing and assign printers in Kitchen & Printing.</p>
+            <div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={() => { setShowKitchenSetup(false); setKitchenName(""); setKitchenCode(""); setKitchenError(""); }} className="rounded-full border px-3 py-2 text-xs">Clear</button><button type="button" disabled={busy || !kitchenName.trim() || !kitchenCode.trim()} onClick={createKitchen} className="rounded-full bg-primary px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{busy ? "Creating…" : "Create kitchen"}</button></div>
+          </div> : <button type="button" disabled={busy} onClick={() => setShowKitchenSetup(true)} className="mt-3 rounded-full border px-3 py-2 text-xs font-semibold">Add kitchen</button>}
+        </>}
+        <div className="mt-4 flex justify-end gap-3">{editingId && <button disabled={busy} onClick={() => reset()} className="rounded-full border px-4 py-2 text-sm">Cancel edit</button>}<button disabled={busy || !name.trim() || unavailable || !stationsQuery.isSuccess} onClick={save} className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Saving…" : editingId ? "Save category" : "Add category"}</button></div>
       </div>
       <div className="mt-4 space-y-2">{categories.map(category => <div key={category.id} className="flex items-center gap-3 rounded-xl border p-3">
         <div className="min-w-0 flex-1"><p className="truncate font-semibold">{category.name}</p><p className="text-xs text-muted-foreground">{stations.find(station => station.id === category.kitchenStationId)?.name ?? (category.kitchenStationId ? "Unavailable kitchen" : "Restaurant default kitchen")}</p></div>
-        <button disabled={busy} aria-label={`Edit ${category.name}`} onClick={async () => { if ((name || editingId) && !await confirmAction({ title: "Switch category?", description: "Unsaved category changes will be discarded.", confirmLabel: "Switch category" })) return; setEditingId(category.id); setName(category.name); setStationId(category.kitchenStationId ?? ""); }}><Pencil className="h-4 w-4" /></button>
+        <button disabled={busy} aria-label={`Edit ${category.name}`} onClick={async () => { setEditingId(category.id); setName(category.name); setStationId(category.kitchenStationId ?? ""); }}><Pencil className="h-4 w-4" /></button>
         <button disabled={busy} aria-label={`Delete ${category.name}`} className="text-destructive" onClick={async () => { setBusy(true); try { await onDelete(category.id); } finally { setBusy(false); } }}><Trash2 className="h-4 w-4" /></button>
       </div>)}</div>
     </div>
@@ -1067,14 +1101,14 @@ function CategoriesModal({ restaurantId, categories, onClose, onCreate, onUpdate
 
               return (
               <div className="fixed inset-0 z-50 grid place-items-center p-4">
-                <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(onClose)} />
+                <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => onClose()} />
                 <div className="relative w-full max-w-md animate-float-up rounded-3xl bg-card p-6 shadow-glow max-h-[80vh] flex flex-col">
                   <div className="flex items-start justify-between shrink-0 mb-6">
                     <div>
                       <p className="text-xs uppercase tracking-wider text-muted-foreground">Manage</p>
                       <h2 className="font-display text-xl font-bold">Restaurant Settings</h2>
                     </div>
-                    <button onClick={() => void confirmClose(onClose)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+                    <button onClick={() => onClose()} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
                   </div>
 
                   {isLoading ? (
@@ -1262,14 +1296,14 @@ function CategoriesModal({ restaurantId, categories, onClose, onCreate, onUpdate
 
                 return (
                 <div className="fixed inset-0 z-50 grid place-items-center p-4">
-                  <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => void confirmClose(onClose)} />
+                  <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => onClose()} />
                   <div className="relative w-full max-w-3xl animate-float-up rounded-3xl bg-card p-6 shadow-glow max-h-[90vh] flex flex-col">
                     <div className="flex items-start justify-between shrink-0 mb-4">
                       <div>
                         <p className="text-xs uppercase tracking-wider text-muted-foreground">Kitchen &amp; Production</p>
                         <h2 className="font-display text-xl font-bold">Priced Modifiers &amp; Swaps</h2>
                       </div>
-                      <button onClick={() => void confirmClose(onClose)} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+                      <button onClick={() => onClose()} className="grid h-8 w-8 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
                     </div>
 
                     <div className="flex gap-2 border-b border-border pb-3 mb-4 shrink-0">

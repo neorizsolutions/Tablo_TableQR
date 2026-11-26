@@ -1,4 +1,3 @@
-import { confirmClose } from "@/lib/confirmation";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -831,7 +830,7 @@ function RestaurantSupportWorkspace() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => void confirmClose(() => setNewOpen(false))}>
+              <Button type="button" variant="outline" onClick={() => setNewOpen(false)}>
                 Cancel
               </Button>
               <Button

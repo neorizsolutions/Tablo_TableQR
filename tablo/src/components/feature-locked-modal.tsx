@@ -1,4 +1,3 @@
-import { confirmClose } from "@/lib/confirmation";
 import {
   Dialog,
   DialogContent,
@@ -80,7 +79,7 @@ export function FeatureLockedModal({
         </div>
 
         <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={() => void confirmClose(() => onOpenChange(false))}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
           <Button

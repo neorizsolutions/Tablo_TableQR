@@ -1,4 +1,3 @@
-import { confirmClose } from "@/lib/confirmation";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { Loader2, LogIn, Search, X, FileText, ChevronLeft, ChevronRight, TrendingUp, ShoppingBag, DollarSign, Receipt, Download } from "lucide-react";
@@ -493,7 +492,7 @@ function ReportsInner() {
                 <h2 className="font-display text-lg font-bold">Order {selectedOrder.displayOrderNumber}</h2>
                 <p className="text-xs text-muted-foreground">Table {selectedOrder.tableName} &bull; {new Date(selectedOrder.createdAt).toLocaleString()}</p>
               </div>
-              <button onClick={() => void confirmClose(() => setSelectedOrder(null))} className="rounded-full p-2 hover:bg-secondary">
+              <button onClick={() => setSelectedOrder(null)} className="rounded-full p-2 hover:bg-secondary">
                 <X className="h-5 w-5" />
               </button>
             </div>
