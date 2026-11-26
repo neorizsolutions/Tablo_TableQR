@@ -185,7 +185,7 @@ public class SubscriptionService : ISubscriptionService
         _context.SubscriptionAuditLogs.Add(new SubscriptionAuditLog
         {
             Id = Guid.NewGuid(),
-            RestaurantId = Guid.Empty, // System-wide plan edit
+            RestaurantId = null, // System-wide plan edits have no restaurant.
             ActorEmail = actorEmail,
             Action = "FeaturesUpdated",
             ToPlanId = plan.Id,

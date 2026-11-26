@@ -86,7 +86,7 @@ public class UpdatePlanFeaturesRequestDto
 public class SubscriptionAuditLogDto
 {
     public Guid Id { get; set; }
-    public Guid RestaurantId { get; set; }
+    public Guid? RestaurantId { get; set; }
     public string RestaurantName { get; set; } = string.Empty;
     public string ActorEmail { get; set; } = string.Empty;
     public string Action { get; set; } = string.Empty;

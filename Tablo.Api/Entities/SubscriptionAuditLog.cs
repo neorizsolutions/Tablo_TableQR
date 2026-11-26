@@ -6,8 +6,8 @@ public class SubscriptionAuditLog
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    public Guid RestaurantId { get; set; }
-    public Restaurant Restaurant { get; set; } = null!;
+    public Guid? RestaurantId { get; set; }
+    public Restaurant? Restaurant { get; set; }
 
     public Guid? SubscriptionId { get; set; }
     public Subscription? Subscription { get; set; }
