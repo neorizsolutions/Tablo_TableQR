@@ -1,4 +1,3 @@
-import { confirmClose } from "@/lib/confirmation";
 import {
   Dialog,
   DialogContent,
@@ -138,7 +137,7 @@ export function SubscriptionDetailsModal({
 
         <div className="flex justify-between items-center pt-2 border-t">
           <p className="text-[11px] text-muted-foreground">Need changes? Contact your Super Administrator.</p>
-          <Button variant="outline" size="sm" onClick={() => void confirmClose(() => onOpenChange(false))}>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Dismiss
           </Button>
         </div>

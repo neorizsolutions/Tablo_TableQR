@@ -27,9 +27,7 @@ export function confirmAction(options: ConfirmationOptions | string): Promise<bo
     emit();
   });
 }
-export async function confirmClose(close: () => void) {
-  if (await confirmAction({ title: "Close this window?", description: "Any unsaved changes will be lost.", confirmLabel: "Close window" })) close();
-}
+
 export function showNotice(description: string) {
   return confirmAction({ title: "Notice", description, confirmLabel: "OK", notice: true });
 }
