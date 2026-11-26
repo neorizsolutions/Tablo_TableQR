@@ -1,5 +1,4 @@
 "use client";
-import { confirmClose } from "@/lib/confirmation";
 
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
@@ -7,14 +6,7 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-function Dialog({ onOpenChange, open, defaultOpen, ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  const [internalOpen, setInternalOpen] = React.useState(defaultOpen ?? false);
-  const change = (value: boolean) => { setInternalOpen(value); onOpenChange?.(value); };
-  return <DialogPrimitive.Root {...props} open={open ?? internalOpen} onOpenChange={value => {
-    if (value) change(true);
-    else void confirmClose(() => change(false));
-  }} />;
-}
+const Dialog = DialogPrimitive.Root;
 
 const DialogTrigger = DialogPrimitive.Trigger;
 

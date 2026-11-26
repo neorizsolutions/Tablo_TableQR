@@ -1,4 +1,3 @@
-import { confirmClose } from "@/lib/confirmation";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
@@ -827,7 +826,7 @@ function OnboardingModal({
           </div>
 
           <DialogFooter className="pt-3">
-            <Button variant="outline" type="button" onClick={() => void confirmClose(() => onOpenChange(false))}>
+            <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button disabled={busy} type="submit">
@@ -1109,7 +1108,7 @@ function EditPlanFeaturesModal({
           </div>
 
           <DialogFooter className="pt-2">
-            <Button variant="outline" type="button" onClick={() => void confirmClose(() => onOpenChange(false))}>
+            <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button disabled={busy} type="submit">
@@ -1413,7 +1412,7 @@ function ChangeSubscriptionModal({
           </div>
 
           <DialogFooter className="pt-2">
-            <Button variant="outline" type="button" onClick={() => void confirmClose(() => onOpenChange(false))}>
+            <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button disabled={busy} type="submit">
