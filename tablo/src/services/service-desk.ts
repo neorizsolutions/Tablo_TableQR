@@ -145,8 +145,8 @@ export interface DiningGroup {
 export const getDiningGroups = (restaurantId: string, tableId: string) =>
   serviceDeskRequest<DiningGroup[]>(restaurantId, `tables/${tableId}/groups`);
 
-export const createDiningGroup = (restaurantId: string, tableId: string, label: string) =>
-  serviceDeskRequest<DiningGroup>(restaurantId, `tables/${tableId}/groups`, { label });
+export const createDiningGroup = (restaurantId: string, tableId: string, label: string, operationId: string) =>
+  serviceDeskRequest<DiningGroup>(restaurantId, `tables/${tableId}/groups`, { label, operationId });
 
 export interface BillSplitItemOption {
   billItemId: string;
