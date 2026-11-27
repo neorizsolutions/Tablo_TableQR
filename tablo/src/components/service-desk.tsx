@@ -396,10 +396,10 @@ export function ServiceDesk({
       if (!matchesSearch) return false;
 
       if (tableStatusFilter === "available") {
-        return t.status === "Available" || (!t.activeOrdersCount && !t.openBillTotal);
+        return t.status ? t.status === "Available" : !t.activeOrdersCount && !t.openBillTotal;
       }
       if (tableStatusFilter === "active") {
-        return t.status === "Occupied" || (t.activeOrdersCount && t.activeOrdersCount > 0);
+        return t.status === "Occupied" || t.status === "Bill Ready" || !!t.activeOrdersCount;
       }
       if (tableStatusFilter === "drafts") {
         return getTableDraftItemsCount(restaurantId, employeeId, t.id) > 0;
@@ -444,6 +444,26 @@ export function ServiceDesk({
           ========================================================================= */}
       {!tableId ? (
         <div className="mt-5 space-y-4">
+          {mode === "bills-only" && tables.data?.some((t) => t.billReadyGroups?.length) && (
+            <section className="rounded-2xl border border-primary/25 bg-primary/5 p-4" aria-labelledby="bills-ready-heading">
+              <h3 id="bills-ready-heading" className="font-display text-base font-bold">Bills ready to print</h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {tables.data.flatMap((t) => (t.billReadyGroups ?? []).map((group) => (
+                  <Button
+                    key={`${t.id}_${group.diningGroupId ?? "whole"}`}
+                    variant="outline"
+                    className="rounded-full bg-card"
+                    onClick={() => {
+                      setTable(t.id);
+                      setGroup(group.diningGroupId ?? "");
+                    }}
+                  >
+                    Table {t.tableNumber}{group.groupLabel}
+                  </Button>
+                )))}
+              </div>
+            </section>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -478,7 +498,7 @@ export function ServiceDesk({
                     : "bg-secondary/40 text-muted-foreground hover:bg-secondary border-border"
                 }`}
               >
-                Available ({tables.data?.filter((t) => t.status === "Available" || (!t.activeOrdersCount && !t.openBillTotal)).length || 0})
+                Available ({tables.data?.filter((t) => t.status ? t.status === "Available" : !t.activeOrdersCount && !t.openBillTotal).length || 0})
               </button>
               <button
                 type="button"
@@ -489,7 +509,7 @@ export function ServiceDesk({
                     : "bg-secondary/40 text-muted-foreground hover:bg-secondary border-border"
                 }`}
               >
-                Active / Occupied ({tables.data?.filter((t) => t.status === "Occupied" || (t.activeOrdersCount && t.activeOrdersCount > 0)).length || 0})
+                Active / Occupied ({tables.data?.filter((t) => t.status === "Occupied" || t.status === "Bill Ready" || !!t.activeOrdersCount).length || 0})
               </button>
               {mode !== "bills-only" && <button
                 type="button"
@@ -545,6 +565,7 @@ export function ServiceDesk({
               {filteredTables.map((t) => {
                 const draftCount = mode === "bills-only" ? 0 : getTableDraftItemsCount(restaurantId, employeeId, t.id);
                 const isOccupied = t.status === "Occupied" || (t.activeOrdersCount && t.activeOrdersCount > 0);
+                const isBillReady = t.status === "Bill Ready";
                 const isBillReq = t.status === "Bill Requested";
 
                 return (
@@ -553,13 +574,15 @@ export function ServiceDesk({
                     type="button"
                     onClick={() => {
                       setTable(t.id);
-                      setGroup("");
+                      setGroup(mode === "bills-only" && t.billReadyGroups?.length === 1
+                        ? t.billReadyGroups[0].diningGroupId ?? ""
+                        : "");
                     }}
                     className={`flex flex-col justify-between p-4 rounded-2xl border text-left transition-all hover:scale-[1.02] hover:shadow-soft active:scale-[0.99] cursor-pointer ${
-                      isOccupied
-                        ? "border-primary/40 bg-primary/5 hover:border-primary"
-                        : isBillReq
+                      isBillReady || isBillReq
                         ? "border-amber-400 bg-amber-500/5 hover:border-amber-500"
+                        : isOccupied
+                        ? "border-primary/40 bg-primary/5 hover:border-primary"
                         : "border-border bg-card hover:border-border/80"
                     }`}
                   >
@@ -571,14 +594,14 @@ export function ServiceDesk({
                         <Badge
                           variant="outline"
                           className={`text-[10px] font-bold uppercase ${
-                            isBillReq
+                            isBillReady || isBillReq
                               ? "bg-amber-100 text-amber-800 border-amber-300"
                               : isOccupied
                               ? "bg-primary/15 text-primary border-primary/30"
                               : "bg-success/15 text-success border-success/30"
                           }`}
                         >
-                          {isBillReq ? "Bill Req" : isOccupied ? "Occupied" : "Available"}
+                          {isBillReady ? "Bill ready" : isBillReq ? "Bill requested" : isOccupied ? "Occupied" : "Available"}
                         </Badge>
                       </div>
 
@@ -589,16 +612,16 @@ export function ServiceDesk({
 
                       {/* Active Order Details */}
                       <div className="mt-1 text-[11px] text-muted-foreground">
-                        {isOccupied ? (
-                          <span className="flex items-center gap-1 font-medium text-foreground">
-                            <Utensils className="h-3 w-3 text-primary" />
-                            {t.activeOrdersCount || 1} active order(s)
-                            {t.openBillTotal ? ` · ₹${t.openBillTotal}` : ""}
-                          </span>
-                        ) : isBillReq ? (
+                        {isBillReady || isBillReq ? (
                           <span className="flex items-center gap-1 font-medium text-amber-700">
                             <Receipt className="h-3 w-3" />
-                            Bill ready to settle
+                            {isBillReady ? "Ready to print" : "Guest requested the bill"}
+                          </span>
+                        ) : isOccupied ? (
+                          <span className="flex items-center gap-1 font-medium text-foreground">
+                            <Utensils className="h-3 w-3 text-primary" />
+                            {t.activeOrdersCount ? `${t.activeOrdersCount} active order(s)` : "Open bill"}
+                            {t.openBillTotal ? ` · ₹${t.openBillTotal}` : ""}
                           </span>
                         ) : (
                           <span>Ready for guests</span>

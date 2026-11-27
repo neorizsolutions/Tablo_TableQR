@@ -81,4 +81,6 @@ public class TableBillReviewDto
     public List<BillDto> RecentSettlements { get; set; } = new();
 }
 
-public record ServiceTableDto(Guid Id, int TableNumber, bool IsActive);
+public record BillReadyGroupDto(Guid? DiningGroupId, string? GroupLabel);
+public record ServiceTableDto(Guid Id, int TableNumber, bool IsActive, string Status,
+    int ActiveOrdersCount, IReadOnlyList<BillReadyGroupDto> BillReadyGroups);
