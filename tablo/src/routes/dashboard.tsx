@@ -306,18 +306,6 @@ function DashboardInner() {
                     <Stat title="Served today" value={counts.served} icon={Check} />
                   </div>
 
-                  {canManageBills && user?.restaurantId && (
-                    <div className="mt-6">
-                      <ServiceDesk
-                        restaurantId={user.restaurantId}
-                        employeeId={user.id}
-                        initialTableId={searchTable}
-                        initialGroupId={searchGroup}
-                        mode="bills-only"
-                      />
-                    </div>
-                  )}
-
                   {serviceRequests.length > 0 && (
                     <div className="mt-8">
                       <h2 className="mb-4 font-display text-xl font-bold">Active Service Requests</h2>
