@@ -118,7 +118,6 @@ function DashboardInner() {
   const currentTab = getDashboardTab(search.tab, user?.role, permissions.data?.allowedMenuIds);
   const searchTable = search.table;
   const searchGroup = search.group;
-  const [showServiceDesk, setShowServiceDesk] = useState(false);
   const canTakeOrders = allowedIds.has("staff-order-taking");
   const canViewFloor = allowedIds.has("orders-servicedesk");
   const canManageBills = allowedIds.has("table-billing") || allowedIds.has("orders-servicedesk");
@@ -401,6 +400,7 @@ function DashboardInner() {
                         <OrderCard
                           key={o.id}
                           order={o}
+                          canAddItems={canTakeOrders}
                           isProcessing={processingId === o.id}
                           onAdvance={advance}
                           onException={(id, action) => setExceptionModal({ orderId: id, action })}
@@ -661,6 +661,7 @@ function Stat({ title, value, icon: Icon, accent }: { title: string; value: numb
 
 function OrderCard({
   order,
+  canAddItems,
   isProcessing,
   onAdvance,
   onException,
@@ -669,6 +670,7 @@ function OrderCard({
   onCancelItem,
 }: {
   order: Order;
+  canAddItems?: boolean;
   isProcessing?: boolean;
   onAdvance: (id: string, s: OrderStatus) => void;
   onException: (id: string, action: "rejected" | "cancelled") => void;
@@ -711,13 +713,14 @@ function OrderCard({
                 ? `Delivery ${order.daily_token_number ? `#${String(order.daily_token_number).padStart(3, "0")}` : ""}`
                 : `Table ${order.table_number}${order.group_label || ""}`}
             </h3>
-            {(!order.delivery_provider && order.channel !== "Delivery") && (
+            {canAddItems && order.table_id && !order.delivery_provider && order.channel !== "Delivery"
+              && (order.status === "accepted" || order.status === "preparing") && (
               <Link
                 to="/dashboard"
-                search={{ tab: "order", table: String(order.table_id || order.table_number) }}
+                search={{ tab: "order", table: order.table_id, group: order.dining_group_id || undefined }}
                 className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20"
               >
-                + New Order
+                + Add Items
               </Link>
             )}
           </div>
