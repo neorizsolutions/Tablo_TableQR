@@ -880,6 +880,14 @@ function AdminInner() {
             const [description, setDescription] = useState(item?.description ?? "");
             const [image, setImage] = useState(item?.image ?? "");
             const [imageFile, setImageFile] = useState<File | undefined>();
+            const [imagePreview, setImagePreview] = useState(image);
+            const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
+            useEffect(() => {
+              const preview = imageFile ? URL.createObjectURL(imageFile) : image;
+              setImagePreview(preview);
+              setImagePreviewFailed(false);
+              return () => { if (imageFile) URL.revokeObjectURL(preview); };
+            }, [imageFile, image]);
             const [categoryId, setCategoryId] = useState(item?.categoryId ?? categories[0]?.id ?? "");
             const [isRefillEligible, setIsRefillEligible] = useState(item?.isRefillEligible ?? false);
             const [refillMaxCount, setRefillMaxCount] = useState(item?.refillMaxCount ? String(item.refillMaxCount) : "2");
@@ -978,7 +986,10 @@ function AdminInner() {
                     )}
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Image (optional)</label><input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0])} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />{image && !imageFile && <p className="text-xs text-muted-foreground mt-1 text-ellipsis overflow-hidden">Current: {image}</p>}
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Image (optional)</label><input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0])} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />{imagePreview && <div className="mt-3 flex items-center gap-3 rounded-xl border border-border bg-primary/5 p-3" data-testid="menu-image-preview">
+                      {imagePreviewFailed ? <span className="grid h-20 w-20 shrink-0 place-items-center rounded-lg bg-secondary text-center text-xs text-muted-foreground">Preview unavailable</span> : <img src={imagePreview} alt={name ? `${name} preview` : "Menu item preview"} onError={() => setImagePreviewFailed(true)} className="h-20 w-20 shrink-0 rounded-lg border border-border object-cover" />}
+                      <div className="min-w-0"><p className="text-sm font-semibold">{imageFile ? "New image selected" : "Current image"}</p><p className="mt-1 text-xs text-muted-foreground">{imageFile ? "This image will be used after you save." : "Choose a new image to replace this photo."}</p></div>
+                    </div>}
                   </div>
                 </div>
                 <div className="mt-5 flex justify-end gap-2">
