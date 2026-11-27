@@ -41,6 +41,7 @@ export function FloorBills({
   const refresh = async () => {
     await Promise.all([
       cache.invalidateQueries({ queryKey: ["tableBill", restaurantId] }),
+      cache.invalidateQueries({ queryKey: ["serviceTables", restaurantId] }),
       cache.invalidateQueries({ queryKey: ["diningGroups", restaurantId] }),
       cache.invalidateQueries({ queryKey: ["orders"] }),
       cache.invalidateQueries({ queryKey: ["paymentReports", restaurantId] }),
@@ -307,7 +308,6 @@ function BillCard({
         Table {bill.tableNumber}
         {bill.groupLabel} · {bill.shareDescription || "Open bill"}
       </h4>
-      <p className="break-all text-xs text-muted-foreground">{bill.id}</p>
       <ul className="my-3 space-y-1 text-sm">
         {bill.orders.map((o) => (
           <li key={o.id}>

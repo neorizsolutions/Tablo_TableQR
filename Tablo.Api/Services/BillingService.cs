@@ -53,6 +53,34 @@ public class BillingService(ApplicationDbContext db, IHubContext<OrderHub>? hub 
         return bill;
     }
 
+    public async Task<IReadOnlyList<ServiceTableDto>> ListServiceTablesAsync(Guid restaurantId)
+    {
+        var tables = await db.RestaurantTables.AsNoTracking().Where(t => t.RestaurantId == restaurantId)
+            .OrderBy(t => t.TableNumber).Select(t => new { t.Id, t.TableNumber, t.IsActive }).ToListAsync();
+        var activeOrders = await db.Orders.AsNoTracking()
+            .Where(o => o.RestaurantId == restaurantId && o.TableId != null && o.OrderChannel == "DineIn"
+                && o.Status != "Served" && o.Status != "Cancelled" && o.Status != "Rejected")
+            .GroupBy(o => o.TableId!.Value).Select(g => new { TableId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.TableId, g => g.Count);
+        var openBills = await db.TableBills.AsNoTracking().Include(b => b.Orders).ThenInclude(o => o.OrderItems)
+            .AsSplitQuery()
+            .Where(b => b.RestaurantId == restaurantId && b.TableId != null && b.OrderChannel == "DineIn"
+                && b.SettledAtUtc == null && b.SplitAtUtc == null).ToListAsync();
+        var billGroups = openBills.Select(b => new { TableId = b.TableId!.Value, Bill = Project(b) })
+            .Where(b => b.Bill.TotalAmount > 0).ToLookup(b => b.TableId, b => b.Bill);
+
+        return tables.Select(t =>
+        {
+            var activeCount = activeOrders.GetValueOrDefault(t.Id);
+            var bills = billGroups[t.Id];
+            var readyGroups = bills.Where(b => b.CanSettle)
+                .Select(b => new BillReadyGroupDto(b.DiningGroupId, b.GroupLabel))
+                .Distinct().OrderBy(g => g.GroupLabel).ToList();
+            var status = readyGroups.Count > 0 ? "Bill Ready" : activeCount > 0 || bills.Any() ? "Occupied" : "Available";
+            return new ServiceTableDto(t.Id, t.TableNumber, t.IsActive, status, activeCount, readyGroups);
+        }).ToList();
+    }
+
     public async Task<TableBillReviewDto> ReviewAsync(Guid restaurantId, Guid tableId, Guid? groupId=null)
     {
         var table = await db.RestaurantTables.AsNoTracking().SingleOrDefaultAsync(t => t.Id == tableId && t.RestaurantId == restaurantId)

@@ -831,7 +831,7 @@ export function customerBillHtml(bill: TableBill, options: BillPrintOptions = {}
   let upiUri = "";
   let qrSvgMarkup = "";
 
-  if (!suppressQr && balanceDue > 0) {
+  if (!suppressQr && balanceDue > 0 && payeeVpa) {
     upiUri = generateUpiUri({
       payeeVpa,
       payeeName,
@@ -878,7 +878,7 @@ export function customerBillHtml(bill: TableBill, options: BillPrintOptions = {}
     <h1>${escape(bill.restaurantName || "Tablo Heritage Restaurant")}</h1>
     <div style="text-align: center;" class="meta">
       <span class="badge">${escape(channelLabel)}</span>
-      <p style="margin: 2px 0;"><strong>CUSTOMER BILL / ESTIMATE</strong></p>
+      <p style="margin: 2px 0;"><strong>${bill.canSettle ? "CUSTOMER BILL" : "BILL ESTIMATE"}</strong></p>
       <p style="margin: 2px 0;">Ref: ${escape(bill.id)}</p>
       ${bill.tableNumber ? `<p style="margin: 2px 0;">Table ${escape(String(bill.tableNumber) + (bill.groupLabel || ""))}</p>` : ""}
       ${bill.shareDescription ? `<p style="margin: 2px 0; color: #2563eb; font-weight: 600;">${escape(bill.shareDescription)}</p>` : ""}
