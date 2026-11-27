@@ -1006,9 +1006,9 @@ export function ServiceDesk({
         onOpenChange={setIsNewGroupModalOpen}
         tableNumber={table?.tableNumber || 1}
         existingLabels={(groups.data || []).map((g) => g.label)}
-        onSubmit={async (label) => {
+        onSubmit={async (label, operationId) => {
           try {
-            const created = await createDiningGroup(restaurantId, tableId, label);
+            const created = await createDiningGroup(restaurantId, tableId, label, operationId);
             toast.success(`Dining Group ${created.label} created!`);
             await cache.invalidateQueries({ queryKey: ["diningGroups", restaurantId, tableId] });
             setGroup(created.id);
@@ -1052,7 +1052,7 @@ function NewDiningGroupModal({
   onOpenChange: (open: boolean) => void;
   tableNumber: number;
   existingLabels: string[];
-  onSubmit: (label: string) => Promise<void>;
+  onSubmit: (label: string, operationId: string) => Promise<void>;
 }) {
   const nextDefault = useMemo(() => {
     for (let i = 0; i < 26; i++) {
@@ -1064,17 +1064,27 @@ function NewDiningGroupModal({
 
   const [label, setLabel] = useState(nextDefault);
   const [busy, setBusy] = useState(false);
+  const pendingCreation = useRef<{ label: string; operationId: string } | null>(null);
+  const wasOpen = useRef(false);
 
   useEffect(() => {
-    setLabel(nextDefault);
+    if (open && !wasOpen.current) {
+      setLabel(nextDefault);
+      pendingCreation.current = null;
+    }
+    wasOpen.current = open;
   }, [nextDefault, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!label.trim()) return;
+    const normalizedLabel = label.trim().toUpperCase();
+    if (busy || !/^[A-Z][A-Z0-9]{0,7}$/.test(normalizedLabel)) return;
+    if (pendingCreation.current?.label !== normalizedLabel) {
+      pendingCreation.current = { label: normalizedLabel, operationId: crypto.randomUUID() };
+    }
     setBusy(true);
     try {
-      await onSubmit(label.trim());
+      await onSubmit(normalizedLabel, pendingCreation.current.operationId);
     } finally {
       setBusy(false);
     }
@@ -1098,10 +1108,16 @@ function NewDiningGroupModal({
             <Input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. A, B, Window Party"
+              placeholder="e.g. A, B, FAMILY1"
+              maxLength={8}
+              pattern="[A-Za-z][A-Za-z0-9]{0,7}"
+              disabled={busy}
               required
               className="mt-1 text-xs"
             />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Use 1–8 letters or digits, starting with a letter.
+            </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
               Existing groups on this table: {existingLabels.length > 0 ? existingLabels.join(", ") : "None"}
             </p>
