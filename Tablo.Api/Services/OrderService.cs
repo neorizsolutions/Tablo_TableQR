@@ -380,6 +380,9 @@ namespace Tablo.Api.Services
             }
             else
             {
+                // These lines have application-assigned IDs but do not exist in the
+                // database yet. Track them as inserts before updating the order graph.
+                _context.OrderItems.AddRange(newlyAddedItems);
                 await _orderRepository.UpdateOrderAsync(order);
             }
 
