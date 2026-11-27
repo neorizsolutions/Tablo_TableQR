@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { Printer } from "lucide-react";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { formatINR } from "@/lib/mock-data";
 import { parcelApi } from "@/services/parcel";
@@ -33,7 +34,7 @@ export function UnpaidBillPreview({
     const html = customerBillHtml(bill, {
       paperWidth: width,
       payeeName: qr?.payeeName,
-      payeeVpa: qr?.payeeVpa,
+      payeeVpa: qr?.payeeVpa ?? "",
       upiReference: qr?.reference || bill.id,
     });
     const w = window.open("", "_blank", "width=450,height=700");
@@ -44,6 +45,8 @@ export function UnpaidBillPreview({
       setTimeout(() => {
         w.print();
       }, 250);
+    } else {
+      toast.error("Allow pop-ups for TABLO to print this bill.");
     }
   };
 
@@ -54,11 +57,11 @@ export function UnpaidBillPreview({
         className="float-right rounded-full border px-3 py-1 text-sm hover:bg-secondary transition"
         onClick={() => setOpen(true)}
       >
-        View customer bill
+        Preview & print bill
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
-          <DialogTitle>Customer Bill / Estimate</DialogTitle>
+          <DialogTitle>{bill.canSettle ? "Customer bill" : "Bill estimate"}</DialogTitle>
           <p className="text-xs text-muted-foreground">
             Table {bill.tableNumber}
             {bill.groupLabel} {bill.shareDescription}
@@ -95,7 +98,7 @@ export function UnpaidBillPreview({
           )}
 
           <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-            <span className="text-xs text-muted-foreground">Thermal print estimate:</span>
+            <span className="text-xs text-muted-foreground">Print paper size</span>
             <div className="flex gap-2">
               <button
                 type="button"

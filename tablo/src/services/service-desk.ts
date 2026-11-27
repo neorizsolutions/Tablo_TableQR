@@ -4,8 +4,9 @@ export interface ServiceTable {
   id: string;
   tableNumber: number;
   isActive: boolean;
-  status?: "Available" | "Occupied" | "Bill Requested";
+  status?: "Available" | "Occupied" | "Bill Requested" | "Bill Ready";
   activeOrdersCount?: number;
+  billReadyGroups?: { diningGroupId: string | null; groupLabel: string | null }[];
   activeDiningGroups?: DiningGroup[];
   openBillTotal?: number;
 }

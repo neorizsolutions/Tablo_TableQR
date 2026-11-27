@@ -45,6 +45,30 @@ public class BillingServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ListServiceTables_ShowsServedGroupUntilItsBillIsSettled()
+    {
+        var groupA = Guid.NewGuid();
+        var groupB = Guid.NewGuid();
+        var preparingBill = new TableBill { RestaurantId = restaurantId, TableId = table.Id, DiningGroupId = groupA, GroupLabelSnapshot = "A" };
+        var servedBill = new TableBill { RestaurantId = restaurantId, TableId = table.Id, DiningGroupId = groupB, GroupLabelSnapshot = "B" };
+        db.TableBills.AddRange(preparingBill, servedBill);
+        AddOrder("Preparing", bill: preparingBill).DiningGroupId = groupA;
+        AddOrder("Served", bill: servedBill).DiningGroupId = groupB;
+        await db.SaveChangesAsync();
+
+        var current = Assert.Single(await Service().ListServiceTablesAsync(restaurantId));
+        Assert.Equal("Bill Ready", current.Status);
+        Assert.Equal(1, current.ActiveOrdersCount);
+        Assert.Equal(new BillReadyGroupDto(groupB, "B"), Assert.Single(current.BillReadyGroups));
+
+        servedBill.SettledAtUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        current = Assert.Single(await Service().ListServiceTablesAsync(restaurantId));
+        Assert.Equal("Occupied", current.Status);
+        Assert.Empty(current.BillReadyGroups);
+    }
+
+    [Fact]
     public async Task OpenBill_ImportsOnlyActiveLegacyOrders()
     {
         var served = AddOrder("Served");
