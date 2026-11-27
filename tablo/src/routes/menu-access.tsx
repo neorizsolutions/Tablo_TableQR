@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,6 +7,7 @@ import { getEmployees, type EmployeeStatusFilter } from "@/services/api";
 import { AppLayout } from "@/components/app-layout";
 import { EmployeeMenuAccess } from "@/components/employee-menu-access";
 import { Button } from "@/components/ui/button";
+import { WorkspaceStatus } from "@/components/workspace-status";
 
 export const Route = createFileRoute("/menu-access")({
   head: () => ({ meta: [{ title: "Staff Menu Access — Tablo admin" }] }),
@@ -14,28 +15,23 @@ export const Route = createFileRoute("/menu-access")({
 });
 function MenuAccessPage() {
   const { user, loading } = useAuth();
-  if (loading)
-    return (
-      <p className="p-8" role="status">
-        Loading…
-      </p>
-    );
+  if (loading) return <WorkspaceStatus state="loading" title="Checking your session" />;
   if (!user)
     return (
-      <div className="p-8">
-        <h1 className="text-xl font-semibold">Admin sign in required</h1>
-        <Link to="/auth" className="underline">
-          Sign in
-        </Link>
-      </div>
+      <WorkspaceStatus
+        state="sign-in"
+        title="Sign in to Staff Menu Access"
+        description="Use your restaurant admin account to manage which menus employees can open."
+      />
     );
   if (!["Admin", "Owner"].includes(user.role))
     return (
       <AppLayout>
-        <div className="p-8">
-          <h1 className="text-xl font-semibold">Restaurant admin access required</h1>
-          <p>Staff menu access is managed by your restaurant administrator.</p>
-        </div>
+        <WorkspaceStatus
+          state="restricted"
+          title="Restaurant admin access required"
+          description="Your restaurant administrator manages staff menu access."
+        />
       </AppLayout>
     );
   return (
