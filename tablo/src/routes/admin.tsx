@@ -874,6 +874,7 @@ function AdminInner() {
 }
 
           function ItemModal({item, categories, onClose, onSaved}: {item ?: any; categories: any[]; onClose: () => void; onSaved: (i: Partial<MenuItem> & {imageFile ?: File}, categoryId: string) => Promise<void> }) {
+  const categoryGroupId = useId();
   const [name, setName] = useState(item?.name ?? "");
             const [price, setPrice] = useState(item ? String(item.price) : "");
             const [description, setDescription] = useState(item?.description ?? "");
@@ -912,7 +913,7 @@ function AdminInner() {
             return (
             <div className="fixed inset-0 z-50 grid place-items-center p-4">
               <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => onClose()} />
-              <div className="relative w-full max-w-lg animate-float-up rounded-3xl bg-card p-6 shadow-glow">
+              <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg animate-float-up overflow-y-auto rounded-3xl bg-card p-6 shadow-glow">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-wider text-muted-foreground">{item ? "Edit item" : "New item"}</p>
@@ -925,14 +926,24 @@ function AdminInner() {
                   <Field label="Name" value={name} onChange={setName} />
                   <Field label="Price (₹)" value={price} onChange={setPrice} />
                   <div className="sm:col-span-2">
-                    <label className="block">
-                      <span className="text-xs font-semibold text-muted-foreground">Category</span>
-                      <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                        {categories.map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </label>
+                    <fieldset disabled={busy}>
+                      <legend className="text-xs font-semibold text-muted-foreground">Category</legend>
+                      <div className="mt-2 grid max-h-48 grid-cols-2 gap-2 overflow-y-auto p-1 sm:grid-cols-3" data-testid="menu-category-options">
+                        {categories.map((category: any) => {
+                          const selected = categoryId === category.id;
+                          return <label key={category.id} className="min-w-0 cursor-pointer">
+                            <input type="radio" name={categoryGroupId} value={category.id} checked={selected} onChange={() => setCategoryId(category.id)} className="peer sr-only" />
+                            <span className={`flex h-full min-h-12 items-center gap-2.5 rounded-xl border px-3 py-3 text-sm transition-colors duration-200 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 ${selected ? "border-primary bg-primary/10 font-semibold text-primary" : "border-border bg-white text-foreground hover:border-primary/50 hover:bg-primary/5"}`}>
+                              <span aria-hidden="true" className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${selected ? "border-primary bg-primary" : "border-muted-foreground/40 bg-white"}`}>
+                                {selected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                              </span>
+                              <span className="min-w-0 break-words">{category.name}</span>
+                            </span>
+                          </label>;
+                        })}
+                      </div>
+                      {categories.length === 0 && <p className="mt-2 text-sm text-muted-foreground">Create a category before adding a menu item.</p>}
+                    </fieldset>
                   </div>
                   <div className="sm:col-span-2">
                     <Field label="Description" value={description} onChange={setDescription} />
