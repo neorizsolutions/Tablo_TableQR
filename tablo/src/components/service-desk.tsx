@@ -127,14 +127,11 @@ export function ServiceDesk({
   const [isSplitBillModalOpen, setIsSplitBillModalOpen] = useState(false);
 
   useEffect(() => {
-    if (initialTableId && initialTableId !== tableId) {
-      setTable(initialTableId);
-    }
-    if (initialGroupId && initialGroupId !== groupId) {
-      setGroup(initialGroupId);
-    }
+    setTable(initialTableId || "");
+    setGroup(initialGroupId || "");
   }, [initialTableId, initialGroupId]);
 
+  const [loadedDraftKey, setLoadedDraftKey] = useState("");
   const [cart, setCart] = useState<Line[]>([]);
   const [pending, setPending] = useState<Pending | null>(null);
   const [search, setSearch] = useState("");
@@ -194,18 +191,19 @@ export function ServiceDesk({
     }
     setError("");
     setAuth(false);
+    setLoadedDraftKey(key);
   }, [key, restaurantId, employeeId, tableId, groupId]);
 
   // Persist cart to draft localStorage on change
   useEffect(() => {
-    if (!tableId || pending) return;
+    if (mode === "bills-only" || !tableId || pending || loadedDraftKey !== key) return;
     const currentKey = getDraftKey(restaurantId, employeeId, tableId, groupId);
     if (cart.length > 0) {
       localStorage.setItem(currentKey, JSON.stringify(cart));
     } else {
       localStorage.removeItem(currentKey);
     }
-  }, [cart, tableId, groupId, restaurantId, employeeId, pending]);
+  }, [cart, tableId, groupId, restaurantId, employeeId, pending, loadedDraftKey, key, mode]);
 
   // SignalR real-time updates
   useEffect(() => {
@@ -246,7 +244,10 @@ export function ServiceDesk({
     };
   }, [restaurantId, cache]);
 
+  const activeGroup = groups.data?.find((g) => g.id === groupId);
   const groupRequired = !!groups.data?.length && !groupId;
+  const groupUnavailable = !!groupId && !activeGroup;
+  const orderEntryBlocked = groupRequired || groupUnavailable || !groups.data;
 
   function addCustomLine(lineData: Omit<Line, "lineId">) {
     const modKey = (lineData.selectedModifiers || [])
@@ -329,7 +330,7 @@ export function ServiceDesk({
   }
 
   async function place() {
-    if (running.current || !tableId || !cart.length) return;
+    if (running.current || !tableId || !cart.length || (!pending && orderEntryBlocked)) return;
     running.current = true;
     setBusy(true);
     setError("");
@@ -407,7 +408,6 @@ export function ServiceDesk({
     });
   }, [tables.data, tableSearch, tableStatusFilter, restaurantId, employeeId]);
 
-  const activeGroup = groups.data?.find((g) => g.id === groupId);
 
   return (
     <section aria-labelledby="service-desk-heading" className="mt-4 rounded-3xl border bg-card p-4 sm:p-6 shadow-xs">
@@ -491,7 +491,7 @@ export function ServiceDesk({
               >
                 Active / Occupied ({tables.data?.filter((t) => t.status === "Occupied" || (t.activeOrdersCount && t.activeOrdersCount > 0)).length || 0})
               </button>
-              <button
+              {mode !== "bills-only" && <button
                 type="button"
                 onClick={() => setTableStatusFilter("drafts")}
                 className={`px-3 py-1.5 rounded-full font-semibold border text-xs transition ${
@@ -501,7 +501,7 @@ export function ServiceDesk({
                 }`}
               >
                 With Drafts ({tables.data?.filter((t) => getTableDraftItemsCount(restaurantId, employeeId, t.id) > 0).length || 0})
-              </button>
+              </button>}
             </div>
           </div>
 
@@ -543,7 +543,7 @@ export function ServiceDesk({
           {!tables.isLoading && !tables.error && filteredTables.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 pt-2">
               {filteredTables.map((t) => {
-                const draftCount = getTableDraftItemsCount(restaurantId, employeeId, t.id);
+                const draftCount = mode === "bills-only" ? 0 : getTableDraftItemsCount(restaurantId, employeeId, t.id);
                 const isOccupied = t.status === "Occupied" || (t.activeOrdersCount && t.activeOrdersCount > 0);
                 const isBillReq = t.status === "Bill Requested";
 
@@ -664,7 +664,7 @@ export function ServiceDesk({
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {mode === "bills-only" ? "Billing for:" : "Ordering for:"} <span className="font-semibold text-foreground">{activeGroup ? `Group ${activeGroup.label}` : "Whole Table (Default Bill)"}</span>
+                  {mode === "bills-only" ? "Billing for:" : "Ordering for:"} <span className="font-semibold text-foreground">{activeGroup ? `Group ${activeGroup.label}` : groupId ? "Selected dining group" : "Whole Table (Default Bill)"}</span>
                 </p>
               </div>
             </div>
@@ -754,6 +754,16 @@ export function ServiceDesk({
                   This table requires a dining group. Please select an existing group above or tap <strong>Add Group</strong> to proceed.
                 </div>
               )}
+              {groupUnavailable && groups.data && (
+                <p role="alert" className="mt-2 text-xs text-destructive">
+                  This dining group is no longer available. Select an active group or switch tables.
+                </p>
+              )}
+              {groups.isError && !groups.data && (
+                <Button variant="outline" size="sm" onClick={() => groups.refetch()}>
+                  Could not load dining groups. Retry
+                </Button>
+              )}
 
               <div className="relative my-3">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -810,7 +820,7 @@ export function ServiceDesk({
                                 type="button"
                                 aria-label={`Customize ${i.name}`}
                                 className="rounded-full border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition"
-                                disabled={!table?.isActive || groupRequired || busy || !!pending}
+                                disabled={!table?.isActive || orderEntryBlocked || busy || !!pending}
                                 onClick={() => setCustomizingItem(i)}
                               >
                                 {quantity > 0 ? "+ Add another" : "+ Customize"}
@@ -830,7 +840,7 @@ export function ServiceDesk({
                               <button
                                 aria-label={`Add ${i.name}`}
                                 className={button}
-                                disabled={!table?.isActive || groupRequired || busy || !!pending}
+                                disabled={!table?.isActive || orderEntryBlocked || busy || !!pending}
                                 onClick={() => change(i.id, 1)}
                               >
                                 +
@@ -959,7 +969,7 @@ export function ServiceDesk({
 
               <button
                 className={`${button} mt-4 w-full bg-primary text-primary-foreground font-bold shadow-soft hover:bg-primary/95 transition`}
-                disabled={busy || !cart.length || (!pending && (!table?.isActive || groupRequired))}
+                disabled={busy || !cart.length || (!pending && (!table?.isActive || orderEntryBlocked))}
                 onClick={() => void place()}
               >
                 {busy ? "Sending Order…" : pending ? "Retry saved submission" : `Send Order to Kitchen (${cart.reduce((s, i) => s + i.quantity, 0)} items)`}
