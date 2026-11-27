@@ -19,9 +19,8 @@ public class ServiceDeskController(ApplicationDbContext db, BillingService billi
     IHubContext<OrderHub> hub, ILogger<ServiceDeskController> logger, Tablo.Api.Services.Printing.IKotRoutingService? kotRouting = null) : ControllerBase
 {
     [HttpGet("tables")]
-    public Task<IActionResult> Tables(Guid restaurantId) => Execute(restaurantId, async () =>
-        (object)await db.RestaurantTables.AsNoTracking().Where(t => t.RestaurantId == restaurantId)
-            .OrderBy(t => t.TableNumber).Select(t => new ServiceTableDto(t.Id, t.TableNumber, t.IsActive)).ToListAsync());
+    public Task<IActionResult> Tables(Guid restaurantId) => Execute(restaurantId,
+        async () => await billing.ListServiceTablesAsync(restaurantId));
 
     [HttpPost("orders")]
     [RequireCapability(Capabilities.StaffOrdering)]
